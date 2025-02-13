@@ -17,7 +17,7 @@ class TestRealEnvGelsiteSampleGetInfo(unittest.TestCase):
 
         self.real_env_gelsite_sample.setup_gelsight(camera_ids)
 
-    def test_real_env_base_get_Info(self):
+    def test_real_env_gelsite_sample_get_Info(self):
         info = self.real_env_gelsite_sample._get_info()
         rgb_image = info["rgb_images"][self.camera_name]
         depth_image = info["depth_images"][self.camera_name]

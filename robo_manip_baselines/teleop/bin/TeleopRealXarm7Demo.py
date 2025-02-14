@@ -6,9 +6,10 @@ from robo_manip_baselines.teleop import TeleopBase
 
 
 class TeleopRealXarm7Demo(TeleopBase):
-    def __init__(self, robot_ip, camera_ids):
+    def __init__(self, robot_ip, camera_ids, gelsight_ids=None):
         self.robot_ip = robot_ip
         self.camera_ids = camera_ids
+        self.gelsight_ids = gelsight_ids
         super().__init__()
 
         # Command configuration
@@ -19,6 +20,7 @@ class TeleopRealXarm7Demo(TeleopBase):
             "robo_manip_baselines/RealXarm7DemoEnv-v0",
             robot_ip=self.robot_ip,
             camera_ids=self.camera_ids,
+            gelsight_ids=self.gelsight_ids,
         )
         self.demo_name = self.args.demo_name or "RealXarm7Demo"
 
@@ -41,5 +43,6 @@ class TeleopRealXarm7Demo(TeleopBase):
 if __name__ == "__main__":
     robot_ip = "192.168.1.244"
     camera_ids = {"front": "314422070401", "side": None, "hand": "332522077926"}
-    teleop = TeleopRealXarm7Demo(robot_ip, camera_ids)
+    gelsight_ids = {"tactile_left": "GelSight Mini R0B 2D16-V7R5: Ge"}
+    teleop = TeleopRealXarm7Demo(robot_ip, camera_ids, gelsight_ids)
     teleop.run()

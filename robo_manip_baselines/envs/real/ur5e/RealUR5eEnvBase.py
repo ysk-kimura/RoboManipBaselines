@@ -50,6 +50,7 @@ class RealUR5eEnvBase(RealEnvBase):
         self,
         robot_ip,
         camera_ids,
+        gelsight_ids,
         init_qpos,
         **kwargs,
     ):
@@ -85,6 +86,8 @@ class RealUR5eEnvBase(RealEnvBase):
 
         # Connect to RealSense
         self.setup_realsense(camera_ids)
+        if gelsight_ids is not None:
+            self.setup_gelsight(gelsight_ids)
 
     def _reset_robot(self):
         print("[RealUR5eEnvBase] Start moving the robot to the reset position.")

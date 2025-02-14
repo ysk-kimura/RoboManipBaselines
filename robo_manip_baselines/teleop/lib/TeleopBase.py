@@ -327,6 +327,11 @@ class TeleopBase(metaclass=ABCMeta):
                 DataKey.get_depth_image_key(camera_name),
                 info["depth_images"][camera_name],
             )
+        for tactile_name in self.env.unwrapped.tactile_names:
+            self.data_manager.append_single_data(
+                DataKey.get_rgb_image_key(tactile_name),
+                info["rgb_images"][tactile_name],
+            )
 
     def draw_image(self, info):
         phase_image = self.phase_manager.get_phase_image()

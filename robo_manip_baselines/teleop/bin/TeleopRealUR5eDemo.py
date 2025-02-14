@@ -6,9 +6,10 @@ from robo_manip_baselines.teleop import TeleopBase
 
 
 class TeleopRealUR5eDemo(TeleopBase):
-    def __init__(self, robot_ip, camera_ids):
+    def __init__(self, robot_ip, camera_ids, gelsight_ids=None):
         self.robot_ip = robot_ip
         self.camera_ids = camera_ids
+        self.gelsight_ids = gelsight_ids
         super().__init__()
 
     def setup_env(self):
@@ -38,5 +39,6 @@ class TeleopRealUR5eDemo(TeleopBase):
 if __name__ == "__main__":
     robot_ip = "192.168.11.4"
     camera_ids = {"front": "145522067924", "side": None, "hand": "153122070885"}
-    teleop = TeleopRealUR5eDemo(robot_ip, camera_ids)
+    gelsight_ids = {"tactile_left": "GelSight Mini R0B 2D16-V7R5: Ge"}
+    teleop = TeleopRealUR5eDemo(robot_ip, camera_ids, gelsight_ids)
     teleop.run()

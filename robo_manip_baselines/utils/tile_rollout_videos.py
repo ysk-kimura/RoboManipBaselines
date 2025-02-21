@@ -1,6 +1,7 @@
 import argparse
 import math
 import os
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from enum import Enum, auto
@@ -14,8 +15,12 @@ GREEN = (0, 128, 0)
 RED = (0, 0, 255)
 WHITE = (255, 255, 255)
 
+CAPTURE_TRIM_COLOR_THRESHOLD = 64
+
 RESIZE_VIDEO_LOGLEVEL_DEFAULT = "info"
 RESIZE_VIDEO_LOGLEVEL_QUIET = "warning"
+
+NUM_SAMPLE_FRAMES_FOR_MARGIN_REMOVAL = 5
 
 
 def parse_arg():
@@ -42,12 +47,15 @@ def parse_arg():
     )
     parser.add_argument("--border_size", "-b", type=int, default=15)
     parser.add_argument(
+        "--keep_white_margin", action="store_true", help="keep white margins in image"
+    )
+    parser.add_argument(
         "--max_video_width",
         "-w",
         type=int,
         default=640,
         help=(
-            "maximum width to which the video will be scaled down if it is " "too large"
+            "maximum width to which the video will be scaled down if it is too large"
         ),
     )
     parser.add_argument(
@@ -130,6 +138,66 @@ def resize_video_ifneeded(input_file_name, max_video_width, quiet):
         ),
     ).run()
     return resize_file_name
+
+
+def sample_frames(input_file_name, num_sample_frames):
+    cap = cv2.VideoCapture(input_file_name)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video file: {input_file_name}")
+
+    num_total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_indices = np.linspace(
+        0, num_total_frames - 1, num_sample_frames, dtype=int
+    )  # sample frames at equal intervals
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_indices[0])
+    ret, first_frame = cap.read()  # read the first frame to determine frame size
+    if not ret:
+        raise RuntimeError(f"Failed to read frame at index {frame_indices[0]}")
+    height, width, channels = first_frame.shape
+    sampled_frames = np.empty(
+        (5, height, width, channels), dtype=np.uint8
+    )  # pre-allocate array
+    for i, idx in enumerate(frame_indices):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.read()
+        if not ret:
+            raise RuntimeError(f"Failed to read frame at index {idx}")
+        sampled_frames[i] = frame
+
+    cap.release()
+    return sampled_frames
+
+
+def remove_white_margin(input_file_name):
+    # trim, scale
+    sampled_frames = sample_frames(
+        input_file_name, NUM_SAMPLE_FRAMES_FOR_MARGIN_REMOVAL
+    )
+    dist_mask = np.where(
+        np.mean(np.abs((sampled_frames - WHITE).mean(axis=0)), axis=2)
+        > CAPTURE_TRIM_COLOR_THRESHOLD
+    )
+    y_min, y_max, x_min, x_max = (
+        func(dist_mask[ax]) for ax in [0, 1] for func in [min, max]
+    )
+
+    w_trim = x_max - x_min
+    h_trim = y_max - y_min
+
+    video_margin_removed = ffmpeg.input(input_file_name).crop(
+        x_min, y_min, w_trim, h_trim
+    )
+
+    # write
+    removed_file_name = os.path.join(tempfile.mkdtemp(), "removed_white_margin.mp4")
+    try:
+        video_margin_removed.output(removed_file_name).run(overwrite_output=False)
+    except ffmpeg._run.Error:
+        sys.stderr.write(f"{(input_file_name, removed_file_name)}=")
+        raise
+
+    return removed_file_name
 
 
 def time_str_to_seconds(time_str):
@@ -470,6 +538,11 @@ def main():
     input_file_name = resize_video_ifneeded(
         args.input_file_name, args.max_video_width, args.quiet
     )
+
+    if not args.keep_white_margin:
+        if not args.quiet:
+            print(f"{remove_white_margin.__name__} ...")
+        input_file_name = remove_white_margin(input_file_name)
 
     task_period_list = args.task_period_list
     if len(task_period_list) == 0:

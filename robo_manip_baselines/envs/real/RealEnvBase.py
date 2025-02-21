@@ -23,6 +23,7 @@ class RealEnvBase(gym.Env, metaclass=ABCMeta):
         self.dt = 0.02  # [s]
         if kwargs.get("scale_dt") is not None:
             self.dt *= kwargs["scale_dt"]
+        self.world_random_scale = None
 
     def setup_realsense(self, camera_ids):
         self.cameras = {}

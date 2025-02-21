@@ -22,6 +22,18 @@ register(
     id="robo_manip_baselines/MujocoUR5eInsertEnv-v0",
     entry_point="robo_manip_baselines.envs.mujoco:MujocoUR5eInsertEnv",
 )
+register(
+    id="robo_manip_baselines/MujocoUR5eDoorEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoUR5eDoorEnv",
+)
+register(
+    id="robo_manip_baselines/MujocoUR5eCabinetEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoUR5eCabinetEnv",
+)
+register(
+    id="robo_manip_baselines/MujocoUR5eToolboxEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoUR5eToolboxEnv",
+)
 
 ## Xarm7
 register(

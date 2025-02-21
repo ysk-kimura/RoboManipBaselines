@@ -37,6 +37,8 @@ class MujocoEnvBase(MujocoEnv, metaclass=ABCMeta):
         self.mujoco_renderer.width = None
         self.mujoco_renderer.height = None
 
+        self.world_random_scale = None
+
         self.setup_robot(init_qpos)
         self.setup_camera()
 

@@ -3,6 +3,7 @@ import numpy as np
 
 from robo_manip_baselines.common import Phase
 
+from ..DataKey import DataKey
 from .RolloutBase import RolloutBase
 
 

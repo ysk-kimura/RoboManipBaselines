@@ -6,12 +6,6 @@
   <asset>
     <texture name="table_plate2" file="table/table2.png" type="2d"/>
     <material name="table_plate2" texture="table_plate2" specular="0.0" shininess="0.0"/>
-    <!-- <texture name="random1" file="random/random1.png" type="2d"/> -->
-    <!-- <texture name="random2" file="random/random2.png" type="2d"/> -->
-    <!-- <material name="random1" texture="random1" specular="0.0" shininess="0.0" -->
-    <!--           rgba="1 1 1 0.5" texrepeat="0.5 0.5" texuniform="true"/> -->
-    <!-- <material name="random2" texture="random2" specular="0.0" shininess="0.0" -->
-    <!--           rgba="1 1 1 0.5" texrepeat="0.8 0.8" texuniform="true"/> -->
   </asset>
 
   <worldbody>
@@ -35,7 +29,7 @@
       <include file="../../robots/ur5e/ur5e_integrated_body.xml"/>
     </body>
 
-    <body name="peg" pos="0.0 0.0 1.0">
+    <body name="peg" pos="-0.12 -0.13 1.05" euler="-3.1415 0.0 3.1415">
       <freejoint/>
       <geom type="box" size="0.015 0.015 0.02" pos="0.0 0.0 0.02" rgba="0.8 0.1 0.5 1.0"/>
       <geom type="box" size="0.015 0.015 0.02" pos="0.0 0.0 -0.02" rgba="0.8 0.5 0.1 1.0"/>

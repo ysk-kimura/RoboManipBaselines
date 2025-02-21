@@ -2,53 +2,38 @@ import h5py
 import numpy as np
 import torch
 
-from robo_manip_baselines.common import DataKey, get_skipped_data_seq
+from robo_manip_baselines.common import (
+    DataKey,
+    DatasetBase,
+    get_skipped_data_seq,
+    get_skipped_single_data,
+)
 
 
-class RmbActDataset(torch.utils.data.Dataset):
-    def __init__(
-        self,
-        filenames,
-        state_keys,
-        action_keys,
-        camera_names,
-        dataset_stats,
-        skip,
-        chunk_size,
-    ):
-        super().__init__()
-
-        self.filenames = filenames
-        self.state_keys = state_keys
-        self.action_keys = action_keys
-        self.camera_names = camera_names
-        self.dataset_stats = dataset_stats
-        self.skip = skip
-        self.chunk_size = chunk_size
+class RmbActDataset(DatasetBase):
+    """Dataset to train ACT policy."""
 
     def __len__(self):
         return len(self.filenames)
 
     def __getitem__(self, episode_idx):
+        skip = self.model_meta_info["data"]["skip"]
+        chunk_size = self.model_meta_info["data"]["chunk_size"]
+
         with h5py.File(self.filenames[episode_idx], "r") as h5file:
-            episode_len = h5file[DataKey.TIME][:: self.skip].shape[0]
+            episode_len = h5file[DataKey.TIME][::skip].shape[0]
             start_time_idx = np.random.choice(episode_len)
 
             # Load state
-            if len(self.state_keys) == 0:
-                state = np.zeros(0, dtype=np.float32)
+            if len(self.model_meta_info["state"]["keys"]) == 0:
+                state = np.zeros(0, dtype=np.float64)
             else:
                 state = np.concatenate(
                     [
-                        get_skipped_data_seq(
-                            h5file[state_key][
-                                start_time_idx * self.skip : (start_time_idx + 1)
-                                * self.skip
-                            ],
-                            state_key,
-                            self.skip,
-                        )[0]
-                        for state_key in self.state_keys
+                        get_skipped_single_data(
+                            h5file[key], start_time_idx * skip, key, skip
+                        )
+                        for key in self.model_meta_info["state"]["keys"]
                     ]
                 )
 
@@ -56,11 +41,11 @@ class RmbActDataset(torch.utils.data.Dataset):
             action = np.concatenate(
                 [
                     get_skipped_data_seq(
-                        h5file[action_key][start_time_idx * self.skip :],
-                        action_key,
-                        self.skip,
+                        h5file[key][start_time_idx * skip :],
+                        key,
+                        skip,
                     )
-                    for action_key in self.action_keys
+                    for key in self.model_meta_info["action"]["keys"]
                 ],
                 axis=1,
             )
@@ -69,33 +54,35 @@ class RmbActDataset(torch.utils.data.Dataset):
             images = np.stack(
                 [
                     h5file[DataKey.get_rgb_image_key(camera_name)][
-                        start_time_idx * self.skip
+                        start_time_idx * skip
                     ]
-                    for camera_name in self.camera_names
+                    for camera_name in self.model_meta_info["image"]["camera_names"]
                 ],
                 axis=0,
             )
 
-        # Set chunked action
+        # Chunk action
         action_len = action.shape[0]
-        action_chunked = np.zeros((self.chunk_size, action.shape[1]), dtype=np.float32)
-        action_chunked[:action_len] = action[: self.chunk_size]
-        is_pad = np.zeros(self.chunk_size, dtype=bool)
+        action_chunked = np.zeros((chunk_size, action.shape[1]), dtype=np.float64)
+        action_chunked[:action_len] = action[:chunk_size]
+        is_pad = np.zeros(chunk_size, dtype=bool)
         is_pad[action_len:] = True
 
         # Pre-convert data
-        state = (state - self.dataset_stats["state_mean"]) / self.dataset_stats[
-            "state_std"
-        ]
-        action_chunked = (
-            action_chunked - self.dataset_stats["action_mean"]
-        ) / self.dataset_stats["action_std"]
-        images = np.einsum("k h w c -> k c h w", images)
-        images = images / 255.0
-
-        return (
-            torch.tensor(state, dtype=torch.float32),
-            torch.tensor(action_chunked, dtype=torch.float32),
-            torch.tensor(images, dtype=torch.float32),
-            torch.tensor(is_pad, dtype=torch.bool),
+        state, action_chunked, images = self.pre_convert_data(
+            state, action_chunked, images
         )
+
+        # Convert to tensor
+        state_tensor = torch.tensor(state, dtype=torch.float32)
+        action_tensor = torch.tensor(action_chunked, dtype=torch.float32)
+        images_tensor = torch.tensor(images, dtype=torch.uint8)
+        is_pad_tensor = torch.tensor(is_pad, dtype=torch.bool)
+
+        # Augment data
+        state_tensor, action_tensor, images_tensor = self.augment_data(
+            state_tensor, action_tensor, images_tensor
+        )
+
+        # Sort in the order of policy inputs and outputs
+        return state_tensor, images_tensor, action_tensor, is_pad_tensor

@@ -2,7 +2,6 @@ import argparse
 
 import h5py
 import numpy as np
-import pinocchio as pin
 
 from robo_manip_baselines.common import (
     DataKey,
@@ -77,7 +76,6 @@ def test_get_skipped_data_seq_eef_pose(filename, skip=3):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Test data utils",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(

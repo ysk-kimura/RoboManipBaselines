@@ -1,4 +1,4 @@
-# [RoboManipBaselines](https://github.com/isri-aist/RoboManipBaselines)
+# [RoboManipBaselines](https://isri-aist.github.io/RoboManipBaselines-ProjectPage)
 Software that integrates various imitation learning methods and benchmark task environments to provide baselines for robot manipulation
 
 [![CI-install](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml/badge.svg)](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml)

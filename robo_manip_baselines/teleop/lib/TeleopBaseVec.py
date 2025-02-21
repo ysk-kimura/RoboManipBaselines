@@ -9,10 +9,10 @@ from .TeleopBase import TeleopBase
 
 
 class TeleopBaseVec(TeleopBase):
-    def __init__(self):
-        self.DataManagerClass = DataManagerVec
+    DataManagerClass = DataManagerVec
 
-        super().__init__()
+    def setup_args(self, parser=None, argv=None):
+        super().setup_args(parser, argv)
 
         if self.args.replay_log is not None:
             raise NotImplementedError(

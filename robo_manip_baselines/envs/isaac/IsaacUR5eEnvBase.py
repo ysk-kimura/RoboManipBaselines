@@ -42,6 +42,7 @@ class IsaacUR5eEnvBase(gym.Env, metaclass=ABCMeta):
         # Setup environment parameters
         self.skip_sim = 2
         self.dt = self.skip_sim * self.gym.get_sim_params(self.sim).dt
+        self.world_random_scale = None
 
         robot_dof_props = self.gym.get_actor_dof_properties(
             self.env_list[self.rep_env_idx], self.robot_handle_list[self.rep_env_idx]

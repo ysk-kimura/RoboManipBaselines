@@ -30,28 +30,24 @@ dependencies = [
   "opencv-python",
   "pin",
   "pyspacemouse",
+  "torch",
+  "torchvision",
+  "tensorboard",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 sarnn = [
-  "torch",
-  "torchvision",
   "scikit-learn>=1.3.0",
-  "tensorboard",
   "torchinfo",
   "gdown",
 ]
 act = [
-  "torch",
-  "torchvision",
   "pyyaml",
   "packaging",
   "pyquaternion",
 ]
 diffusion-policy = [
-  "torch",
-  "torchvision",
   "cffi",
   "zarr>=2.12.0",
   "numcodecs",
@@ -87,8 +83,7 @@ real-xarm7 = [
 benchmarks = [
   "ruamel.yaml",
   "python-pptx",
-  "imageio[ffmpeg]",
-  "imageio[pyav]",
+  "imageio-ffmpeg",
   "ffmpeg-python",
 ]
 

@@ -1,10 +1,7 @@
 import os
-from enum import Enum
 
-import cv2
 import h5py
 import numpy as np
-import pinocchio as pin
 
 from robo_manip_baselines import __version__
 

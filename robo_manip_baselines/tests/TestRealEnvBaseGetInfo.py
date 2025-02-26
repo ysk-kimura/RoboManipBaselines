@@ -49,11 +49,22 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         self.assertEqual(rgb_image.dtype, np.uint8)
         self.assertEqual(rgb_image.shape[2], 3)  # 3 color channels
         self.assertIsNone(depth_image)
-        cv2.imshow("rgb_image", rgb_image)
 
-        print("Press any key to exit...")
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        print("press q on image to exit")
+        try:
+            while True:
+                # get rgb image
+                info = self.dummy_real_env._get_info()
+                rgb_image = info["rgb_images"][self.tactile_name]
+                cv2.imshow("rgb_image", rgb_image)
+
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+
+        except KeyboardInterrupt:
+            print("Interrupted!")
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

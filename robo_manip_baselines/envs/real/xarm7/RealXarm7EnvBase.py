@@ -68,7 +68,7 @@ class RealXarm7EnvBase(RealEnvBase):
         self.joint_vel_limit = np.deg2rad(180)  # [rad/s]
 
         # Connect to xArm7
-        print("[RealXarm7EnvBase] Start connecting the xArm7.")
+        print(f"[{self.__class__.__name__}] Start connecting the xArm7.")
         self.robot_ip = robot_ip
         self.xarm_api = XArmAPI(self.robot_ip)
         self.xarm_api.connect()
@@ -87,9 +87,11 @@ class RealXarm7EnvBase(RealEnvBase):
         time.sleep(0.2)
         xarm_code, joint_states = self.xarm_api.get_joint_states(is_radian=True)
         if xarm_code != 0:
-            raise RuntimeError(f"[RealXarm7EnvBase] Invalid xArm API code: {xarm_code}")
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Invalid xArm API code: {xarm_code}"
+            )
         self.arm_joint_pos_actual = joint_states[0]
-        print("[RealXarm7EnvBase] Finish connecting the xArm7.")
+        print(f"[{self.__class__.__name__}] Finish connecting the xArm7.")
 
         # Connect to RealSense
         self.setup_realsense(camera_ids)
@@ -100,11 +102,15 @@ class RealXarm7EnvBase(RealEnvBase):
         self.xarm_api.disconnect()
 
     def _reset_robot(self):
-        print("[RealXarm7EnvBase] Start moving the robot to the reset position.")
+        print(
+            f"[{self.__class__.__name__}] Start moving the robot to the reset position."
+        )
         self._set_action(
             self.init_qpos, duration=None, joint_vel_limit_scale=0.1, wait=True
         )
-        print("[RealXarm7EnvBase] Finish moving the robot to the reset position.")
+        print(
+            f"[{self.__class__.__name__}] Finish moving the robot to the reset position."
+        )
 
     def _set_action(self, action, duration=None, joint_vel_limit_scale=0.5, wait=False):
         start_time = time.time()
@@ -131,7 +137,7 @@ class RealXarm7EnvBase(RealEnvBase):
                 scaled_joint_vel_limit * duration,
             )
             # if np.linalg.norm(arm_joint_pos_command_overwritten - arm_joint_pos_command) > 1e-10:
-            #     print("[RealXarm7EnvBase] Overwrite joint command for safety.")
+            #     print(f"[{self.__class__.__name__}] Overwrite joint command for safety.")
             arm_joint_pos_command = arm_joint_pos_command_overwritten
 
         # Send command to xArm7
@@ -143,13 +149,17 @@ class RealXarm7EnvBase(RealEnvBase):
             wait=False,
         )
         if xarm_code != 0:
-            raise RuntimeError(f"[RealXarm7EnvBase] Invalid xArm API code: {xarm_code}")
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Invalid xArm API code: {xarm_code}"
+            )
 
         # Send command to xArm gripper
         gripper_pos = action[self.gripper_joint_idxes][0]
         xarm_code = self.xarm_api.set_gripper_position(gripper_pos, wait=False)
         if xarm_code != 0:
-            raise RuntimeError(f"[RealXarm7EnvBase] Invalid xArm API code: {xarm_code}")
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Invalid xArm API code: {xarm_code}"
+            )
 
         # Wait
         elapsed_duration = time.time() - start_time
@@ -160,7 +170,9 @@ class RealXarm7EnvBase(RealEnvBase):
         # Get state from xArm7
         xarm_code, joint_states = self.xarm_api.get_joint_states(is_radian=True)
         if xarm_code != 0:
-            raise RuntimeError(f"[RealXarm7EnvBase] Invalid xArm API code: {xarm_code}")
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Invalid xArm API code: {xarm_code}"
+            )
         arm_joint_pos = joint_states[0]
         arm_joint_vel = joint_states[1]
         self.arm_joint_pos_actual = arm_joint_pos.copy()
@@ -168,7 +180,9 @@ class RealXarm7EnvBase(RealEnvBase):
         # Get state from Robotiq gripper
         xarm_code, gripper_pos = self.xarm_api.get_gripper_position()
         if xarm_code != 0:
-            raise RuntimeError(f"[RealXarm7EnvBase] Invalid xArm API code: {xarm_code}")
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Invalid xArm API code: {xarm_code}"
+            )
         gripper_joint_pos = np.array([gripper_pos], dtype=np.float64)
         gripper_joint_vel = np.zeros(1)
 

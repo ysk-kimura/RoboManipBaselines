@@ -10,10 +10,12 @@ from detr.models.detr_vae import DETRVAE
 from policy import ACTPolicy
 
 from robo_manip_baselines.common import denormalize_data
-from robo_manip_baselines.common.rollout import RolloutBase
+from robo_manip_baselines.rollout import RolloutBase
 
 
 class RolloutAct(RolloutBase):
+    policy_name = "ACT"
+
     def setup_policy(self):
         # Print policy information
         self.print_policy_info()

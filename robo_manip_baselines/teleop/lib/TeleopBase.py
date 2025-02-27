@@ -121,7 +121,7 @@ class TeleopBase(metaclass=ABCMeta):
             if iteration_duration < self.env.unwrapped.dt:
                 time.sleep(self.env.unwrapped.dt - iteration_duration)
 
-        print("[TeleopBase] Statistics on teleoperation")
+        print(f"[{self.__class__.__name__}] Statistics on teleoperation")
         if len(iteration_duration_list) > 0:
             iteration_duration_list = np.array(iteration_duration_list)
             print(
@@ -194,7 +194,7 @@ class TeleopBase(metaclass=ABCMeta):
         else:
             self.data_manager.load_data(self.args.replay_log)
             print(
-                f"[TeleopBase] Load teleoperation data: {self.args.replay_log}\n"
+                f"[{self.__class__.__name__}] Load teleoperation data: {self.args.replay_log}\n"
                 f"  - replay keys: {self.args.replay_keys}"
             )
             world_idx = self.data_manager.get_meta_data("world_idx")
@@ -219,7 +219,9 @@ class TeleopBase(metaclass=ABCMeta):
                 self.data_manager.world_idx,
             )
         )
-        print("[TeleopBase] Press the 'n' key to start automatic grasping.")
+        print(
+            f"[{self.__class__.__name__}] Press the 'n' key to start automatic grasping."
+        )
 
     def set_command(self):
         if self.args.replay_log is not None and self.phase_manager.phase in (
@@ -427,7 +429,7 @@ class TeleopBase(metaclass=ABCMeta):
             reach_duration = 0.3  # [s]
             if self.phase_manager.get_phase_elapsed_duration() > reach_duration:
                 print(
-                    "[TeleopBase] Press the 'n' key to start teleoperation after the gripper is closed."
+                    f"[{self.__class__.__name__}] Press the 'n' key to start teleoperation after the gripper is closed."
                 )
                 self.phase_manager.set_next_phase()
         elif self.phase_manager.phase == Phase.GRASP:
@@ -438,16 +440,20 @@ class TeleopBase(metaclass=ABCMeta):
                     pyspacemouse.open()
                 self.teleop_time_idx = 0
                 if self.args.replay_log is None:
-                    print("[TeleopBase] Press the 'n' key to finish teleoperation.")
+                    print(
+                        f"[{self.__class__.__name__}] Press the 'n' key to finish teleoperation."
+                    )
                 else:
-                    print("[TeleopBase] Start to replay the log motion.")
+                    print(
+                        f"[{self.__class__.__name__}] Start to replay the log motion."
+                    )
                 self.phase_manager.set_next_phase()
         elif self.phase_manager.phase == Phase.TELEOP:
             self.teleop_time_idx += 1
             if self.args.replay_log is None:
                 if key == ord("n"):
                     print(
-                        "[TeleopBase] Press the 's' key if the teleoperation succeeded,"
+                        f"[{self.__class__.__name__}] Press the 's' key if the teleoperation succeeded,"
                         " or the 'f' key if it failed. (duration: {:.1f} [s])".format(
                             self.phase_manager.get_phase_elapsed_duration()
                         )
@@ -459,7 +465,7 @@ class TeleopBase(metaclass=ABCMeta):
                 ):
                     self.teleop_time_idx -= 1
                     print(
-                        "[TeleopBase] The log motion has finished replaying. Press the 'n' key to exit."
+                        f"[{self.__class__.__name__}] The log motion has finished replaying. Press the 'n' key to exit."
                     )
                     self.phase_manager.set_next_phase()
         elif self.phase_manager.phase == Phase.END:
@@ -469,7 +475,9 @@ class TeleopBase(metaclass=ABCMeta):
                     self.save_data()
                     self.reset_flag = True
                 elif key == ord("f"):
-                    print("[TeleopBase] Teleoperation failed: Reset without saving")
+                    print(
+                        f"[{self.__class__.__name__}] Teleoperation failed: Reset without saving"
+                    )
                     self.reset_flag = True
             else:
                 if key == ord("n"):
@@ -488,4 +496,6 @@ class TeleopBase(metaclass=ABCMeta):
                 self.data_manager.episode_idx,
             )
         self.data_manager.save_data(filename)
-        print(f"[TeleopBase] Teleoperation succeeded: Save the data as {filename}")
+        print(
+            f"[{self.__class__.__name__}] Teleoperation succeeded: Save the data as {filename}"
+        )

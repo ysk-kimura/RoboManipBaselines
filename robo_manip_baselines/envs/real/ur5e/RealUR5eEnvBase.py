@@ -68,21 +68,21 @@ class RealUR5eEnvBase(RealEnvBase):
         self.joint_vel_limit = np.deg2rad(191)  # [rad/s]
 
         # Connect to UR5e
-        print("[RealUR5eEnvBase] Start connecting the UR5e.")
+        print(f"[{self.__class__.__name__}] Start connecting the UR5e.")
         self.robot_ip = robot_ip
         self.rtde_c = rtde_control.RTDEControlInterface(self.robot_ip)
         self.rtde_r = rtde_receive.RTDEReceiveInterface(self.robot_ip)
         self.rtde_c.endFreedriveMode()
         self.arm_joint_pos_actual = np.array(self.rtde_r.getActualQ())
-        print("[RealUR5eEnvBase] Finish connecting the UR5e.")
+        print(f"[{self.__class__.__name__}] Finish connecting the UR5e.")
 
         # Connect to Robotiq gripper
-        print("[RealUR5eEnvBase] Start connecting the Robotiq gripper.")
+        print(f"[{self.__class__.__name__}] Start connecting the Robotiq gripper.")
         self.gripper_port = 63352
         self.gripper = RobotiqGripper()
         self.gripper.connect(hostname=self.robot_ip, port=self.gripper_port)
         self._gripper_activated = False
-        print("[RealUR5eEnvBase] Finish connecting the Robotiq gripper.")
+        print(f"[{self.__class__.__name__}] Finish connecting the Robotiq gripper.")
 
         # Connect to RealSense
         self.setup_realsense(camera_ids)
@@ -90,17 +90,21 @@ class RealUR5eEnvBase(RealEnvBase):
             self.setup_gelsight(gelsight_ids)
 
     def _reset_robot(self):
-        print("[RealUR5eEnvBase] Start moving the robot to the reset position.")
+        print(
+            f"[{self.__class__.__name__}] Start moving the robot to the reset position."
+        )
         self._set_action(
             self.init_qpos, duration=None, joint_vel_limit_scale=0.3, wait=True
         )
-        print("[RealUR5eEnvBase] Finish moving the robot to the reset position.")
+        print(
+            f"[{self.__class__.__name__}] Finish moving the robot to the reset position."
+        )
 
         if not self._gripper_activated:
             self._gripper_activated = True
-            print("[RealUR5eEnvBase] Start activating the Robotiq gripper.")
+            print(f"[{self.__class__.__name__}] Start activating the Robotiq gripper.")
             self.gripper.activate()
-            print("[RealUR5eEnvBase] Finish activating the Robotiq gripper.")
+            print(f"[{self.__class__.__name__}] Finish activating the Robotiq gripper.")
 
     def _set_action(self, action, duration=None, joint_vel_limit_scale=0.5, wait=False):
         start_time = time.time()
@@ -127,7 +131,7 @@ class RealUR5eEnvBase(RealEnvBase):
                 scaled_joint_vel_limit * duration,
             )
             # if np.linalg.norm(arm_joint_pos_command_overwritten - arm_joint_pos_command) > 1e-10:
-            #     print("[RealUR5eEnvBase] Overwrite joint command for safety.")
+            #     print(f"[{self.__class__.__name__}] Overwrite joint command for safety.")
             arm_joint_pos_command = arm_joint_pos_command_overwritten
 
         # Send command to UR5e

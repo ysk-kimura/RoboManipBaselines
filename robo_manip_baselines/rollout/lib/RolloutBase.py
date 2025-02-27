@@ -110,7 +110,9 @@ class RolloutBase(metaclass=ABCMeta):
         model_meta_info_path = os.path.join(checkpoint_dir, "model_meta_info.pkl")
         with open(model_meta_info_path, "rb") as f:
             self.model_meta_info = pickle.load(f)
-        print(f"[RolloutBase] Load model meta info: {model_meta_info_path}")
+        print(
+            f"[{self.__class__.__name__}] Load model meta info: {model_meta_info_path}"
+        )
 
         # Set state and action information
         self.state_keys = self.model_meta_info["state"]["keys"]
@@ -171,7 +173,7 @@ class RolloutBase(metaclass=ABCMeta):
 
     def print_policy_info(self):
         print(
-            f"[{self.__class__.__name__}] Construct policy.\n"
+            f"[{self.__class__.__name__}] Construct {self.policy_name} policy.\n"
             f"  - state dim: {self.state_dim}, action dim: {self.action_dim}, camera num: {len(self.camera_names)}\n"
             f"  - state keys: {self.state_keys}\n"
             f"  - action keys: {self.action_keys}\n"
@@ -227,12 +229,14 @@ class RolloutBase(metaclass=ABCMeta):
                 grasp_duration = 0.5  # [s]
                 if self.phase_manager.get_phase_elapsed_duration() > grasp_duration:
                     self.rollout_time_idx = 0
-                    print("[RolloutBase] Press the 'n' key to finish policy rollout.")
+                    print(
+                        f"[{self.__class__.__name__}] Press the 'n' key to finish policy rollout."
+                    )
                     self.phase_manager.set_next_phase()
             elif self.phase_manager.phase == Phase.ROLLOUT:
                 self.rollout_time_idx += 1
                 if key == ord("n"):
-                    print("[RolloutBase] Statistics on policy inference")
+                    print(f"[{self.__class__.__name__}] Statistics on policy inference")
                     policy_model_size = self.calc_model_size()
                     print(
                         f"  - Policy model size [MB] | {policy_model_size / 1024**2:.2f}"
@@ -247,7 +251,7 @@ class RolloutBase(metaclass=ABCMeta):
                         f"mean: {inference_duration_list.mean():.2e}, std: {inference_duration_list.std():.2e} "
                         f"min: {inference_duration_list.min():.2e}, max: {inference_duration_list.max():.2e}"
                     )
-                    print("[RolloutBase] Press the 'n' key to exit.")
+                    print(f"[{self.__class__.__name__}] Press the 'n' key to exit.")
                     self.phase_manager.set_next_phase()
             elif self.phase_manager.phase == Phase.END:
                 if key == ord("n"):

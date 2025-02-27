@@ -305,7 +305,7 @@ class TrainBase(metaclass=ABCMeta):
 
     def print_policy_info(self):
         print(
-            f"[{self.__class__.__name__}] Construct policy.\n"
+            f"[{self.__class__.__name__}] Construct {self.policy_name} policy.\n"
             f"  - state dim: {len(self.model_meta_info['state']['example'])}, action dim: {len(self.model_meta_info['action']['example'])}, camera num: {len(self.args.camera_names)}\n"
             f"  - state keys: {self.args.state_keys}\n"
             f"  - action keys: {self.args.action_keys}\n"

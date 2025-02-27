@@ -3,12 +3,14 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from robo_manip_baselines.common import denormalize_data
-from robo_manip_baselines.common.rollout import RolloutBase
+from robo_manip_baselines.rollout import RolloutBase
 
 from .MlpPolicy import MlpPolicy
 
 
 class RolloutMlp(RolloutBase):
+    policy_name = "MLP"
+
     def setup_policy(self):
         # Print policy information
         self.print_policy_info()

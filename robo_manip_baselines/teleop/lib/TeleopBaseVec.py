@@ -16,7 +16,7 @@ class TeleopBaseVec(TeleopBase):
 
         if self.args.replay_log is not None:
             raise NotImplementedError(
-                '[TeleopBaseVec] The "replay_log" option is not supported.'
+                '[{self.__class__.__name__}] The "replay_log" option is not supported.'
             )
 
     def run(self):
@@ -49,7 +49,9 @@ class TeleopBaseVec(TeleopBase):
                         self.data_manager.world_idx,
                     )
                 )
-                print("[TeleopBaseVec] Press the 'n' key to start automatic grasping.")
+                print(
+                    f"[{self.__class__.__name__}] Press the 'n' key to start automatic grasping."
+                )
                 self.reset_flag = False
 
             # Read spacemouse
@@ -154,7 +156,7 @@ class TeleopBaseVec(TeleopBase):
             if iteration_duration < self.env.unwrapped.dt:
                 time.sleep(self.env.unwrapped.dt - iteration_duration)
 
-        print("[TeleopBaseVec] Statistics on teleoperation")
+        print(f"[{self.__class__.__name__}] Statistics on teleoperation")
         if len(iteration_duration_list) > 0:
             iteration_duration_list = np.array(iteration_duration_list)
             print(
@@ -194,7 +196,8 @@ class TeleopBaseVec(TeleopBase):
         num_success = sum(filename is not None for filename in filename_list)
         if num_success > 0:
             print(
-                "[TeleopBaseVec] Teleoperation succeeded: Save the {} data such as {} etc.".format(
+                "[{}] Teleoperation succeeded: Save the {} data such as {} etc.".format(
+                    self.__class__.__name__,
                     sum(filename is not None for filename in filename_list),
                     next(
                         filename for filename in filename_list if filename is not None
@@ -203,5 +206,5 @@ class TeleopBaseVec(TeleopBase):
             )
         else:
             print(
-                "[TeleopBaseVec] Teleoperation succeeded: Save no data because there is no successful data."
+                f"[{self.__class__.__name__}] Teleoperation succeeded: Save no data because there is no successful data."
             )

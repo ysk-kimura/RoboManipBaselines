@@ -15,7 +15,7 @@ from eipl.utils import (
 )
 
 from robo_manip_baselines.common import DataKey
-from robo_manip_baselines.common.rollout import RolloutBase
+from robo_manip_baselines.rollout import RolloutBase
 
 
 class RolloutSarnn(RolloutBase):

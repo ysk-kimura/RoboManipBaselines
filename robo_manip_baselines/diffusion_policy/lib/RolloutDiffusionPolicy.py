@@ -10,7 +10,7 @@ import torch
 from diffusion_policy.common.pytorch_util import dict_apply
 
 from robo_manip_baselines.common import DataKey
-from robo_manip_baselines.common.rollout import RolloutBase
+from robo_manip_baselines.rollout import RolloutBase
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 

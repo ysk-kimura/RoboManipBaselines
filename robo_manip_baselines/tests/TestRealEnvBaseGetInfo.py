@@ -47,7 +47,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
 
         self.assertIsInstance(rgb_image, np.ndarray)
         self.assertEqual(rgb_image.dtype, np.uint8)
-        self.assertEqual(rgb_image.shape[2], 3)  # 3 color channels
+        self.assertEqual(rgb_image.shape, (600, 800, 3))
         self.assertIsNone(depth_image)
 
         print("press q on image to exit")

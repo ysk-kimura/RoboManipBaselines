@@ -8,7 +8,7 @@ class GraspPhase(GraspPhaseBase):
         self.set_target_close()
 
 
-class OperationIsaacUR5eCabinet(object):
+class OperationIsaacUR5eCabinet:
     def setup_env(self):
         self.env = gym.make(
             "robo_manip_baselines/IsaacUR5eCabinetEnv-v0",

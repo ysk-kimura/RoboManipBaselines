@@ -10,7 +10,7 @@ class GraspPhase(GraspPhaseBase):
         self.duration = 0.5  # [s]
 
 
-class OperationRealXarm7Demo(object):
+class OperationRealXarm7Demo:
     def __init__(self, robot_ip, camera_ids, gelsight_ids=None):
         self.robot_ip = robot_ip
         self.camera_ids = camera_ids

@@ -2,14 +2,14 @@
 
 A full list of teleoperation environments can be found in [the environment catalog](../../doc/environment_catalog.md).
 
-Sample data can be downloaded [here](https://www.dropbox.com/scl/fi/15r33msj4vd1potaosirh/teleop_data_20240414.zip?rlkey=2vt1h5gde7l42vrwz4axj10da&dl=0).
-**This data is in an old format and will be replaced with a new format soon.**
-
 ## Record teleoperation data
+You need [SpaceMouse Wireless](https://3dconnexion.com/us/product/spacemouse-wireless) for teleoperation.
 Connect SpaceMouse to your PC before launching the script.
 
-Start up the teleoperation environment by the following command.
+Start up the teleoperation environment by the following command:
 ```console
+# Go to the top directory of this repository
+$ cd robo_manip_baselines
 $ python ./bin/Teleop.py MujocoUR5eCable
 ```
 https://github.com/user-attachments/assets/59736023-a7f7-4aca-a860-176db84579f7
@@ -23,9 +23,11 @@ To add a 3D plot of the point cloud, add the following option:
 ```console
 $ python ./bin/Teleop.py MujocoUR5eCable --enable_3d_plot
 ```
-If you cannot zoom the point cloud view by right-clicking, try changing the matplotlib version: `pip install matplotlib=="3.6.1"`.
+
+> [!NOTE]
+> If you cannot zoom the point cloud view by right-clicking, try changing the matplotlib version: `pip install matplotlib=="3.6.1"`.
 
 To replay the teleoperation motion of the log, add the following option:
 ```console
-$ python ./bin/Teleop.py MujocoUR5eCable --replay_log ./teleop_data/MujocoUR5eCable_YYYYMMDD_HHMMSS/env0/MujocoUR5eCable_env0_000.hdf5
+$ python ./bin/Teleop.py MujocoUR5eCable --replay_log ./dataset/MujocoUR5eCable_<date_suffix>/MujocoUR5eCable_env0_000.hdf5
 ```

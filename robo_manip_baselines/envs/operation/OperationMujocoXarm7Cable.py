@@ -34,7 +34,7 @@ class GraspPhase(GraspPhaseBase):
         self.set_target_close()
 
 
-class OperationMujocoXarm7Cable(object):
+class OperationMujocoXarm7Cable:
     def setup_env(self):
         self.env = gym.make(
             "robo_manip_baselines/MujocoXarm7CableEnv-v0", render_mode="human"

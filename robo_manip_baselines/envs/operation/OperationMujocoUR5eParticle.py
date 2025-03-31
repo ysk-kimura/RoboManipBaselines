@@ -34,7 +34,7 @@ class GraspPhase(GraspPhaseBase):
         self.set_target_close()
 
 
-class OperationMujocoUR5eParticle(object):
+class OperationMujocoUR5eParticle:
     def setup_env(self):
         self.env = gym.make(
             "robo_manip_baselines/MujocoUR5eParticleEnv-v0", render_mode="human"

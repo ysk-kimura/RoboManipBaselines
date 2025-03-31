@@ -8,7 +8,7 @@ class GraspPhase(GraspPhaseBase):
         self.set_target_open()
 
 
-class OperationRealUR5eDemo(object):
+class OperationRealUR5eDemo:
     def __init__(self, robot_ip, camera_ids, gelsight_ids=None):
         self.robot_ip = robot_ip
         self.camera_ids = camera_ids

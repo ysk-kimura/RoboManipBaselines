@@ -171,7 +171,9 @@ class RealEnvBase(gym.Env, ABC):
         for camera_name, camera in self.cameras.items():
             rgb_image, depth_image = camera.read((640, 480))
             info["rgb_images"][camera_name] = rgb_image
-            info["depth_images"][camera_name] = 1e-3 * depth_image[:, :, 0]  # [m]
+            info["depth_images"][camera_name] = (1e-3 * depth_image[:, :, 0]).astype(
+                np.float32
+            )  # [m]
 
         for tactile_name, tactile in self.tactiles.items():
             ret, rgb_image = tactile.read()

@@ -8,16 +8,21 @@ $ cd RoboManipBaselines
 $ pip install -e .
 ```
 
-**Note**: If you have problems with pip installation, such as excessive time or module version errors, please add the option `--use-deprecated=legacy-resolver`.
+> [!NOTE]
+> If you have problems with pip installation, such as excessive time or module version errors, please add the option `--use-deprecated=legacy-resolver`.
 
-**Note**: If you have problems installing the Pinocchio library (`pin` module) from `pip` in certain environments (e.g. Ubuntu 20.04), you can also install it via `apt`. See [here](https://stack-of-tasks.github.io/pinocchio/download.html#Install) for details.
+> [!NOTE]
+> If you have problems installing the Pinocchio library (`pin` module) from `pip` in certain environments (e.g. Ubuntu 20.04), you can also install it via `apt`. See [here](https://stack-of-tasks.github.io/pinocchio/download.html#Install) for details.
 
 This common installation enables data collection by teleoperation in the MuJoCo environments.
 
 ## Installation of each policy
 Complete [the common installation](#common-installation) first.
 
-### [SARNN](../robo_manip_baselines/sarnn)
+### [MLP](../robo_manip_baselines/policy/mlp)
+The MLP policy can be used with only a common installation.
+
+### [SARNN](../robo_manip_baselines/policy/sarnn)
 Install dependent libraries including [EIPL](https://github.com/ogata-lab/eipl):
 ```console
 # Go to the top directory of this repository
@@ -28,7 +33,7 @@ $ cd third_party/eipl
 $ pip install -e .
 ```
 
-### [ACT](../robo_manip_baselines/act)
+### [ACT](../robo_manip_baselines/policy/act)
 Install dependent libraries including [ACT](https://github.com/tonyzhaozh/act):
 ```console
 # Go to the top directory of this repository
@@ -39,8 +44,8 @@ $ cd third_party/act/detr
 $ pip install -e .
 ```
 
-### [Diffusion policy](../robo_manip_baselines/diffusion_policy)
-Install dependent libraries including [r3m](https://github.com/facebookresearch/r3m) and [diffusion policy](https://github.com/real-stanford/diffusion_policy):
+### [Diffusion policy](../robo_manip_baselines/policy/diffusion_policy)
+Install dependent libraries including [diffusion policy](https://github.com/real-stanford/diffusion_policy):
 ```console
 $ sudo apt install -y libosmesa6-dev libgl1-mesa-glx libglfw3 patchelf
 
@@ -48,20 +53,32 @@ $ sudo apt install -y libosmesa6-dev libgl1-mesa-glx libglfw3 patchelf
 $ pip install -e .[diffusion-policy]
 
 # Go to the top directory of this repository
-$ cd third_party/r3m
-$ pip install -e .
-
-# Go to the top directory of this repository
 $ cd third_party/diffusion_policy
 $ pip install -e .
 ```
 
-**Note**: If you encounter the following error,
-```python
-pip._vendor.packaging.requirements.InvalidRequirement: Expected end or semicolon (after version specifier)
-    opencv-python>=3.
+> [!NOTE]
+> If you encounter the following error,
+> ```python
+> pip._vendor.packaging.requirements.InvalidRequirement: Expected end or semicolon (after version specifier)
+>     opencv-python>=3.
+> ```
+> replace all `opencv-python>=3.` with `opencv-python>=3.0` in `<venv_directory>/lib/python3.8/site-packages/gym-0.21.0-py3.8.egg-info/requires.txt`.
+
+## Installation of each teleoperation interface
+Complete [the common installation](#common-installation) first.
+
+### [SpaceMouse](https://3dconnexion.com/us/spacemouse)
+[SpaceMouse Wireless](https://3dconnexion.com/us/product/spacemouse-wireless) can be used with only a common installation.
+
+### [GELLO](https://wuphilipp.github.io/gello_site)
+Install dependent libraries including [gello_software](https://github.com/wuphilipp/gello_software):
+```console
+# Go to the top directory of this repository
+$ cd third_party/gello_software
+$ pip install -e .
+$ pip install -e third_party/DynamixelSDK/python
 ```
-replace all `opencv-python>=3.` with `opencv-python>=3.0` in `<venv_directory>/lib/python3.8/site-packages/gym-0.21.0-py3.8.egg-info/requires.txt`.
 
 ## Installation of each environment
 Complete [the common installation](#common-installation) first.

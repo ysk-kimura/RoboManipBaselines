@@ -10,7 +10,7 @@ class GraspPhase(GraspPhaseBase):
         self.duration = 0.5  # [s]
 
 
-class OperationMujocoUR5eInsert(object):
+class OperationMujocoUR5eInsert:
     def setup_env(self):
         self.env = gym.make(
             "robo_manip_baselines/MujocoUR5eInsertEnv-v0", render_mode="human"

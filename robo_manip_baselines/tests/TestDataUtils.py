@@ -1,10 +1,10 @@
 import argparse
 
-import h5py
 import numpy as np
 
 from robo_manip_baselines.common import (
     DataKey,
+    RmbData,
     get_pose_from_se3,
     get_se3_from_pose,
     get_se3_from_rel_pose,
@@ -21,9 +21,9 @@ def test_get_skipped_data_seq_joint_pos(filename, skip=3):
     abs_key = DataKey.MEASURED_JOINT_POS
     rel_key = DataKey.get_rel_key(abs_key)
 
-    with h5py.File(filename, "r") as h5file:
-        joint_abs_seq = h5file[abs_key][()]
-        joint_rel_seq = h5file[rel_key][()]
+    with RmbData.from_file(filename) as rmb_data:
+        joint_abs_seq = rmb_data[abs_key][:]
+        joint_rel_seq = rmb_data[rel_key][:]
 
     skipped_joint_abs_seq = joint_abs_seq[::skip][1:]
 
@@ -48,9 +48,9 @@ def test_get_skipped_data_seq_eef_pose(filename, skip=3):
     abs_key = DataKey.MEASURED_EEF_POSE
     rel_key = DataKey.get_rel_key(abs_key)
 
-    with h5py.File(filename, "r") as h5file:
-        eef_abs_seq = h5file[abs_key][()]
-        eef_rel_seq = h5file[rel_key][()]
+    with RmbData.from_file(filename) as rmb_data:
+        eef_abs_seq = rmb_data[abs_key][:]
+        eef_rel_seq = rmb_data[rel_key][:]
 
     skipped_eef_abs_seq = eef_abs_seq[::skip][1:]
 

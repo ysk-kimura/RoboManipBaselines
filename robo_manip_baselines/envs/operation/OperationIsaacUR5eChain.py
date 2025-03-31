@@ -35,7 +35,7 @@ class GraspPhase(GraspPhaseBase):
         self.duration = 0.5  # [s]
 
 
-class OperationIsaacUR5eChain(object):
+class OperationIsaacUR5eChain:
     def setup_env(self):
         self.env = gym.make(
             "robo_manip_baselines/IsaacUR5eChainEnv-v0", render_mode="human"

@@ -1,5 +1,3 @@
-**The code in this repository is currently under development in [the v2.0.0-dev branch](https://github.com/isri-aist/RoboManipBaselines/tree/v2.0.0-dev). Developers are recommended to work on the v2.0.0-dev branch as a base.**
-
 # [RoboManipBaselines](https://isri-aist.github.io/RoboManipBaselines-ProjectPage)
 Software that integrates various imitation learning methods and benchmark task environments to provide baselines for robot manipulation
 
@@ -10,28 +8,30 @@ Software that integrates various imitation learning methods and benchmark task e
 https://github.com/user-attachments/assets/ba4a772f-0de5-47da-a4ec-bdcbf13d7d58
 
 ## Quick start
-[This quick start](./doc/quick_start.md) allows you to collect data in the MuJoCo simulation and train and rollout the ACT policy.
+See [the quick start](./doc/quick_start.md) to collect data in the MuJoCo simulation and train and rollout the ACT policy.
 
 ## Install
-See [the installation documentation](./doc/install.md).
+See [the installation guide](./doc/install.md).
 
 ## Policies
-### [SARNN](./robo_manip_baselines/sarnn)
-Spatial attention recurrent neural network
+### MLP
+See [mlp](./robo_manip_baselines/policy/mlp).
 
-### [ACT](./robo_manip_baselines/act)
-Action Chunking with Transformers
+### SARNN
+See [sarnn](./robo_manip_baselines/policy/sarnn).
 
-### [DiffusionPolicy](./robo_manip_baselines/diffusion_policy)
-Diffusion Policy
+### ACT
+See [act](./robo_manip_baselines/policy/act).
+
+### DiffusionPolicy
+See [diffusion_policy](./robo_manip_baselines/policy/diffusion_policy).
 
 ## Data
-### Publicly available datasets
-See [the dataset list](./doc/dataset_list.md).
+See [the dataset list](./doc/dataset_list.md) for demonstration datasets.
 
 See [the learned parameters](./doc/learned_parameters.md) for policies learned from these datasets.
 
-### Data collection by teleoperation
+## Teleoperation
 See [teleop](./robo_manip_baselines/teleop).
 
 ## Environments
@@ -39,8 +39,8 @@ See [the environment catalog](doc/environment_catalog.md) for a full list of env
 
 See [envs](./robo_manip_baselines/envs) for installation procedures for each environment.
 
-## Utilities
-See [utils](./robo_manip_baselines/utils).
+## Misc
+See [misc](./robo_manip_baselines/misc) for miscellaneous standalone scripts.
 
 ## Evaluation results
 See [the evaluation results](doc/evaluation_results.md).

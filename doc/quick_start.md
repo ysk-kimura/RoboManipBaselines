@@ -6,7 +6,7 @@ Install RoboManipBaselines:
 ```console
 $ git clone git@github.com:isri-aist/RoboManipBaselines.git --recursive
 $ cd RoboManipBaselines
-$ pip install -e .[act]
+$ pip install -e .[act] --use-deprecated=legacy-resolver
 ```
 
 Install ACT from a third party:
@@ -16,40 +16,42 @@ $ pip install -e .
 ```
 
 ## Data collection by teleoperation
-**Note**: Instead of collecting data by teleoperation, you can download the public dataset `TeleopMujocoUR5eCable_Dataset30` from [here](./dataset_list.md#Demonstrations-in-MuJoCo-environments).
+> [!TIP]
+> Instead of collecting data by teleoperation, you can download the public dataset `TeleopMujocoUR5eCable_Dataset30` from [here](./dataset_list.md#Demonstrations-in-MuJoCo-environments).
 
+You need [SpaceMouse Wireless](https://3dconnexion.com/us/product/spacemouse-wireless) for teleoperation.
 Operate the robot in the simulation and save the data:
 ```console
-$ cd robo_manip_baselines/teleop
-$ # Connect a SpaceMouse 3D mouse to your PC
-$ python bin/TeleopMujocoUR5eCable.py --world_idx_list 0 5
+# Go to the top directory of this repository
+$ cd robo_manip_baselines
+$ # Connect a SpaceMouse to your PC
+$ python ./bin/Teleop.py MujocoUR5eCable --world_idx_list 0 5
 ```
 In our experience, models can be trained stably with roughly 30 data sets.
-The teleoperation data is saved in the `robo_manip_baselines/teleop/teleop_data/MujocoUR5eCable_<date_suffix>` directory (e.g., `MujocoUR5eCable_20240101_120000`) in npz format.
+The teleoperation data is saved in the `robo_manip_baselines/dataset/MujocoUR5eCable_<date_suffix>` directory (e.g., `MujocoUR5eCable_20240101_120000`) in HDF5 format.
 
 ## Model training
 Train the ACT:
 ```console
-$ cd robo_manip_baselines/act
-$ python ../utils/make_dataset.py \
---in_dir ../teleop/teleop_data/MujocoUR5eCable_20240101_120000 \
---out_dir ./data/MujocoUR5eCable_20240101_120000 \
---train_ratio 0.8 --nproc `nproc` --skip 3
-$ python ./bin/TrainAct.py \
---dataset_dir ./data/MujocoUR5eCable_20240101_120000 \
---log_dir ./log/MujocoUR5eCable_20240101_120000
+# Go to the top directory of this repository
+$ cd robo_manip_baselines
+$ python ./bin/Train.py Act --dataset_dir ./dataset/MujocoUR5eCable_20240101_120000
 ```
-**Note**: The following error will occur if the chunk_size is larger than the time series length of the training data.
-In such a case, either set the `--skip` option in `make_dataset.py` to a small value, or set the `--chunk_size` option in `TrainAct.py` to a small value.
-```console
-RuntimeError: The size of tensor a (70) must match the size of tensor b (102) at non-singleton dimension 0
-```
+The learned parameters are saved in the `robo_manip_baselines/checkpoint/Act/<dataset_name>_Act_<date_suffix>` directory (e.g., `MujocoUR5eCable_20240101_120000_Act_20240101_130000`) in HDF5 format.
+
+> [!NOTE]
+> The following error will occur if the chunk_size is larger than the time series length of the training data.
+> In such a case, either set the `--skip` option to a small value, or set the `--chunk_size` option to a small value.
+> ```console
+> RuntimeError: The size of tensor a (70) must match the size of tensor b (102) at non-singleton dimension 0
+> ```
 
 ## Policy rollout
 Rollout the ACT in the simulation:
 ```console
-$ cd robo_manip_baselines/act
-$ python ./bin/rollout/RolloutActMujocoUR5eCable.py \
---checkpoint ./log/MujocoUR5eCable_20240101_120000/policy_last.ckpt \
---skip 3 --world_idx 0
+# Go to the top directory of this repository
+$ cd robo_manip_baselines
+$ python ./bin/Rollout.py Act MujocoUR5eCable \
+--checkpoint ./checkpoint/Act/MujocoUR5eCable_20240101_120000_Act_20240101_130000/policy_last.ckpt \
+--world_idx 0
 ```

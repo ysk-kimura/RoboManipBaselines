@@ -36,6 +36,8 @@ class TrainDiffusionPolicy(TrainBase):
         self.args.image_size_list = refine_size_list(self.args.image_size_list)
 
     def set_additional_args(self, parser):
+        parser.set_defaults(enable_rmb_cache=True)
+
         parser.set_defaults(batch_size=64)
         parser.set_defaults(num_epochs=2000)
         parser.set_defaults(lr=1e-4)

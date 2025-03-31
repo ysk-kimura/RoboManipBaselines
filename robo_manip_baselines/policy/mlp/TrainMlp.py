@@ -12,6 +12,8 @@ class TrainMlp(TrainBase):
     DatasetClass = MlpDataset
 
     def set_additional_args(self, parser):
+        parser.set_defaults(enable_rmb_cache=True)
+
         parser.set_defaults(batch_size=32)
         parser.set_defaults(num_epochs=40)
         parser.set_defaults(lr=1e-5)

@@ -9,23 +9,43 @@ from torchcodec.decoders import VideoDecoder
 from .DataKey import DataKey
 
 
+def to_hashable(path, idx):
+    if isinstance(idx, slice):
+        return (path, (idx.start, idx.stop, idx.step))
+    else:
+        return (path, idx)
+
+
 class RmbData:
     """Data in RoboManipBaselines format."""
 
     class RmbVideo:
+        # Note that this cache is not shared among processes in the multi-process data loader
+        cache = {}
+
+        def __init__(self, path, enable_cache=False):
+            self.path = path
+            self.enable_cache = enable_cache
+
         def __len__(self):
             decoder = VideoDecoder(self.path)
             return decoder.metadata.num_frames
 
-    class RmbRgbVideo(RmbVideo):
-        def __init__(self, path):
-            self.path = path
+        def __getitem__(self, idx):
+            if self.enable_cache:
+                hashable = to_hashable(self.path, idx)
+                if hashable not in self.cache:
+                    self.cache[hashable] = self._get_data(idx)
+                return self.cache[hashable]
+            else:
+                return self._get_data(idx)
 
-        def __getitem__(self, key):
+    class RmbRgbVideo(RmbVideo):
+        def _get_data(self, idx):
             # torchcodec's VideoDecoder is slightly faster
-            # return videoio.videoread(self.path)[key]
+            # return videoio.videoread(self.path)[idx]
             decoder = VideoDecoder(self.path, dimension_order="NHWC")
-            return decoder[key].numpy()
+            return decoder[idx].numpy()
 
         @property
         def shape(self):
@@ -42,11 +62,8 @@ class RmbData:
             return np.uint8
 
     class RmbDepthVideo(RmbVideo):
-        def __init__(self, path):
-            self.path = path
-
-        def __getitem__(self, key):
-            return (1e-3 * videoio.uint16read(self.path)[key]).astype(np.float32)
+        def _get_data(self, idx):
+            return (1e-3 * videoio.uint16read(self.path)[idx]).astype(np.float32)
 
         @property
         def shape(self):
@@ -61,28 +78,21 @@ class RmbData:
         def dtype(self):
             return np.float32
 
-    def __init__(self):
-        self.path = None
-        self.is_single_hdf5 = None
-        self.h5file = None
+    def __init__(self, path, enable_cache=False):
+        self.path = path
+        self.enable_cache = enable_cache
 
-    @classmethod
-    def from_file(cls, path):
-        inst = cls()
-
-        inst.path = path
-
-        _, ext = os.path.splitext(path.rstrip("/"))
+        _, ext = os.path.splitext(self.path.rstrip("/"))
         if ext.lower() == ".hdf5":
-            inst.is_single_hdf5 = True
+            self.is_single_hdf5 = True
         elif ext.lower() == ".rmb":
-            inst.is_single_hdf5 = False
+            self.is_single_hdf5 = False
         else:
             raise ValueError(
-                f"[{inst.__class__.__name__}] Invalid file extension '{ext}'. Expected '.hdf5' or '.rmb': {path}"
+                f"[{self.__class__.__name__}] Invalid file extension '{ext}'. Expected '.hdf5' or '.rmb': {self.path}"
             )
 
-        return inst
+        self.h5file = None
 
     def open(self):
         if self.path is None:
@@ -119,9 +129,15 @@ class RmbData:
         if self.is_single_hdf5:
             return self.h5file[key]
         elif DataKey.is_rgb_image_key(key):
-            return self.RmbRgbVideo(os.path.join(self.path, f"{key}.rmb.mp4"))
+            return self.RmbRgbVideo(
+                os.path.join(self.path, f"{key}.rmb.mp4"),
+                enable_cache=self.enable_cache,
+            )
         elif DataKey.is_depth_image_key(key):
-            return self.RmbDepthVideo(os.path.join(self.path, f"{key}.rmb.mp4"))
+            return self.RmbDepthVideo(
+                os.path.join(self.path, f"{key}.rmb.mp4"),
+                enable_cache=self.enable_cache,
+            )
         else:
             return self.h5file[key]
 

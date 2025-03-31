@@ -5,6 +5,7 @@ from .base.RolloutBase import RolloutBase
 
 from .data.DataKey import DataKey
 from .data.RmbData import RmbData
+from .data.CachedDataset import CachedDataset
 
 from .manager.PhaseManager import PhaseManager
 from .manager.MotionManager import MotionManager

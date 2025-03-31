@@ -24,7 +24,7 @@ class DiffusionPolicyDataset(DatasetBase):
         pad_after = self.model_meta_info["data"]["n_action_steps"] - 1
 
         for episode_idx, filename in enumerate(self.filenames):
-            with RmbData.from_file(filename) as rmb_data:
+            with RmbData(filename) as rmb_data:
                 episode_len = rmb_data[DataKey.TIME][::skip].shape[0]
                 for start_time_idx in range(
                     -1 * pad_before, episode_len - (horizon - 1) + pad_after
@@ -39,7 +39,7 @@ class DiffusionPolicyDataset(DatasetBase):
         horizon = self.model_meta_info["data"]["horizon"]
         episode_idx, start_time_idx = self.chunk_info_list[chunk_idx]
 
-        with RmbData.from_file(self.filenames[episode_idx]) as rmb_data:
+        with RmbData(self.filenames[episode_idx], self.enable_rmb_cache) as rmb_data:
             episode_len = rmb_data[DataKey.TIME][::skip].shape[0]
             time_idxes = np.clip(
                 np.arange(start_time_idx, start_time_idx + horizon), 0, episode_len - 1

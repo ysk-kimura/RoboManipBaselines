@@ -23,8 +23,8 @@ class CompareRmbData:
 
     def run(self):
         with (
-            RmbData.from_file(self.path1) as rmb_data1,
-            RmbData.from_file(self.path2) as rmb_data2,
+            RmbData(self.path1) as rmb_data1,
+            RmbData(self.path2) as rmb_data2,
         ):
             # Check data
             keys1 = set(rmb_data1.keys())

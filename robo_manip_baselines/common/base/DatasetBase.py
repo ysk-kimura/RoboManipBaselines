@@ -10,9 +10,14 @@ class DatasetBase(torch.utils.data.Dataset):
         self,
         filenames,
         model_meta_info,
+        enable_rmb_cache=False,
     ):
         self.filenames = filenames
         self.model_meta_info = model_meta_info
+        self.enable_rmb_cache = enable_rmb_cache
+
+        if self.enable_rmb_cache:
+            print(f"[{self.__class__.__name__}] Enable data caching in RmbData.")
 
         self.setup_image_transforms()
 

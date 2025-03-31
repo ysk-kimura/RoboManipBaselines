@@ -22,7 +22,7 @@ class SarnnDataset(DatasetBase):
         skip = self.model_meta_info["data"]["skip"]
         max_episode_len = self.model_meta_info["data"]["max_episode_len"]
 
-        with RmbData.from_file(self.filenames[episode_idx]) as rmb_data:
+        with RmbData(self.filenames[episode_idx], self.enable_rmb_cache) as rmb_data:
             episode_len = rmb_data[DataKey.TIME][::skip].shape[0]
 
             # Load state

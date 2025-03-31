@@ -21,7 +21,7 @@ def test_get_skipped_data_seq_joint_pos(filename, skip=3):
     abs_key = DataKey.MEASURED_JOINT_POS
     rel_key = DataKey.get_rel_key(abs_key)
 
-    with RmbData.from_file(filename) as rmb_data:
+    with RmbData(filename) as rmb_data:
         joint_abs_seq = rmb_data[abs_key][:]
         joint_rel_seq = rmb_data[rel_key][:]
 
@@ -48,7 +48,7 @@ def test_get_skipped_data_seq_eef_pose(filename, skip=3):
     abs_key = DataKey.MEASURED_EEF_POSE
     rel_key = DataKey.get_rel_key(abs_key)
 
-    with RmbData.from_file(filename) as rmb_data:
+    with RmbData(filename) as rmb_data:
         eef_abs_seq = rmb_data[abs_key][:]
         eef_rel_seq = rmb_data[rel_key][:]
 

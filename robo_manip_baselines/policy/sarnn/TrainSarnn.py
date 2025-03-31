@@ -49,6 +49,8 @@ class TrainSarnn(TrainBase):
             elif action.dest == "action_keys":
                 action.choices = []
 
+        parser.set_defaults(use_cached_dataset=True)
+
         parser.set_defaults(state_keys=[DataKey.COMMAND_JOINT_POS])
         parser.set_defaults(action_keys=[])
 

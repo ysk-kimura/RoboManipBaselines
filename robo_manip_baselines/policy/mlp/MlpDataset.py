@@ -16,7 +16,7 @@ class MlpDataset(DatasetBase):
         skip = self.model_meta_info["data"]["skip"]
         self.accum_step_idxes = []
         for filename in self.filenames:
-            with RmbData.from_file(filename) as rmb_data:
+            with RmbData(filename) as rmb_data:
                 episode_len = rmb_data[DataKey.TIME][::skip].shape[0]
                 if len(self.accum_step_idxes) == 0:
                     self.accum_step_idxes.append(episode_len)
@@ -37,7 +37,7 @@ class MlpDataset(DatasetBase):
         if episode_idx > 0:
             step_idx_in_episode -= self.accum_step_idxes[episode_idx - 1]
 
-        with RmbData.from_file(self.filenames[episode_idx]) as rmb_data:
+        with RmbData(self.filenames[episode_idx], self.enable_rmb_cache) as rmb_data:
             episode_len = rmb_data[DataKey.TIME][::skip].shape[0]
             assert 0 <= step_idx_in_episode < episode_len
 
@@ -65,12 +65,18 @@ class MlpDataset(DatasetBase):
             )
 
             # Load images
+            image_keys = [
+                DataKey.get_rgb_image_key(camera_name)
+                for camera_name in self.model_meta_info["image"]["camera_names"]
+            ]
             images = np.stack(
                 [
-                    rmb_data[DataKey.get_rgb_image_key(camera_name)][
-                        step_idx_in_episode * skip
-                    ]
-                    for camera_name in self.model_meta_info["image"]["camera_names"]
+                    # This allows for a common hash of cache
+                    rmb_data[key][::skip][step_idx_in_episode]
+                    if self.enable_rmb_cache
+                    # This allows for minimal loading when reading from HDF5
+                    else rmb_data[key][step_idx_in_episode * skip]
+                    for key in image_keys
                 ],
                 axis=0,
             )

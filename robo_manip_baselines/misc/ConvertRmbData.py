@@ -19,7 +19,7 @@ def parse_argument():
 if __name__ == "__main__":
     args = parse_argument()
 
-    with RmbData.from_file(args.src_path) as rmb_data:
+    with RmbData(args.src_path) as rmb_data:
         _, dst_ext = os.path.splitext(args.dst_path.rstrip("/"))
         if dst_ext.lower() == ".rmb":
             rmb_data.dump_to_rmb(args.dst_path, args.force_overwrite)

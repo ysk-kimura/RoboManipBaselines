@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 
 
@@ -236,30 +234,3 @@ class DataKey:
             return np.full(6, 100.0)
         else:
             return np.ones(cls.get_dim(key, env))
-
-    @classmethod
-    def replace_deprecated_key(cls, orig_key):
-        """Replace a deprecated key with a new key for backward compatibility."""
-        if orig_key == "joint_pos":
-            new_key = DataKey.MEASURED_JOINT_POS
-        elif orig_key == "joint_vel":
-            new_key = DataKey.MEASURED_JOINT_VEL
-        elif orig_key == "wrench":
-            new_key = DataKey.MEASURED_EEF_WRENCH
-        elif orig_key == "measured_eef":
-            new_key = DataKey.MEASURED_EEF_POSE
-        elif orig_key == "command_eef":
-            new_key = DataKey.COMMAND_EEF_POSE
-        elif orig_key == "measured_wrench":
-            new_key = DataKey.MEASURED_EEF_WRENCH
-        elif orig_key == "command_wrench":
-            new_key = DataKey.COMMAND_EEF_WRENCH
-        elif orig_key == "action":
-            new_key = DataKey.COMMAND_JOINT_POS
-        else:
-            new_key = orig_key.lower()
-        if orig_key != new_key:
-            warnings.warn(
-                f'[{cls.__name__}] "{orig_key}" is deprecated, use "{new_key}" instead.'
-            )
-        return new_key

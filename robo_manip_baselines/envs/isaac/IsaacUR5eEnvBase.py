@@ -439,6 +439,7 @@ class IsaacUR5eEnvBase(gym.Env, ABC):
                 depth_image = -1 * self.gym.get_camera_image(
                     self.sim, env, camera_handle, gymapi.IMAGE_DEPTH
                 )
+                depth_image[np.isinf(depth_image)] = 0.0
                 info["rgb_images"][camera_name] = rgb_image
                 info["depth_images"][camera_name] = depth_image
             info_list.append(info)

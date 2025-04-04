@@ -8,12 +8,36 @@ from .MathUtils import get_rel_pose_from_se3, get_se3_from_rel_pose
 
 def normalize_data(data, stats):
     """Normalize data."""
-    return (data - stats["mean"]) / stats["std"]
+    if "norm_config" in stats:
+        norm_type = stats["norm_config"]["type"]
+    else:
+        norm_type = "gaussian"
+
+    if norm_type == "gaussian":
+        return (data - stats["mean"]) / stats["std"]
+    elif norm_type == "limits":
+        norm_config = stats["norm_config"]
+        scale = (norm_config["out_max"] - norm_config["out_min"]) / stats["range"]
+        return scale * (data - stats["min"]) + norm_config["out_min"]
+    else:
+        raise ValueError(f"[normalize_data] Invalid normalization type: {norm_type}")
 
 
 def denormalize_data(data, stats):
     """Denormalize data."""
-    return stats["std"] * data + stats["mean"]
+    if "norm_config" in stats:
+        norm_type = stats["norm_config"]["type"]
+    else:
+        norm_type = "gaussian"
+
+    if norm_type == "gaussian":
+        return stats["std"] * data + stats["mean"]
+    elif norm_type == "limits":
+        norm_config = stats["norm_config"]
+        scale = stats["range"] / (norm_config["out_max"] - norm_config["out_min"])
+        return scale * (data - norm_config["out_min"]) + stats["min"]
+    else:
+        raise ValueError(f"[denormalize_data] Invalid normalization type: {norm_type}")
 
 
 def _aggregate_data_seq_with_skip(data_seq, skip, agg_func):

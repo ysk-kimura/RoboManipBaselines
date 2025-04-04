@@ -109,3 +109,11 @@ class DiffusionPolicyDataset(DatasetBase):
             ]
 
         return data
+
+    def augment_data(self, state, action, images):
+        state, action, images = super().augment_data(state, action, images)
+
+        # Adjust to a range from -1 to 1 to match the original implementation
+        images = images * 2.0 - 1.0
+
+        return state, action, images

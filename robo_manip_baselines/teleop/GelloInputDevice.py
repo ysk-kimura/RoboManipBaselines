@@ -84,13 +84,14 @@ class GelloInputDevice(InputDeviceBase):
         )
         joint_pos_error_thre = np.deg2rad(30.0)  # [rad]
         if joint_pos_error < joint_pos_error_thre:
+            print(f"[{self.__class__.__name__}] Ready to start.")
             return True
         else:
             print(
                 f"[{self.__class__.__name__}] Joint angles differ greatly.\n  joint_name, robot_joint, gello_joint (joint_status):"
             )
             for joint_idx, current_joint_pos0, new_joint_pos0 in zip(
-                arm_joint_idxes,
+                np.arange(len(current_joint_pos))[arm_joint_idxes],
                 current_joint_pos[arm_joint_idxes],
                 new_joint_pos[arm_joint_idxes],
             ):
@@ -124,6 +125,8 @@ class GelloInputDevice(InputDeviceBase):
             new_joint_pos = (
                 interp_ratio * self.state + (1 - interp_ratio) * current_joint_pos
             )
+        else:
+            new_joint_pos = self.state
 
         # Set arm and gripper commands
         self.motion_manager.set_command_data(DataKey.COMMAND_JOINT_POS, new_joint_pos)

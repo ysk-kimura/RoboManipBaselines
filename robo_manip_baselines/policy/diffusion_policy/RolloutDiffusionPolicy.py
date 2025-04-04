@@ -113,6 +113,8 @@ class RolloutDiffusionPolicy(RolloutBase):
             image = np.moveaxis(image, -1, -3)
             image = torch.tensor(image, dtype=torch.uint8)
             image = self.image_transforms(image)
+            # Adjust to a range from -1 to 1 to match the original implementation
+            image = image * 2.0 - 1.0
 
             images.append(image)
 

@@ -173,7 +173,7 @@ class VisualizeData:
             DataKey.MEASURED_EEF_POSE,
         ]
         self.data_list = {key: [] for key in key_list}
-        self.scatter_list = [None] * 3
+        self.scatter_list = [None] * len(self.sensor_names)
 
     def handle_rgb_image(self, ax_idx, time_idx, rgb_key):
         self.ax[ax_idx, 0].axis("off")
@@ -197,7 +197,6 @@ class VisualizeData:
         self,
         ax_idx,
         scatter_list,
-        far_clip_list,
         depth_key,
         rgb_image,
         depth_image,
@@ -214,7 +213,7 @@ class VisualizeData:
             small_depth_image,
             fovy=fovy,
             rgb_image=small_rgb_image,
-            far_clip=far_clip_list[ax_idx - 1],
+            far_clip=3.0,  # [m]
         )
         if not xyz_array.size:
             return
@@ -315,7 +314,6 @@ class VisualizeData:
                 time_list, np.array(self.data_list[DataKey.MEASURED_EEF_POSE])[:, 3:]
             )
 
-            far_clip_list = (3.0, 3.0, 0.8)  # [m]
             for ax_idx, sensor_name in enumerate(self.sensor_names, start=1):
                 rgb_key = DataKey.get_rgb_image_key(sensor_name)
                 depth_key = DataKey.get_depth_image_key(sensor_name)
@@ -327,7 +325,6 @@ class VisualizeData:
                 self.handle_point_cloud(
                     ax_idx,
                     self.scatter_list,
-                    far_clip_list,
                     depth_key,
                     rgb_image,
                     depth_image,

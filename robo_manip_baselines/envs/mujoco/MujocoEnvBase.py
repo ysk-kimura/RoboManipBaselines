@@ -58,7 +58,8 @@ class MujocoEnvBase(MujocoEnv, ABC):
             camera["viewer"] = OffScreenViewer(
                 self.model, self.data, width=640, height=480
             )
-            self.cameras[camera_name] = camera
+            # Because "/" are not allowed in HDF5 keys, replace "/" with "_" in dictionary keys
+            self.cameras[camera_name.replace("/", "_")] = camera
 
         # This is required to automatically switch context to free camera in render()
         # https://github.com/Farama-Foundation/Gymnasium/blob/81b87efb9f011e975f3b646bab6b7871c522e15e/gymnasium/envs/mujoco/mujoco_rendering.py#L695-L697
@@ -95,12 +96,12 @@ class MujocoEnvBase(MujocoEnv, ABC):
 
         info["rgb_images"] = {}
         info["depth_images"] = {}
-        for camera in self.cameras.values():
+        for camera_name, camera in self.cameras.items():
             camera["viewer"].make_context_current()
             rgb_image = camera["viewer"].render(
                 render_mode="rgb_array", camera_id=camera["id"]
             )
-            info["rgb_images"][camera["name"]] = rgb_image
+            info["rgb_images"][camera_name] = rgb_image
             depth_image = camera["viewer"].render(
                 render_mode="depth_array", camera_id=camera["id"]
             )
@@ -109,7 +110,7 @@ class MujocoEnvBase(MujocoEnv, ABC):
             near = self.model.vis.map.znear * extent
             far = self.model.vis.map.zfar * extent
             depth_image = near / (1 - depth_image * (1 - near / far))
-            info["depth_images"][camera["name"]] = depth_image
+            info["depth_images"][camera_name] = depth_image
 
         return info
 
@@ -165,7 +166,7 @@ class MujocoEnvBase(MujocoEnv, ABC):
 
     def get_camera_fovy(self, camera_name):
         """Get vertical field-of-view of the camera."""
-        return self.model.cam(camera_name).fovy[0]
+        return self.model.cam(self.cameras[camera_name]["name"]).fovy[0]
 
     @abstractmethod
     def modify_world(self, world_idx=None, cumulative_idx=None):

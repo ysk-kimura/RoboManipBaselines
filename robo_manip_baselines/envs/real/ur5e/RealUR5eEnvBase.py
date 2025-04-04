@@ -20,7 +20,7 @@ class RealUR5eEnvBase(RealEnvBase):
                 -2 * np.pi,
                 -2 * np.pi,
                 -2 * np.pi,
-                0.0,
+                100.0,
             ],
             dtype=np.float32,
         ),

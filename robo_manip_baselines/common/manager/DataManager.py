@@ -1,11 +1,14 @@
+import concurrent.futures
 import os
 
 import h5py
 import numpy as np
+import videoio
 
 from robo_manip_baselines import __version__
 
 from ..data.DataKey import DataKey
+from ..data.RmbData import RmbData
 from ..utils.MathUtils import (
     get_rel_pose_from_se3,
     get_se3_from_pose,
@@ -20,7 +23,6 @@ class DataManager:
         self.env = env
 
         self.meta_data = {
-            "format": "RmbData-SingleHDF5",
             "demo": demo_name,
             "version": __version__,
         }
@@ -38,22 +40,17 @@ class DataManager:
 
     def append_single_data(self, key, data):
         """Append a single data to the data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
         if key not in self.all_data_seq:
             self.all_data_seq[key] = []
         self.all_data_seq[key].append(data)
 
     def get_single_data(self, key, time_idx):
         """Get a single data from the data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
-        data = self.all_data_seq[key][time_idx]
-        return data
+        return self.all_data_seq[key][time_idx]
 
     def get_data_seq(self, key):
         """Get data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
-        data_seq = self.all_data_seq[key]
-        return data_seq
+        return self.all_data_seq[key]
 
     def get_meta_data(self, key):
         """Get meta data."""
@@ -90,46 +87,88 @@ class DataManager:
         if meta_data is None:
             meta_data = self.meta_data
 
-        # For backward compatibility
-        for orig_key in all_data_seq.keys():
-            new_key = DataKey.replace_deprecated_key(orig_key)
-            if orig_key != new_key:
-                all_data_seq[new_key] = all_data_seq.pop(orig_key)
-
-        # Dump to a file
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with h5py.File(filename, "w") as h5file:
-            for key in all_data_seq.keys():
-                if isinstance(all_data_seq[key], list):
-                    h5file.create_dataset(key, data=np.array(all_data_seq[key]))
-                else:
-                    raise ValueError(
-                        f"[{self.__class__.__name__}] Unsupported type of data sequence: {type(all_data_seq[key])}"
-                    )
-            for key in meta_data.keys():
-                h5file.attrs[key] = meta_data[key]
+        _, ext = os.path.splitext(filename.rstrip("/"))
+        if ext.lower() == ".rmb":
+            self.dump_to_rmb(filename, all_data_seq, meta_data)
+        elif ext.lower() == ".hdf5":
+            self.dump_to_hdf5(filename, all_data_seq, meta_data)
+        else:
+            raise ValueError(
+                f"[{self.__class__.__name__}] Invalid file extension '{ext}'. Expected '.hdf5' or '.rmb': {filename}"
+            )
 
         if increment_episode_idx:
             self.episode_idx += 1
+
+    def dump_to_rmb(self, filename, all_data_seq, meta_data):
+        os.makedirs(filename)
+        hdf5_filename = os.path.join(filename, "main.rmb.hdf5")
+        with h5py.File(hdf5_filename, "w") as h5file:
+            tasks = []
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                for key in all_data_seq.keys():
+                    if not isinstance(all_data_seq[key], list):
+                        raise ValueError(
+                            f"[{self.__class__.__name__}] Unsupported type of data sequence: {type(all_data_seq[key])}"
+                        )
+
+                    if DataKey.is_rgb_image_key(key):
+                        video_filename = os.path.join(filename, f"{key}.rmb.mp4")
+                        images = np.array(all_data_seq[key])
+                        tasks.append(
+                            executor.submit(self.save_rgb_image, video_filename, images)
+                        )
+                    elif DataKey.is_depth_image_key(key):
+                        video_filename = os.path.join(filename, f"{key}.rmb.mp4")
+                        images = (1e3 * np.array(all_data_seq[key])).astype(np.uint16)
+                        tasks.append(
+                            executor.submit(
+                                self.save_depth_image, video_filename, images
+                            )
+                        )
+                    else:
+                        h5file.create_dataset(key, data=np.array(all_data_seq[key]))
+
+                concurrent.futures.wait(tasks)
+
+            for key in meta_data.keys():
+                h5file.attrs[key] = meta_data[key]
+            h5file.attrs["format"] = "RmbData-Compact"
+
+    def dump_to_hdf5(self, filename, all_data_seq, meta_data):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with h5py.File(filename, "w") as h5file:
+            for key in all_data_seq.keys():
+                if not isinstance(all_data_seq[key], list):
+                    raise ValueError(
+                        f"[{self.__class__.__name__}] Unsupported type of data sequence: {type(all_data_seq[key])}"
+                    )
+
+                h5file.create_dataset(key, data=np.array(all_data_seq[key]))
+
+            for key in meta_data.keys():
+                h5file.attrs[key] = meta_data[key]
+            h5file.attrs["format"] = "RmbData-SingleHDF5"
+
+    @staticmethod
+    def save_rgb_image(video_filename, images):
+        videoio.videosave(video_filename, images)
+
+    @staticmethod
+    def save_depth_image(video_filename, images):
+        videoio.uint16save(video_filename, images)
 
     def load_data(self, filename, load_keys=None):
         """Load data."""
         self.all_data_seq = {}
         self.meta_data = {}
-        with h5py.File(filename, "r") as h5file:
-            for orig_key in h5file.keys():
-                new_key = DataKey.replace_deprecated_key(
-                    orig_key
-                )  # For backward compatibility
-                if (
-                    load_keys is not None
-                    and orig_key not in load_keys
-                    and new_key not in load_keys
-                ):
+        with RmbData(filename, "r") as rmb_data:
+            for key in rmb_data.keys():
+                if (load_keys is not None) and (key not in load_keys):
                     continue
-                self.all_data_seq[new_key] = h5file[orig_key][:]
-            for key in h5file.attrs.keys():
-                self.meta_data[key] = h5file.attrs[key]
+                self.all_data_seq[key] = rmb_data[key][:]
+            for key in rmb_data.attrs.keys():
+                self.meta_data[key] = rmb_data.attrs[key]
 
     def reverse_data(self, all_data_seq=None):
         """Reverse sequence data."""
@@ -139,12 +178,13 @@ class DataManager:
         for key in all_data_seq.keys():
             if key == DataKey.TIME:
                 continue
-            elif isinstance(all_data_seq[key], list):
-                all_data_seq[key].reverse()
-            else:
+
+            if not isinstance(all_data_seq[key], list):
                 raise ValueError(
                     f"[{self.__class__.__name__}] Unsupported type of data sequence: {type(all_data_seq[key])}"
                 )
+
+            all_data_seq[key].reverse()
 
             if key in (
                 DataKey.MEASURED_JOINT_VEL,

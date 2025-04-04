@@ -1,6 +1,3 @@
-import h5py
-
-from ..data.DataKey import DataKey
 from .DataManager import DataManager
 
 
@@ -13,7 +10,6 @@ class DataManagerVec(DataManager):
 
     def append_single_data(self, key, data_list):
         """Append a single data to the data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
         for all_data_seq, data in zip(self.all_data_seq_list, data_list):
             if key not in all_data_seq:
                 all_data_seq[key] = []
@@ -21,7 +17,6 @@ class DataManagerVec(DataManager):
 
     def get_single_data(self, key, time_idx):
         """Get a single data from the data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
         data_list = []
         for all_data_seq in self.all_data_seq_list:
             data = all_data_seq[key][time_idx]
@@ -30,7 +25,6 @@ class DataManagerVec(DataManager):
 
     def get_data_seq(self, key):
         """Get a data sequence."""
-        key = DataKey.replace_deprecated_key(key)  # For backward compatibility
         data_seq_list = []
         for all_data_seq in self.all_data_seq_list:
             data_seq = all_data_seq[key]
@@ -50,24 +44,13 @@ class DataManagerVec(DataManager):
             if filename is None:
                 continue
 
-            super().save_data(
+            super(DataManagerVec, self).save_data(
                 filename, all_data_seq, self.meta_data, increment_episode_idx=False
             )
 
         self.episode_idx += 1
 
     def load_data(self, filename_list):
-        """Load data."""
-        self.all_data_seq_list = [{} for file_idx in range(len(filename_list))]
-        for all_data_seq, filename in zip(self.all_data_seq_list, filename_list):
-            with h5py.File(filename, "r") as h5file:
-                for orig_key in h5file.keys():
-                    new_key = DataKey.replace_deprecated_key(
-                        orig_key
-                    )  # For backward compatibility
-                    all_data_seq[new_key] = h5file[orig_key][:]
-                for orig_key in h5file.attrs.keys():
-                    new_key = DataKey.replace_deprecated_key(
-                        orig_key
-                    )  # For backward compatibility
-                    all_data_seq[new_key] = h5file.attrs[orig_key]
+        raise NotImplementedError(
+            f"[{self.__class__.__name__}] This method is not supported."
+        )

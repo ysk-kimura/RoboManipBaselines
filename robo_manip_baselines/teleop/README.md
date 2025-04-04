@@ -29,5 +29,5 @@ $ python ./bin/Teleop.py MujocoUR5eCable --enable_3d_plot
 
 To replay the teleoperation motion of the log, add the following option:
 ```console
-$ python ./bin/Teleop.py MujocoUR5eCable --replay_log ./dataset/MujocoUR5eCable_<date_suffix>/MujocoUR5eCable_env0_000.hdf5
+$ python ./bin/Teleop.py MujocoUR5eCable --replay_log ./dataset/MujocoUR5eCable_<date_suffix>/MujocoUR5eCable_env0_000.rmb
 ```

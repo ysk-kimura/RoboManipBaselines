@@ -61,7 +61,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             depth_image = info["depth_images"][camera_name]
             self.assertIsNotNone(depth_image)
             self.assertIsInstance(depth_image, np.ndarray)
-            self.assertEqual(depth_image.dtype, np.float64)
+            self.assertEqual(depth_image.dtype, np.float32)
             self.assertEqual(len(depth_image.shape), 2)
 
     def assert_tactile_images_valid(self, dummy_real_env, info):

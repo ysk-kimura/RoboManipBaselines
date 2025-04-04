@@ -3,8 +3,8 @@ import shutil
 
 import h5py
 import numpy as np
+import torchcodec
 import videoio
-from torchcodec.decoders import VideoDecoder
 
 from .DataKey import DataKey
 
@@ -28,7 +28,7 @@ class RmbData:
             self.enable_cache = enable_cache
 
         def __len__(self):
-            decoder = VideoDecoder(self.path)
+            decoder = torchcodec.decoders.VideoDecoder(self.path)
             return decoder.metadata.num_frames
 
         def __getitem__(self, idx):
@@ -44,12 +44,14 @@ class RmbData:
         def _get_data(self, idx):
             # torchcodec's VideoDecoder is slightly faster
             # return videoio.videoread(self.path)[idx]
-            decoder = VideoDecoder(self.path, dimension_order="NHWC")
+            decoder = torchcodec.decoders.VideoDecoder(
+                self.path, dimension_order="NHWC"
+            )
             return decoder[idx].numpy()
 
         @property
         def shape(self):
-            decoder = VideoDecoder(self.path)
+            decoder = torchcodec.decoders.VideoDecoder(self.path)
             return (
                 decoder.metadata.num_frames,
                 decoder.metadata.height,
@@ -67,7 +69,7 @@ class RmbData:
 
         @property
         def shape(self):
-            decoder = VideoDecoder(self.path)
+            decoder = torchcodec.decoders.VideoDecoder(self.path)
             return (
                 decoder.metadata.num_frames,
                 decoder.metadata.height,
@@ -194,7 +196,7 @@ class RmbData:
 
         self._check_file_existence(dst_path, force_overwrite)
 
-        os.makedirs(dst_path, exist_ok="True")
+        os.makedirs(dst_path, exist_ok=True)
 
         dst_hdf5_path = os.path.join(dst_path, "main.rmb.hdf5")
         with h5py.File(dst_hdf5_path, "w") as dst_h5file:
@@ -212,7 +214,7 @@ class RmbData:
 
             for key in self.attrs.keys():
                 dst_h5file.attrs[key] = self.attrs[key]
-            dst_h5file.attrs["format"] = "RmbData"
+            dst_h5file.attrs["format"] = "RmbData-Compact"
 
         print(f"[{self.__class__.__name__}] Succeeded to dump RMB files: {dst_path}")
 
@@ -225,7 +227,7 @@ class RmbData:
         else:
             print(f"[{self.__class__.__name__}] A file already exists: {path}")
             answer = input(
-                f"[{self.__class__.__name__}] Do you want to delete it? (y/n): "
+                f"[{self.__class__.__name__}] Do you want to overwrite it? (y/n): "
             )
             will_remove = answer.strip().lower() == "y"
 

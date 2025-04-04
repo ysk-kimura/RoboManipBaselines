@@ -1,8 +1,9 @@
-<mujoco model="ur5e_cabinet">
+<mujoco model="ur5e_dual_cabinet">
   <include file="./env_ur5e_common.xml"/>
 
   <include file="../../robots/ur5e/ur5e_integrated_shared_config.xml"/>
-  <include file="../../robots/ur5e/ur5e_integrated_specific_config.xml"/>
+  <include file="../../robots/ur5e/ur5e_integrated_specific_config_left.xml"/>
+  <include file="../../robots/ur5e/ur5e_integrated_specific_config_right.xml"/>
 
   <asset>
     <texture name="table_plate2" file="table/table2.png" type="2d"/>
@@ -26,8 +27,11 @@
       <geom type="box" size="0.33 0.33 0.4" pos="-0.605 0 0.4" material="stand"/>
     </body>
 
-    <body name="ur5e_root_frame" pos="-0.605 0.0 0.8">
-      <include file="../../robots/ur5e/ur5e_integrated_body.xml"/>
+    <body name="left/ur5e_root_frame" pos="-0.605 0.4 0.8">
+      <include file="../../robots/ur5e/ur5e_integrated_body_left.xml"/>
+    </body>
+    <body name="right/ur5e_root_frame" pos="-0.605 -0.4 0.8">
+      <include file="../../robots/ur5e/ur5e_integrated_body_right.xml"/>
     </body>
 
     <body name="cabinet" pos="0.12 -0.05 0.815">

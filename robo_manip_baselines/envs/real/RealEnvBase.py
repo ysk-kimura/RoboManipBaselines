@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import re
 import time
@@ -168,24 +169,40 @@ class RealEnvBase(gym.Env, ABC):
         # Get images
         info["rgb_images"] = {}
         info["depth_images"] = {}
-        for camera_name, camera in self.cameras.items():
-            rgb_image, depth_image = camera.read((640, 480))
-            info["rgb_images"][camera_name] = rgb_image
-            info["depth_images"][camera_name] = (1e-3 * depth_image[:, :, 0]).astype(
-                np.float32
-            )  # [m]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
 
-        for tactile_name, tactile in self.tactiles.items():
-            ret, rgb_image = tactile.read()
-            if not ret:
-                raise RuntimeError(
-                    f"[{self.__class__.__name__}] Failed to read tactile image."
+            for camera_name, camera in self.cameras.items():
+                futures[executor.submit(self.get_camera_image, camera_name, camera)] = (
+                    camera_name
                 )
-            image_size = (640, 480)
-            info["rgb_images"][tactile_name] = cv2.resize(rgb_image, image_size)
-            info["depth_images"][tactile_name] = None
+
+            for tactile_name, tactile in self.tactiles.items():
+                futures[
+                    executor.submit(self.get_tactile_image, tactile_name, tactile)
+                ] = tactile_name
+
+            for future in concurrent.futures.as_completed(futures):
+                name, rgb_image, depth_image = future.result()
+                info["rgb_images"][name] = rgb_image
+                info["depth_images"][name] = depth_image
 
         return info
+
+    def get_camera_image(self, camera_name, camera):
+        rgb_image, depth_image = camera.read((640, 480))
+        depth_image = (1e-3 * depth_image[:, :, 0]).astype(np.float32)  # [m]
+        return camera_name, rgb_image, depth_image
+
+    def get_tactile_image(self, tactile_name, tactile):
+        ret, rgb_image = tactile.read()
+        if not ret:
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Failed to read tactile image."
+            )
+        image_size = (640, 480)
+        rgb_image = cv2.resize(rgb_image, image_size)
+        return tactile_name, rgb_image, None
 
     def get_joint_pos_from_obs(self, obs):
         """Get joint position from observation."""

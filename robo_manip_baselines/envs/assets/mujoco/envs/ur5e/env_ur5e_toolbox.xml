@@ -1,7 +1,8 @@
 <mujoco model="ur5e_toolbox">
   <include file="./env_ur5e_common.xml"/>
 
-  <include file="../../robots/ur5e/ur5e_integrated_config.xml"/>
+  <include file="../../robots/ur5e/ur5e_integrated_shared_config.xml"/>
+  <include file="../../robots/ur5e/ur5e_integrated_specific_config.xml"/>
 
   <asset>
     <texture name="table_plate2" file="table/table2.png" type="2d"/>

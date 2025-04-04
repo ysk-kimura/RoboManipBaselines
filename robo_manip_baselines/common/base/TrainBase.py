@@ -324,21 +324,11 @@ class TrainBase(ABC):
         data_mean = data_seq.mean(axis=0)
         data_std = np.clip(data_seq.std(axis=0), 1e-3, 1e10)
 
-        if self.args.norm_type == "gaussian":
-            norm_config = {"type": self.args.norm_type}
-        elif self.args.norm_type == "limits":
-            norm_config = {
-                "type": self.args.norm_type,
-                "out_min": -1.0,
-                "out_max": 1.0,
-            }
-        else:
-            raise ValueError(
-                f"[{self.__class__.__name__}] Invalid normalization type: {self.args.norm_type}"
-            )
-
         data_stats = {
-            "norm_config": norm_config,
+            "norm_config": {
+                "type": self.args.norm_type,
+                **self.get_extra_norm_config(),
+            },
             "min": data_min,
             "max": data_max,
             "range": data_range,
@@ -347,6 +337,19 @@ class TrainBase(ABC):
             "example": data_seq[0],
         }
         return data_stats
+
+    def get_extra_norm_config(self):
+        if self.args.norm_type == "gaussian":
+            return {}
+        elif self.args.norm_type == "limits":
+            return {
+                "out_min": 0.0,
+                "out_max": 1.0,
+            }
+        else:
+            raise ValueError(
+                f"[{self.__class__.__name__}] Invalid normalization type: {self.args.norm_type}"
+            )
 
     def make_dataloader(self, filenames, shuffle=True):
         dataset = self.DatasetClass(

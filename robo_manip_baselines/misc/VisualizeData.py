@@ -11,6 +11,7 @@ from robo_manip_baselines.common import (
     DataKey,
     DataManager,
     convert_depth_image_to_point_cloud,
+    crop_and_resize,
 )
 
 
@@ -32,13 +33,22 @@ def parse_argument():
         type=str,
         default="mp4v",
     )
+    parser.add_argument(
+        "--rgb_crop_size_list",
+        type=int,
+        nargs="+",
+        default=None,
+        help="List of rgb image size (width, height) to be cropped before resize. Specify a 2-dimensional array if all images have the same size, or an array of <number-of-images> * 2 dimensions if the size differs for each individual image.",
+    )
     return parser.parse_args()
 
 
 class VisualizeData:
-    def __init__(self, teleop_filename, skip, output_mp4_filename, mp4_codec):
+    def __init__(
+        self, teleop_filename, skip, output_mp4_filename, mp4_codec, rgb_crop_size_list
+    ):
         print(f"[{self.__class__.__name__}] {self.data_setup.__name__} ...")
-        self.data_setup(teleop_filename, skip)
+        self.data_setup(teleop_filename, skip, rgb_crop_size_list)
 
         print(f"[{self.__class__.__name__}] {self.figure_axes_setup.__name__} ...")
         self.figure_axes_setup()
@@ -56,12 +66,13 @@ class VisualizeData:
         )
         self.plot_lists_initialization()
 
-    def data_setup(self, teleop_filename, skip):
+    def data_setup(self, teleop_filename, skip, rgb_crop_size_list):
         cls_str = f"[{self.__class__.__name__}] {self.data_setup.__name__},"
 
         print(f"{cls_str} set skip parameter ...")
         self.skip = skip
 
+        # Use DataManager instead of RmbData because DataManager that puts all data in RAM is faster
         print(f"{cls_str} initialize data manager ...")
         self.data_manager = DataManager(env=None)
 
@@ -76,6 +87,22 @@ class VisualizeData:
 
         print(f"{cls_str} combine metadata lists ...")
         self.sensor_names = camera_names + tactile_names
+
+        if rgb_crop_size_list is None:
+            self.rgb_crop_size_list = None
+        else:
+            # Set rgb image size list
+            def refine_size_list(size_list):
+                if len(size_list) == 2:
+                    return [tuple(size_list)] * len(self.sensor_names)
+                else:
+                    assert len(size_list) == len(self.sensor_names) * 2
+                    return [
+                        (size_list[i], size_list[i + 1])
+                        for i in range(0, len(size_list), 2)
+                    ]
+
+            self.rgb_crop_size_list = refine_size_list(rgb_crop_size_list)
 
     def figure_axes_setup(self):
         plt.rcParams["keymap.quit"] = ["q", "escape"]
@@ -175,14 +202,22 @@ class VisualizeData:
         self.data_list = {key: [] for key in key_list}
         self.scatter_list = [None] * len(self.sensor_names)
 
-    def handle_rgb_image(self, ax_idx, time_idx, rgb_key):
+    def handle_rgb_image(self, sensor_idx, time_idx, rgb_key):
+        ax_idx = sensor_idx + 1
         self.ax[ax_idx, 0].axis("off")
         rgb_image = self.data_manager.get_single_data(rgb_key, time_idx)
+        if self.rgb_crop_size_list is None:
+            rgb_image_to_show = rgb_image
+        else:
+            rgb_image_to_show = crop_and_resize(
+                rgb_image[np.newaxis], crop_size=self.rgb_crop_size_list[sensor_idx]
+            )[0]
         rgb_image_skip = 4
-        self.ax[ax_idx, 0].imshow(rgb_image[::rgb_image_skip, ::rgb_image_skip])
+        self.ax[ax_idx, 0].imshow(rgb_image_to_show[::rgb_image_skip, ::rgb_image_skip])
         return rgb_image
 
-    def handle_depth_image(self, ax_idx, time_idx, depth_key):
+    def handle_depth_image(self, sensor_idx, time_idx, depth_key):
+        ax_idx = sensor_idx + 1
         if depth_key not in self.data_manager.all_data_seq.keys():
             if self.ax[ax_idx, 1] in self.fig.axes:
                 self.ax[ax_idx, 1].remove()
@@ -314,13 +349,14 @@ class VisualizeData:
                 time_list, np.array(self.data_list[DataKey.MEASURED_EEF_POSE])[:, 3:]
             )
 
-            for ax_idx, sensor_name in enumerate(self.sensor_names, start=1):
+            for sensor_idx, sensor_name in enumerate(self.sensor_names):
+                ax_idx = sensor_idx + 1
                 rgb_key = DataKey.get_rgb_image_key(sensor_name)
                 depth_key = DataKey.get_depth_image_key(sensor_name)
 
-                rgb_image = self.handle_rgb_image(ax_idx, time_idx, rgb_key)
+                rgb_image = self.handle_rgb_image(sensor_idx, time_idx, rgb_key)
 
-                depth_image = self.handle_depth_image(ax_idx, time_idx, depth_key)
+                depth_image = self.handle_depth_image(sensor_idx, time_idx, depth_key)
 
                 self.handle_point_cloud(
                     ax_idx,
@@ -370,6 +406,10 @@ if __name__ == "__main__":
     args = parse_argument()
     print(f"{args=}")
     viz = VisualizeData(
-        args.teleop_filename, args.skip, args.output_mp4_filename, args.mp4_codec
+        args.teleop_filename,
+        args.skip,
+        args.output_mp4_filename,
+        args.mp4_codec,
+        args.rgb_crop_size_list,
     )
     viz.plot()

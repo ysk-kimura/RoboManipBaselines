@@ -22,19 +22,6 @@ class TrainDiffusionPolicy(TrainBase):
     def setup_args(self):
         super().setup_args()
 
-        # Set image size list
-        def refine_size_list(size_list):
-            if len(size_list) == 2:
-                return [tuple(size_list)] * len(self.args.camera_names)
-            else:
-                assert len(size_list) == len(self.args.camera_names) * 2
-                return [
-                    (size_list[i], size_list[i + 1])
-                    for i in range(0, len(size_list), 2)
-                ]
-
-        self.args.image_size_list = refine_size_list(self.args.image_size_list)
-
     def set_additional_args(self, parser):
         parser.set_defaults(enable_rmb_cache=True)
 
@@ -72,22 +59,39 @@ class TrainDiffusionPolicy(TrainBase):
         )
 
         parser.add_argument(
-            "--image_size_list",
+            "--image_size",
             type=int,
-            nargs="+",
+            nargs=2,
             default=[320, 240],
-            help="List of image size (width, height). Specify a 2-dimensional array if all images have the same size, or an array of <number-of-images> * 2 dimensions if the size differs for each individual image.",
+            help="Image size (width, height) to be resized before crop. In the case of multiple image inputs, it is assumed that all images share the same size.",
+        )
+        parser.add_argument(
+            "--image_crop_size",
+            type=int,
+            nargs=2,
+            default=[288, 216],
+            help="Image size (width, height) to be cropped after resize. In the case of multiple image inputs, it is assumed that all images share the same size.",
         )
 
     def setup_model_meta_info(self):
         super().setup_model_meta_info()
 
-        self.model_meta_info["data"]["image_size_list"] = self.args.image_size_list
+        self.model_meta_info["data"]["image_size"] = self.args.image_size
+        self.model_meta_info["data"]["image_crop_size"] = self.args.image_crop_size
         self.model_meta_info["data"]["horizon"] = self.args.horizon
         self.model_meta_info["data"]["n_obs_steps"] = self.args.n_obs_steps
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps
 
         self.model_meta_info["policy"]["use_ema"] = self.args.use_ema
+
+    def get_extra_norm_config(self):
+        if self.args.norm_type == "limits":
+            return {
+                "out_min": -1.0,
+                "out_max": 1.0,
+            }
+        else:
+            return super().get_extra_norm_config()
 
     def setup_policy(self):
         # Set policy args
@@ -100,11 +104,9 @@ class TrainDiffusionPolicy(TrainBase):
                 "shape": [len(self.model_meta_info["state"]["example"])],
                 "type": "low_dim",
             }
-        for camera_name, image_size in zip(
-            self.args.camera_names, self.args.image_size_list
-        ):
+        for camera_name in self.args.camera_names:
             shape_meta["obs"][DataKey.get_rgb_image_key(camera_name)] = {
-                "shape": [3, image_size[1], image_size[0]],
+                "shape": [3, self.args.image_size[1], self.args.image_size[0]],
                 "type": "rgb",
             }
         self.model_meta_info["policy"]["args"] = {
@@ -114,7 +116,7 @@ class TrainDiffusionPolicy(TrainBase):
             "n_obs_steps": self.args.n_obs_steps,
             "num_inference_steps": 100,
             "obs_as_global_cond": True,
-            "crop_shape": None,
+            "crop_shape": self.args.image_crop_size[::-1],  # (height, width)
             "diffusion_step_embed_dim": 128,
             "down_dims": [512, 1024, 2048],
             "kernel_size": 5,
@@ -181,7 +183,9 @@ class TrainDiffusionPolicy(TrainBase):
         print(
             f"  - horizon: {self.args.horizon}, obs steps: {self.args.n_obs_steps}, action steps: {self.args.n_action_steps}"
         )
-        print(f"  - image size list: {self.args.image_size_list}")
+        print(
+            f"  - image size: {self.args.image_size}, image crop size: {self.args.image_crop_size}"
+        )
 
     def train_loop(self):
         for epoch in tqdm(range(self.args.num_epochs)):

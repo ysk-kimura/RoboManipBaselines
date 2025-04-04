@@ -67,7 +67,7 @@ class DiffusionPolicyDataset(DatasetBase):
             )
 
             # Load images
-            image_list = np.stack(
+            images = np.stack(
                 [
                     rmb_data[DataKey.get_rgb_image_key(camera_name)][::skip][time_idxes]
                     for camera_name in self.model_meta_info["image"]["camera_names"]
@@ -76,21 +76,19 @@ class DiffusionPolicyDataset(DatasetBase):
             )
 
         # Resize images
-        image_size_list = self.model_meta_info["data"]["image_size_list"]
-        resized_image_list = []
-        for image, image_size in zip(image_list, image_size_list):
-            resized_image_list.append(
-                [cv2.resize(single_image, image_size) for single_image in image]
-            )
-        image_list = np.array(resized_image_list)
+        K, T, H, W, C = images.shape
+        image_size = self.model_meta_info["data"]["image_size"]
+        images = np.array(
+            [cv2.resize(img, image_size) for img in images.reshape(-1, H, W, C)]
+        ).reshape(K, T, *image_size[::-1], C)
 
         # Pre-convert data
-        state, action, image_list = self.pre_convert_data(state, action, image_list)
+        state, action, images = self.pre_convert_data(state, action, images)
 
         # Convert to tensor
         state_tensor = torch.tensor(state, dtype=torch.float32)
         action_tensor = torch.tensor(action, dtype=torch.float32)
-        images_tensor = torch.tensor(image_list, dtype=torch.uint8)
+        images_tensor = torch.tensor(images, dtype=torch.uint8)
 
         # Augment data
         state_tensor, action_tensor, images_tensor = self.augment_data(

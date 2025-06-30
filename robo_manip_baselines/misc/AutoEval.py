@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import datetime
 import fcntl
 import glob
@@ -30,6 +31,7 @@ JOB_BASE_PARAM_KEYS = [
     "input_checkpoint_file",
     "no_train",
     "no_rollout",
+    "instant",
 ]
 AUTOEVAL_INIT_PARAM_KEYS = ["policy"] + JOB_BASE_PARAM_KEYS
 AUTOEVAL_EXECUTE_PARAM_KEYS = [
@@ -76,6 +78,7 @@ class AutoEval:
         input_checkpoint_file=None,
         no_train=False,
         no_rollout=False,
+        instant=False,
     ):
         """Initialize the instance with default or provided configurations."""
         self.policy = policy
@@ -84,6 +87,7 @@ class AutoEval:
         self.repository_owner_name = repository_owner_name
         self.no_train = no_train
         self.no_rollout = no_rollout
+        self.instant = instant
 
         if target_dir is None:
             print(f"[{self.__class__.__name__}] target_dir was {target_dir}.")
@@ -488,11 +492,22 @@ class AutoEval:
         4) Train (unless no_train)
         5) Rollout and save results (unless no_rollout)
         """
-        with open(self.lock_file_path, "w", encoding="utf-8") as lock_file:
+        if self.instant:
+            print(f"[{self.__class__.__name__}] Instant mode: skipping lock.")
+        else:
             print(f"[{self.__class__.__name__}] Lock file: {self.lock_file_path}")
             print(f"[{self.__class__.__name__}] Attempting to acquire lock...")
-            fcntl.flock(lock_file, fcntl.LOCK_EX)
-            print(f"[{self.__class__.__name__}] Lock acquired. Starting processing...")
+        lock_context = (
+            open(self.lock_file_path, "w", encoding="utf-8")
+            if not self.instant
+            else contextlib.nullcontext(None)
+        )
+        with lock_context as lock_file:
+            if not self.instant and lock_file is not None:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                print(
+                    f"[{self.__class__.__name__}] Lock acquired. Starting processing..."
+                )
 
             # Clone the Git repository and switch to the specified commit
             self.git_clone()
@@ -563,15 +578,16 @@ class AutoEval:
                 placeholder="…",
             )
         )
-        try:
-            os.remove(self.lock_file_path)
-            print(
-                f"[{self.__class__.__name__}] Lock file removed: {self.lock_file_path}"
-            )
-        except OSError as e:
-            print(
-                f"[{self.__class__.__name__}] Warning: failed to remove lock file ({e})"
-            )
+        if not self.instant:
+            try:
+                os.remove(self.lock_file_path)
+                print(
+                    f"[{self.__class__.__name__}] Lock file removed: {self.lock_file_path}"
+                )
+            except OSError as e:
+                print(
+                    f"[{self.__class__.__name__}] Warning: failed to remove lock file ({e})"
+                )
 
 
 def camel_to_snake(name):
@@ -733,6 +749,11 @@ def parse_argument():
         metavar="HH:MM",
         help="daily schedule time, for example 18:30",
     )
+    parser.add_argument(
+        "--instant",
+        action="store_true",
+        help="execute immediately without queuing or JSON registration",
+    )
     parsed_args = parser.parse_args()
 
     # Validate HH:MM time format
@@ -797,6 +818,21 @@ def main():
         delete_queued_job(queue_dir, args.job_del)
         return
 
+    if args.instant:
+        for policy in args.policies:
+            auto_eval = AutoEval(
+                policy,
+                **{
+                    key: getattr(args, key)
+                    for key in AUTOEVAL_INIT_PARAM_KEYS
+                    if key != "policy"
+                },
+            )
+            auto_eval.execute_job(
+                **{key: getattr(args, key) for key in AUTOEVAL_EXECUTE_PARAM_KEYS}
+            )
+        return
+
     def register_invocation():
         """Register a JSON file per policy in queue_dir and return a list of invocation IDs."""
         # Exclusive control using a lock file
@@ -830,8 +866,6 @@ def main():
                 with open(fn, "w", encoding="utf-8") as jf:
                     json.dump(info, jf, indent=4)
                 created.append(invocation_id)
-            # Release the exclusive lock
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
         # Remove lock file after releasing the lock to clean up
         os.remove(lock_path)
         # Log registration status for each invocation

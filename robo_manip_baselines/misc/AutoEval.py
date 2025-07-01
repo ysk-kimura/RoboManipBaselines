@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import textwrap
 import time
@@ -88,6 +89,7 @@ class AutoEval:
         self.no_train = no_train
         self.no_rollout = no_rollout
         self.instant = instant
+        self.dataset_dir = None
 
         if target_dir is None:
             print(f"[{self.__class__.__name__}] target_dir was {target_dir}.")
@@ -104,12 +106,36 @@ class AutoEval:
         venv_dir = os.path.join(self.repository_dir, "..", "venv")
         self.venv_python = os.path.join(venv_dir, "bin", "python")
         venv.create(venv_dir, with_pip=True)
-        self.dataset_dir = None
+
+        # Add virtual environment's site-packages to PYTHONPATH in the environment configuration
+        self.venv_config = os.environ.copy()
+        self.venv_config["PYTHONPATH"] = (  # Add virtualenv site-packages to PYTHONPATH
+            os.pathsep.join(  # Join paths with system separator
+                filter(  # Remove empty or None entries
+                    None,
+                    [
+                        # venv site-packages path
+                        sysconfig.get_path(
+                            "purelib",
+                            vars={
+                                "base": venv_dir,
+                                "platbase": venv_dir,
+                            },
+                        ),
+                        # existing PYTHONPATH or empty
+                        self.venv_config.get("PYTHONPATH", ""),
+                    ],
+                )
+            )
+        )
+
+        # Generate a unique lock file path to manage concurrent process access
         self.lock_file_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "." + Path(__file__).resolve().stem + ".lock",
         )
 
+        # Create a result directory with a timestamp for organized output storage
         self.result_datetime_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "result/",
@@ -155,7 +181,7 @@ class AutoEval:
         return final_repository_path
 
     @classmethod
-    def exec_command(cls, command, cwd=None):
+    def exec_command(cls, command, cwd=None, subproc_env=None):
         """Execute a shell command, optionally in the specified working directory,
         and return lines from standard output that match the given regex pattern."""
         print(
@@ -167,6 +193,7 @@ class AutoEval:
         with subprocess.Popen(
             command,
             cwd=cwd,
+            env=subproc_env,
             shell=False,  # secure default: using list avoids shell injection risks
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -361,7 +388,7 @@ class AutoEval:
         if args_file_train:
             command.append("@" + args_file_train)
 
-        self.exec_command(command)
+        self.exec_command(command, subproc_env=self.venv_config)
 
     def rollout(
         self,
@@ -420,7 +447,7 @@ class AutoEval:
         if args_file_rollout:
             command.append("@" + args_file_rollout)
 
-        self.exec_command(command)
+        self.exec_command(command, subproc_env=self.venv_config)
 
         if not result_filename:
             print(

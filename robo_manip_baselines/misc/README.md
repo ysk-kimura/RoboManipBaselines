@@ -111,7 +111,7 @@ $ python ./AutoEval.py [-h] [--job_stat] [--job_del JOB_DEL] [-c COMMIT_ID] [-u 
                       [-d INPUT_DATASET_LOCATION] [-k INPUT_CHECKPOINT_FILE] [--args_file_train ARGS_FILE_TRAIN] \
                       [--args_file_rollout ARGS_FILE_ROLLOUT] [--no_train] [--no_rollout] [--check_apt_packages] \
                       [--upgrade_pip_setuptools] [--world_idx_list [WORLD_IDX_LIST ...]] [--result_filename RESULT_FILENAME] \
-                      [--seed SEED] [-t HH:MM] \
+                      [--seed SEED] [-t HH:MM] [--instant] \
                       {Mlp,Sarnn,Act,DiffusionPolicy,MtAct} [{Mlp,Sarnn,Act,DiffusionPolicy,MtAct} ...] env
 ```
 
@@ -120,5 +120,6 @@ $ python ./AutoEval.py [-h] [--job_stat] [--job_del JOB_DEL] [-c COMMIT_ID] [-u 
 > • Use `--input_dataset_location` with a URL (download) or local path.  
 > • Always uses `policy_last.ckpt` for checkpoint.  
 > • Omit `--seed` to use the called script's built-in default; specify `--seed -1` to generate a time-based random seed.
+> • Use `--instant` to execute immediately without locking or job queue registration.  
 > • Omit `--commit_id` to use the latest origin/master.  
 > • Pass `--world_idx_list` for multiple rollout worlds.  

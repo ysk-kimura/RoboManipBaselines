@@ -560,6 +560,17 @@ class AutoEval:
             # Install common dependencies and policy-specific dependencies
             self.install_common()
             self.install_each_policy()
+            self.exec_command(
+                # Uninstall dataclasses to avoid AttributeError and breakage
+                [
+                    self.venv_python,
+                    "-m",
+                    "pip",
+                    "uninstall",
+                    "-y",
+                    "dataclasses",
+                ]
+            )
 
             # Training phase
             if not self.no_train:

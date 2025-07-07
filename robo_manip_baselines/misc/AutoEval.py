@@ -806,6 +806,7 @@ def parse_argument():
         help="daily schedule time, for example 18:30",
     )
     parser.add_argument(
+        "-I",
         "--instant",
         action="store_true",
         help="execute immediately without queuing or JSON registration",

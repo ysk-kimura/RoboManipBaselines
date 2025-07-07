@@ -12,6 +12,7 @@ import sysconfig
 import tempfile
 import textwrap
 import time
+import uuid
 import venv
 from pathlib import Path
 from urllib.parse import urlparse
@@ -29,6 +30,7 @@ JOB_BASE_PARAM_KEYS = [
     "commit_id",
     "repository_owner_name",
     "target_dir",
+    "queue_dir",
     "input_checkpoint_file",
     "no_train",
     "no_rollout",
@@ -44,7 +46,7 @@ AUTOEVAL_EXECUTE_PARAM_KEYS = [
     "upgrade_pip_setuptools",
     "world_idx_list",
     "result_filename",
-    "seed",
+    "seeds",
 ]
 JOB_ALL_PARAM_KEYS = list(
     dict.fromkeys(JOB_BASE_PARAM_KEYS + AUTOEVAL_EXECUTE_PARAM_KEYS)
@@ -76,6 +78,7 @@ class AutoEval:
         commit_id,
         repository_owner_name=None,
         target_dir=None,
+        queue_dir=None,
         input_checkpoint_file=None,
         no_train=False,
         no_rollout=False,
@@ -86,6 +89,7 @@ class AutoEval:
         self.env = env
         self.commit_id = commit_id
         self.repository_owner_name = repository_owner_name
+        self.queue_dir = queue_dir
         self.no_train = no_train
         self.no_rollout = no_rollout
         self.instant = instant
@@ -131,7 +135,7 @@ class AutoEval:
 
         # Generate a unique lock file path to manage concurrent process access
         self.lock_file_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
+            queue_dir,
             "." + Path(__file__).resolve().stem + ".lock",
         )
 
@@ -509,7 +513,7 @@ class AutoEval:
         upgrade_pip_setuptools,
         world_idx_list,
         result_filename,
-        seed=None,
+        seeds=[None],
     ):
         """
         Execute a single job:
@@ -521,14 +525,10 @@ class AutoEval:
         """
         if self.instant:
             print(f"[{self.__class__.__name__}] Instant mode: skipping lock.")
+            lock_context = contextlib.nullcontext(None)
         else:
             print(f"[{self.__class__.__name__}] Lock file: {self.lock_file_path}")
-            print(f"[{self.__class__.__name__}] Attempting to acquire lock...")
-        lock_context = (
-            open(self.lock_file_path, "w", encoding="utf-8")
-            if not self.instant
-            else contextlib.nullcontext(None)
-        )
+            lock_context = open(self.lock_file_path, "w", encoding="utf-8")
         with lock_context as lock_file:
             if not self.instant and lock_file is not None:
                 fcntl.flock(lock_file, fcntl.LOCK_EX)
@@ -536,66 +536,69 @@ class AutoEval:
                     f"[{self.__class__.__name__}] Lock acquired. Starting processing..."
                 )
 
-            # Clone the Git repository and switch to the specified commit
-            self.git_clone()
+            for seed in seeds:
+                # Clone the Git repository and switch to the specified commit
+                self.git_clone()
 
-            # Create virtual environment and check APT packages
-            venv.create(os.path.join(self.venv_python, "../../../venv/"), with_pip=True)
-            if check_apt_packages:
-                self.check_apt_packages_installed(self.APT_REQUIRED_PACKAGE_NAMES)
-            if upgrade_pip_setuptools:
+                # Create virtual environment and check APT packages
+                venv.create(
+                    os.path.join(self.venv_python, "../../../venv/"), with_pip=True
+                )
+                if check_apt_packages:
+                    self.check_apt_packages_installed(self.APT_REQUIRED_PACKAGE_NAMES)
+                if upgrade_pip_setuptools:
+                    self.exec_command(
+                        [
+                            self.venv_python,
+                            "-m",
+                            "pip",
+                            "install",
+                            "--upgrade",
+                            "pip",
+                            "setuptools",
+                            "wheel",
+                        ]
+                    )
+
+                # Install common dependencies and policy-specific dependencies
+                self.install_common()
+                self.install_each_policy()
                 self.exec_command(
+                    # Uninstall dataclasses to avoid AttributeError and breakage
                     [
                         self.venv_python,
                         "-m",
                         "pip",
-                        "install",
-                        "--upgrade",
-                        "pip",
-                        "setuptools",
-                        "wheel",
+                        "uninstall",
+                        "-y",
+                        "dataclasses",
                     ]
                 )
 
-            # Install common dependencies and policy-specific dependencies
-            self.install_common()
-            self.install_each_policy()
-            self.exec_command(
-                # Uninstall dataclasses to avoid AttributeError and breakage
-                [
-                    self.venv_python,
-                    "-m",
-                    "pip",
-                    "uninstall",
-                    "-y",
-                    "dataclasses",
-                ]
-            )
+                # Training phase
+                if not self.no_train:
+                    self.get_dataset(input_dataset_location)
+                    self.train(args_file_train, seed)
+                else:
+                    print(
+                        f"[{self.__class__.__name__}] "
+                        "Dataset download and training disabled due to settings."
+                    )
 
-            # Training phase
-            if not self.no_train:
-                self.get_dataset(input_dataset_location)
-                self.train(args_file_train, seed)
-            else:
-                print(
-                    f"[{self.__class__.__name__}] "
-                    "Dataset download and training disabled due to settings."
-                )
-
-            # Rollout & save results
-            if not self.no_rollout:
-                task_success_list = self.rollout(
-                    args_file_rollout,
-                    world_idx_list,
-                    result_filename,
-                    input_checkpoint_file,
-                )
-                self.save_result(task_success_list)
-            else:
-                print(
-                    f"[{self.__class__.__name__}] "
-                    "Rollout execution disabled due to current settings."
-                )
+                # Rollout & save results
+                if not self.no_rollout:
+                    task_success_list = self.rollout(
+                        args_file_rollout,
+                        world_idx_list,
+                        result_filename,
+                        input_checkpoint_file,
+                    )
+                    self.save_result(task_success_list)
+                else:
+                    print(
+                        f"[{self.__class__.__name__}] "
+                        "Rollout execution disabled due to current settings."
+                    )
 
         local_vars = locals()
         print(
@@ -656,6 +659,15 @@ def add_job_queue_arguments(parser):
         type=str,
         help="delete previously enqueued job by job ID (filename without extension)",
     )
+    parser.add_argument(
+        "--job_queue",
+        "--jqueue",
+        "-q",
+        type=str,
+        default="default",
+        dest="jqueue",
+        help="name of job registration queue for mutual exclusion control",
+    )
 
 
 def parse_argument():
@@ -678,7 +690,10 @@ def parse_argument():
     # Full parser for regular execution (including required positional arguments)
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="This is a parser for the evaluation based on a specific commit.",
+        description=(
+            "This is a parser for evaluation based on a specific commit, including "
+            "job queue and immediate execution options."
+        ),
     )
 
     add_job_queue_arguments(parser)
@@ -775,9 +790,12 @@ def parse_argument():
     )
     parser.add_argument(
         "--seed",
+        "--seeds",
         type=int,
+        nargs="+",
+        dest="seeds",
         required=False,
-        help="random seed; use -1 to generate different value on each run",
+        help="random seed(s); use -1 to generate different value on each run",
     )
     parser.add_argument(
         "-t",
@@ -793,6 +811,10 @@ def parse_argument():
         help="execute immediately without queuing or JSON registration",
     )
     parsed_args = parser.parse_args()
+
+    # Handle seeds: use [None] when not specified
+    if not parsed_args.seeds:
+        parsed_args.seeds = [None]
 
     # Validate HH:MM time format
     if parsed_args.daily_schedule_time:
@@ -841,11 +863,20 @@ def delete_queued_job(queue_dir, job_id):
 def main():
     args = parse_argument()
 
-    # Determine base directory for job queue
-    queue_dir = os.path.join(
+    qbase = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         f".sys_queue_{Path(__file__).resolve().stem}",
     )
+    if not getattr(args, "instant", False):
+        queue_name = args.jqueue
+    else:
+        queue_name = (
+            "instant_"
+            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            + "_"
+            + uuid.uuid4().hex[:6]
+        )
+    queue_dir = os.path.join(qbase, queue_name)
     os.makedirs(queue_dir, exist_ok=True)
 
     if args.job_stat:
@@ -854,21 +885,6 @@ def main():
 
     if args.job_del:
         delete_queued_job(queue_dir, args.job_del)
-        return
-
-    if args.instant:
-        for policy in args.policies:
-            auto_eval = AutoEval(
-                policy,
-                **{
-                    key: getattr(args, key)
-                    for key in AUTOEVAL_INIT_PARAM_KEYS
-                    if key != "policy"
-                },
-            )
-            auto_eval.execute_job(
-                **{key: getattr(args, key) for key in AUTOEVAL_EXECUTE_PARAM_KEYS}
-            )
         return
 
     def register_invocation():
@@ -904,12 +920,13 @@ def main():
                 with open(fn, "w", encoding="utf-8") as jf:
                     json.dump(info, jf, indent=4)
                 created.append(invocation_id)
+
         # Remove lock file after releasing the lock to clean up
         os.remove(lock_path)
         # Log registration status for each invocation
         for inv in created:
             print(f"[{AutoEval.__name__}] Job registered: {inv}")
-        return created
+        return
 
     def handle_all_jobs():
         """
@@ -919,7 +936,7 @@ def main():
         has_error = False
 
         # Register a single invocation containing multiple policies
-        _ = register_invocation()
+        register_invocation()
 
         # Display list of pending invocation files
         inv_files = sorted(glob.glob(os.path.join(queue_dir, "*.json")))

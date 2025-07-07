@@ -878,6 +878,8 @@ def main():
             + uuid.uuid4().hex[:6]
         )
     queue_dir = os.path.join(qbase, queue_name)
+    job_args = argparse.Namespace(**vars(args))
+    job_args.queue_dir = queue_dir
     os.makedirs(queue_dir, exist_ok=True)
 
     if args.job_stat:
@@ -905,7 +907,7 @@ def main():
                     "invocation_id": invocation_id,
                     "timestamp": ts,
                     "policy": policy,
-                    **{k: getattr(args, k) for k in JOB_ALL_PARAM_KEYS},
+                    **{k: getattr(job_args, k) for k in JOB_ALL_PARAM_KEYS},
                 }
 
                 # Check if keys match

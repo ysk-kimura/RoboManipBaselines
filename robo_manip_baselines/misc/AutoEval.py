@@ -154,6 +154,7 @@ class AutoEval:
         assert target_dir is not None, f"[{cls.__name__}] target_dir must not be None"
 
         # normalize input path by removing trailing separator if provided
+        os.makedirs(target_dir, exist_ok=True)
         normalized_path = target_dir.rstrip(os.sep)
 
         # if path already has expected structure, use it as-is

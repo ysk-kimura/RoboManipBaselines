@@ -471,37 +471,35 @@ class AutoEval:
         return list(map(int, data["success"]))
 
     def save_result(self, task_success_list):
-        """Save task_success_list."""
+        """Save or append results per seed into a YAML file."""
 
         output_dir_path = os.path.join(self.result_datetime_dir, self.policy, self.env)
         os.makedirs(output_dir_path, exist_ok=True)
-        output_file_path = os.path.join(output_dir_path, "task_success_list.txt")
+        output_file_path = os.path.join(output_dir_path, "task_success.yaml")
 
         if os.path.exists(output_file_path):
-            base, ext = os.path.splitext(output_file_path)
-            max_attempts = 100
-            for counter in range(1, max_attempts + 1):
-                new_file_path = f"{base}_old_{counter}{ext}"
-                if not os.path.exists(new_file_path):
-                    os.rename(output_file_path, new_file_path)
-                    print(
-                        f"[{self.__class__.__name__}] "
-                        f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-                        f"Existing file renamed to: {new_file_path}"
-                    )
-                    break
-            else:
-                raise RuntimeError(
-                    f"Exceeded {max_attempts} attempts to rename existing file. "
-                    f"Too many conflicting versions exist in: {output_dir_path}"
-                )
+            with open(output_file_path, "r", encoding="utf-8") as f:
+                task_result_record = yaml.safe_load(f) or {}
+        else:
+            task_result_record = {}
 
+        root_key = f"{self.env}_Val_{datetime.datetime.now().strftime('%Y%m%d')}"
+        if root_key not in task_result_record:
+            task_result_record[root_key] = {
+                "env": self.env,
+                "task": {"EN": self.env},
+                "results": {},
+            }
+        results = task_result_record[root_key].setdefault("results", {})
+        policy_section = results.setdefault("default", {})
+        policy_list = policy_section.setdefault(self.policy, [])
+        policy_list.append({"success": task_success_list})
         with open(output_file_path, "w", encoding="utf-8") as f:
-            f.write(" ".join(map(str, task_success_list)))
+            yaml.dump(task_result_record, f, sort_keys=False, allow_unicode=True)
         print(
             f"[{self.__class__.__name__}] "
             f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-            f"File has been saved: {output_file_path}"
+            f"Results appended to: {output_file_path}"
         )
 
     def execute_job(

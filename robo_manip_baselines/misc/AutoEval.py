@@ -470,8 +470,8 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result(self, task_success_list):
-        """Save or append results per seed into a YAML file."""
+    def save_result(self, task_success_list, seed):
+        """Save results per seed into a YAML file and track appended seeds."""
 
         output_dir_path = os.path.join(self.result_datetime_dir, self.policy, self.env)
         os.makedirs(output_dir_path, exist_ok=True)
@@ -490,6 +490,10 @@ class AutoEval:
                 "task": {"EN": self.env},
                 "results": {},
             }
+        seeds = task_result_record.setdefault("seeds", [])
+        if seed not in seeds:
+            seeds.append(seed)
+
         results = task_result_record[root_key].setdefault("results", {})
         policy_section = results.setdefault("default", {})
         policy_list = policy_section.setdefault(self.policy, [])
@@ -507,6 +511,31 @@ class AutoEval:
             f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
             f"Results appended to: {output_file_path}"
         )
+
+    def append_evaluation_result_line(self, task_success_list, seed):
+        """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
+        evaluation_result_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "result",
+            "evaluation_results.md",
+        )
+        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
+
+        if not os.path.exists(evaluation_result_path):
+            with open(evaluation_result_path, "w", encoding="utf-8") as f:
+                f.write("| Timestamp | Env | Policy | Seed | Success |\n")
+                f.write("|-----------|-----|--------|------|---------|\n")
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        success_count = sum(task_success_list)
+        total_count = len(task_success_list)
+        success_rate = success_count / total_count if total_count > 0 else 0
+
+        with open(evaluation_result_path, "a", encoding="utf-8") as f:
+            f.write(
+                f"| {timestamp} | {self.env} | {self.policy} | {seed} | "
+                f"{success_count}/{total_count} ({success_rate:.0%}) |\n"
+            )
 
     def execute_job(
         self,
@@ -598,7 +627,8 @@ class AutoEval:
                         result_filename,
                         input_checkpoint_file,
                     )
-                    self.save_result(task_success_list)
+                    self.save_result(task_success_list, seed)
+                    self.append_evaluation_result_line(task_success_list, seed)
                 else:
                     print(
                         f"[{self.__class__.__name__}] "

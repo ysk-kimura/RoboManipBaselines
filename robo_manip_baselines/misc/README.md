@@ -63,32 +63,63 @@ By default, the video separation times are automatically determined by detecting
 A tool that manages jobs which automatically perform training, rollout, and evaluation.
 
 ### Run immediate job
-Run one evaluation job immediately and exit (no schedule).
-
+Run one evaluation job immediately and exit (without scheduling or queuing locks).
 ```console
-$ python ./AutoEval.py <policy> <env>
+$ python ./AutoEval.py <policy> <env> --instant
 ```
 
 ### Schedule daily run
 Schedule an evaluation job to execute every day at the specified time.
-
 ```console
 $ python ./AutoEval.py <policy> <env> --daily_schedule_time HH:MM
 ```
 
 ### Show queued jobs
 Display all enqueued evaluation job IDs.
-
 ```console
 $ python ./AutoEval.py --job_stat
 ```
 
 ### Delete queued job
 Remove a job from the queue by its ID (filename without extension).
-
 ```console
 $ python ./AutoEval.py --job_del <job_id>
 ```
+
+### Use a custom queue name
+By default, jobs are registered under a queue named `default`. Use this option to set a custom queue name for mutual exclusion control.
+```console
+$ python ./AutoEval.py <policy> <env> --job_queue myqueue
+```
+
+### Skip training or rollout
+You can disable the training or rollout phase independently using these options.
+```console
+$ python ./AutoEval.py <policy> <env> --no_train        # Skip training
+$ python ./AutoEval.py <policy> <env> --no_rollout      # Skip rollout
+```
+
+### Specify result output path
+Customize the result output YAML file name. Use `'none'` or `'-'` to disable result saving.
+```console
+$ python ./AutoEval.py <policy> <env> --result_filename results/custom.yaml
+```
+
+### Set base working directory
+Use a custom root directory instead of the system’s default temporary directory for repo clone, virtualenv, and result files.
+```console
+$ python ./AutoEval.py <policy> <env> --target_dir /path/to/base_dir
+```
+
+### Environment setup options
+Prepare a reliable runtime environment by verifying system dependencies and updating Python tools:
+```console
+$ python ./AutoEval.py <policy> <env> --check_apt_packages --upgrade_pip_setuptools
+```
+- `--check_apt_packages`
+  Verify and install any missing APT packages before proceeding (no upgrades to Python tools).
+- `--upgrade_pip_setuptools`
+  Upgrade `pip` and `setuptools` to the latest versions in the created virtual environment.
 
 ### Additional arguments via file
 When you need to pass extra arguments to `Train.py` or `Rollout.py`, write them into a text file and supply it with `--args_file_train` or `--args_file_rollout`.
@@ -105,21 +136,26 @@ $ python ./AutoEval.py <policy> <env> --args_file_train train_args.txt
 
 ### Command-line syntax reference
 Complete invocation syntax and all options for `AutoEval.py`. To view it at runtime, run `python AutoEval.py -h`.
-
 ```console
-$ python ./AutoEval.py [-h] [--job_stat] [--job_del JOB_DEL] [-c COMMIT_ID] [-u REPOSITORY_OWNER_NAME] [--target_dir TARGET_DIR] \
-                      [-d INPUT_DATASET_LOCATION] [-k INPUT_CHECKPOINT_FILE] [--args_file_train ARGS_FILE_TRAIN] \
-                      [--args_file_rollout ARGS_FILE_ROLLOUT] [--no_train] [--no_rollout] [--check_apt_packages] \
-                      [--upgrade_pip_setuptools] [--world_idx_list [WORLD_IDX_LIST ...]] [--result_filename RESULT_FILENAME] \
-                      [--seed SEED] [-t HH:MM] [--instant] \
+$ python ./AutoEval.py [-h] [--job_stat] [--job_del JOB_DEL] [--job_queue JQUEUE] [-c COMMIT_ID] [-u REPOSITORY_OWNER_NAME] \
+                      [--target_dir TARGET_DIR] [-d INPUT_DATASET_LOCATION] [-k INPUT_CHECKPOINT_FILE] \
+                      [--args_file_train ARGS_FILE_TRAIN] [--args_file_rollout ARGS_FILE_ROLLOUT] \
+                      [--no_train] [--no_rollout] [--check_apt_packages] [--upgrade_pip_setuptools] \
+                      [--world_idx_list [WORLD_IDX_LIST ...]] [--result_filename RESULT_FILENAME] \
+                      [--seed SEED [SEED ...]] [-t HH:MM] [--instant] \
                       {Mlp,Sarnn,Act,DiffusionPolicy,MtAct} [{Mlp,Sarnn,Act,DiffusionPolicy,MtAct} ...] env
 ```
 
 > \[!Note]  
 > • Automatically clones the repo, trains the specified policy on the given environment, performs rollout, and writes `task_success_list.txt` under `misc/result/<POLICY>/<ENV>/`.  
 > • Use `--input_dataset_location` with a URL (download) or local path.  
-> • Always uses `policy_last.ckpt` for checkpoint.  
-> • Omit `--seed` to use the called script's built-in default; specify `--seed -1` to generate a time-based random seed.
+> • Always uses `policy_last.ckpt` for checkpoint unless `--input_checkpoint_file` is specified.  
+> • Omit `--seed` to use the called script's built-in default; specify `--seed -1` to generate a time-based random seed (or use any integer for reproducibility).  
 > • Use `--instant` to execute immediately without locking or job queue registration.  
-> • Omit `--commit_id` to use the latest origin/master.  
-> • Pass `--world_idx_list` for multiple rollout worlds.  
+> • Omit `--commit_id` to use the latest `origin/master`; specify `--commit_id <COMMIT_ID>` to evaluate a particular commit.  
+> • Use `--job_queue` to control mutual exclusion when scheduling jobs in shared environments.  
+> • Use `--target_dir` to customize working directory structure.  
+> • Use `--result_filename` to save rollout results with a custom path or disable saving.  
+> • Use `--no_train` and `--no_rollout` to skip training or rollout as needed.  
+> • Use `--check_apt_packages` and `--upgrade_pip_setuptools` to prepare execution environments.  
+> • Use `--world_idx_list` to specify multiple rollout worlds.  

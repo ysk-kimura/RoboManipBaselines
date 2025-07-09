@@ -570,45 +570,43 @@ class AutoEval:
                     f"[{self.__class__.__name__}] Lock acquired. Starting processing..."
                 )
 
-            for seed in seeds:
-                # Clone the Git repository and switch to the specified commit
-                self.git_clone()
+            # Clone the Git repository and switch to the specified commit
+            self.git_clone()
 
-                # Create virtual environment and check APT packages
-                venv.create(
-                    os.path.join(self.venv_python, "../../../venv/"), with_pip=True
-                )
-                if check_apt_packages:
-                    self.check_apt_packages_installed(self.APT_REQUIRED_PACKAGE_NAMES)
-                if upgrade_pip_setuptools:
-                    self.exec_command(
-                        [
-                            self.venv_python,
-                            "-m",
-                            "pip",
-                            "install",
-                            "--upgrade",
-                            "pip",
-                            "setuptools",
-                            "wheel",
-                        ]
-                    )
-
-                # Install common dependencies and policy-specific dependencies
-                self.install_common()
-                self.install_each_policy()
+            # Create virtual environment and check APT packages
+            venv.create(os.path.join(self.venv_python, "../../../venv/"), with_pip=True)
+            if check_apt_packages:
+                self.check_apt_packages_installed(self.APT_REQUIRED_PACKAGE_NAMES)
+            if upgrade_pip_setuptools:
                 self.exec_command(
-                    # Uninstall dataclasses to avoid AttributeError and breakage
                     [
                         self.venv_python,
                         "-m",
                         "pip",
-                        "uninstall",
-                        "-y",
-                        "dataclasses",
+                        "install",
+                        "--upgrade",
+                        "pip",
+                        "setuptools",
+                        "wheel",
                     ]
                 )
 
+            # Install common dependencies and policy-specific dependencies
+            self.install_common()
+            self.install_each_policy()
+            self.exec_command(
+                # Uninstall dataclasses to avoid AttributeError and breakage
+                [
+                    self.venv_python,
+                    "-m",
+                    "pip",
+                    "uninstall",
+                    "-y",
+                    "dataclasses",
+                ]
+            )
+
+            for seed in seeds:
                 # Training phase
                 if not self.no_train:
                     self.get_dataset(input_dataset_location)
@@ -990,18 +988,16 @@ def main():
             job_id = inv_info["invocation_id"]
 
             print(f"\n[{AutoEval.__name__}] Execute invocation: {job_id}")
-            for seed in inv_info.get("seeds", [None]):
-                print(f"[{AutoEval.__name__}]  └─ seed={seed}")
-                auto_eval = AutoEval(*(inv_info[k] for k in AUTOEVAL_INIT_PARAM_KEYS))
-                try:
-                    auto_eval.execute_job(
-                        *(inv_info[k] for k in AUTOEVAL_EXECUTE_PARAM_KEYS)
-                    )
-                except Exception:
-                    import traceback
+            auto_eval = AutoEval(*(inv_info[k] for k in AUTOEVAL_INIT_PARAM_KEYS))
+            try:
+                auto_eval.execute_job(
+                    *(inv_info[k] for k in AUTOEVAL_EXECUTE_PARAM_KEYS)
+                )
+            except Exception:
+                import traceback
 
-                    traceback.print_exc()
-                    has_error = True
+                traceback.print_exc()
+                has_error = True
 
             # After completing this invocation, delete its JSON file
             os.remove(inv_file)

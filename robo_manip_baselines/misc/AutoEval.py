@@ -495,7 +495,13 @@ class AutoEval:
         policy_list = policy_section.setdefault(self.policy, [])
         policy_list.append({"success": task_success_list})
         with open(output_file_path, "w", encoding="utf-8") as f:
-            yaml.dump(task_result_record, f, sort_keys=False, allow_unicode=True)
+            yaml.dump(
+                task_result_record,
+                f,
+                sort_keys=False,
+                allow_unicode=True,
+                default_flow_style=True,
+            )
         print(
             f"[{self.__class__.__name__}] "
             f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "

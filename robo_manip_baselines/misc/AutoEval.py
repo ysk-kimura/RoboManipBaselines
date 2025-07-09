@@ -989,17 +989,19 @@ def main():
                 inv_info = json.load(jf)
             job_id = inv_info["invocation_id"]
 
-            print(f"\n[{AutoEval.__name__}] Execute job: {job_id}")
-            auto_eval = AutoEval(*(inv_info[k] for k in AUTOEVAL_INIT_PARAM_KEYS))
-            try:
-                auto_eval.execute_job(
-                    *(inv_info[k] for k in AUTOEVAL_EXECUTE_PARAM_KEYS)
-                )
-            except Exception:
-                import traceback
+            print(f"\n[{AutoEval.__name__}] Execute invocation: {job_id}")
+            for seed in inv_info.get("seeds", [None]):
+                print(f"[{AutoEval.__name__}]  └─ seed={seed}")
+                auto_eval = AutoEval(*(inv_info[k] for k in AUTOEVAL_INIT_PARAM_KEYS))
+                try:
+                    auto_eval.execute_job(
+                        *(inv_info[k] for k in AUTOEVAL_EXECUTE_PARAM_KEYS)
+                    )
+                except Exception:
+                    import traceback
 
-                traceback.print_exc()
-                has_error = True
+                    traceback.print_exc()
+                    has_error = True
 
             # After completing this invocation, delete its JSON file
             os.remove(inv_file)

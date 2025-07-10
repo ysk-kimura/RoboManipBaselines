@@ -470,7 +470,7 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result(self, task_success_list, seed):
+    def save_result_to_yaml(self, task_success_list, seed):
         """Save results per seed into a YAML file and track appended seeds."""
 
         output_dir_path = os.path.join(self.result_datetime_dir, self.policy, self.env)
@@ -512,7 +512,7 @@ class AutoEval:
             f"Results appended to: {output_file_path}"
         )
 
-    def append_evaluation_result_line(self, task_success_list, seed):
+    def append_eval_line_to_md(self, task_success_list, seed):
         """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
         evaluation_result_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -655,8 +655,8 @@ class AutoEval:
                         result_filename,
                         input_checkpoint_file,
                     )
-                    self.save_result(task_success_list, seed)
-                    self.append_evaluation_result_line(task_success_list, seed)
+                    self.save_result_to_yaml(task_success_list, seed)
+                    self.append_eval_line_to_md(task_success_list, seed)
                     self.git_commit_result()
                 else:
                     print(

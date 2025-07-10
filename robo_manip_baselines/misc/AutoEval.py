@@ -19,6 +19,8 @@ from urllib.parse import urlparse
 
 import schedule
 import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedSeq
 
 JSON_STATIC_METADATA_KEYS = [
     "invocation_id",
@@ -476,10 +478,15 @@ class AutoEval:
         output_dir_path = os.path.join(self.result_datetime_dir, self.policy, self.env)
         os.makedirs(output_dir_path, exist_ok=True)
         output_file_path = os.path.join(output_dir_path, "task_success.yaml")
+        yaml_loader = YAML(typ="safe")
+        yaml_writer = YAML()
+        yaml_writer.default_flow_style = False
+        yaml_writer.allow_unicode = True
+        yaml_writer.sort_base_mapping_type_on_output = False
 
         if os.path.exists(output_file_path):
             with open(output_file_path, "r", encoding="utf-8") as f:
-                task_result_record = yaml.safe_load(f) or {}
+                task_result_record = yaml_loader.load(f) or {}
         else:
             task_result_record = {}
 
@@ -488,24 +495,23 @@ class AutoEval:
             task_result_record[root_key] = {
                 "env": self.env,
                 "task": {"EN": self.env},
+                "seeds": [],
                 "results": {},
             }
-        seeds = task_result_record.setdefault("seeds", [])
-        if seed not in seeds:
-            seeds.append(seed)
+        seeds_seq = CommentedSeq(task_result_record[root_key].get("seeds", []))
+        seeds_seq.fa.set_flow_style()
+        if seed not in seeds_seq:
+            seeds_seq.append(seed)
+        task_result_record[root_key]["seeds"] = seeds_seq
 
         results = task_result_record[root_key].setdefault("results", {})
-        policy_section = results.setdefault("default", {})
-        policy_list = policy_section.setdefault(self.policy, [])
-        policy_list.append({"success": task_success_list})
+        default_section = results.setdefault("default", {})
+        policy_list = default_section.setdefault(self.policy, [])
+        success_seq = CommentedSeq(task_success_list)
+        success_seq.fa.set_flow_style()
+        policy_list.append({"success": success_seq})
         with open(output_file_path, "w", encoding="utf-8") as f:
-            yaml.dump(
-                task_result_record,
-                f,
-                sort_keys=False,
-                allow_unicode=True,
-                default_flow_style=True,
-            )
+            yaml_writer.dump(task_result_record, f)
         print(
             f"[{self.__class__.__name__}] "
             f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "

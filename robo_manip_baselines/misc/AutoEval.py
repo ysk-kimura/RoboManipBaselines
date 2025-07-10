@@ -19,8 +19,6 @@ from urllib.parse import urlparse
 
 import schedule
 import yaml
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedSeq
 
 JSON_STATIC_METADATA_KEYS = [
     "invocation_id",
@@ -472,50 +470,40 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result_to_yaml(self, task_success_list, seed):
-        """Save results per seed into a YAML file and track appended seeds."""
+    def save_result_to_txt(self, task_success_list, seed):
+        """Save task_success_list."""
 
-        output_dir_path = os.path.join(self.result_datetime_dir, self.policy, self.env)
+        output_dir_path = os.path.join(
+            self.result_datetime_dir, self.policy, self.env, f"s{seed}"
+        )
         os.makedirs(output_dir_path, exist_ok=True)
-        output_file_path = os.path.join(output_dir_path, "task_success.yaml")
-        yaml_loader = YAML(typ="safe")
-        yaml_writer = YAML()
-        yaml_writer.default_flow_style = False
-        yaml_writer.allow_unicode = True
-        yaml_writer.sort_base_mapping_type_on_output = False
+        output_file_path = os.path.join(output_dir_path, "task_success_list.txt")
 
         if os.path.exists(output_file_path):
-            with open(output_file_path, "r", encoding="utf-8") as f:
-                task_result_record = yaml_loader.load(f) or {}
-        else:
-            task_result_record = {}
+            base, ext = os.path.splitext(output_file_path)
+            max_attempts = 100
+            for counter in range(1, max_attempts + 1):
+                new_file_path = f"{base}_old_{counter}{ext}"
+                if not os.path.exists(new_file_path):
+                    os.rename(output_file_path, new_file_path)
+                    print(
+                        f"[{self.__class__.__name__}] "
+                        f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                        f"Existing file renamed to: {new_file_path}"
+                    )
+                    break
+            else:
+                raise RuntimeError(
+                    f"Exceeded {max_attempts} attempts to rename existing file. "
+                    f"Too many conflicting versions exist in: {output_dir_path}"
+                )
 
-        root_key = f"{self.env}_Val_{datetime.datetime.now().strftime('%Y%m%d')}"
-        if root_key not in task_result_record:
-            task_result_record[root_key] = {
-                "env": self.env,
-                "task": {"EN": self.env},
-                "seeds": [],
-                "results": {},
-            }
-        seeds_seq = CommentedSeq(task_result_record[root_key].get("seeds", []))
-        seeds_seq.fa.set_flow_style()
-        if seed not in seeds_seq:
-            seeds_seq.append(seed)
-        task_result_record[root_key]["seeds"] = seeds_seq
-
-        results = task_result_record[root_key].setdefault("results", {})
-        default_section = results.setdefault("default", {})
-        policy_list = default_section.setdefault(self.policy, [])
-        success_seq = CommentedSeq(task_success_list)
-        success_seq.fa.set_flow_style()
-        policy_list.append({"success": success_seq})
         with open(output_file_path, "w", encoding="utf-8") as f:
-            yaml_writer.dump(task_result_record, f)
+            f.write(" ".join(map(str, task_success_list)))
         print(
             f"[{self.__class__.__name__}] "
             f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-            f"Results appended to: {output_file_path}"
+            f"File has been saved: {output_file_path}"
         )
 
     def append_eval_line_to_md(self, task_success_list, seed):
@@ -661,7 +649,7 @@ class AutoEval:
                         result_filename,
                         input_checkpoint_file,
                     )
-                    self.save_result_to_yaml(task_success_list, seed)
+                    self.save_result_to_txt(task_success_list, seed)
                     self.append_eval_line_to_md(task_success_list, seed)
                     self.git_commit_result()
                 else:
@@ -856,7 +844,7 @@ def parse_argument():
         "--result_filename",
         type=str,
         default="<REPOSITORY_DIR>/robo_manip_baselines/misc/result_<POLICY>_<ENV>_<TIMESTAMP>.yaml",
-        help="file path (*.yaml) to save rollout results, specify 'none' or '-' to disable saving",
+        help="file path (*.yaml) for saving rollout results: passed to Rollout.py to generate result file; specify 'none' or '-' to disable saving",
     )
     parser.add_argument(
         "--seed",

@@ -512,6 +512,36 @@ class AutoEval:
             f"Results appended to: {output_file_path}"
         )
 
+    def git_commit_result(self):
+        """Add, commit, and push evaluation_results.md to the current branch."""
+        # Determine repository root and its directory name
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_dir_name = os.path.basename(repo_root)
+        # Path to the markdown file
+        md_path = os.path.join(repo_root, "result", "evaluation_results.md")
+        # Get current Git branch name
+        branch = subprocess.run(
+            ["git", "-C", repo_root, "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        # git add
+        self.exec_command(["git", "-C", repo_root, "add", md_path])
+        # git commit
+        self.exec_command(
+            [
+                "git",
+                "-C",
+                repo_root,
+                "commit",
+                "-m",
+                f"[{repo_dir_name}] {self.__class__.__name__}: Update evaluation_results.md.",
+            ]
+        )
+        # git push
+        self.exec_command(["git", "-C", repo_root, "push", "origin", branch])
+
     def append_evaluation_result_line(self, task_success_list, seed):
         """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
         evaluation_result_path = os.path.join(
@@ -627,6 +657,7 @@ class AutoEval:
                     )
                     self.save_result(task_success_list, seed)
                     self.append_evaluation_result_line(task_success_list, seed)
+                    self.git_commit_result()
                 else:
                     print(
                         f"[{self.__class__.__name__}] "

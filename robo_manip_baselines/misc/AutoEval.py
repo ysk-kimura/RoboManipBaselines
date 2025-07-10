@@ -512,6 +512,31 @@ class AutoEval:
             f"Results appended to: {output_file_path}"
         )
 
+    def append_evaluation_result_line(self, task_success_list, seed):
+        """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
+        evaluation_result_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "result",
+            "evaluation_results.md",
+        )
+        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
+
+        if not os.path.exists(evaluation_result_path):
+            with open(evaluation_result_path, "w", encoding="utf-8") as f:
+                f.write("| Timestamp | Env | Policy | Seed | Success |\n")
+                f.write("|-----------|-----|--------|------|---------|\n")
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        success_count = sum(task_success_list)
+        total_count = len(task_success_list)
+        success_rate = success_count / total_count if total_count > 0 else 0
+
+        with open(evaluation_result_path, "a", encoding="utf-8") as f:
+            f.write(
+                f"| {timestamp} | {self.env} | {self.policy} | {seed} | "
+                f"{success_count}/{total_count} ({success_rate:.0%}) |\n"
+            )
+
     def git_commit_result(self):
         """Add, commit, and push evaluation_results.md to the current branch."""
         # Determine repository root and its directory name
@@ -541,31 +566,6 @@ class AutoEval:
         )
         # git push
         self.exec_command(["git", "-C", repo_root, "push", "origin", branch])
-
-    def append_evaluation_result_line(self, task_success_list, seed):
-        """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
-        evaluation_result_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "result",
-            "evaluation_results.md",
-        )
-        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
-
-        if not os.path.exists(evaluation_result_path):
-            with open(evaluation_result_path, "w", encoding="utf-8") as f:
-                f.write("| Timestamp | Env | Policy | Seed | Success |\n")
-                f.write("|-----------|-----|--------|------|---------|\n")
-
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        success_count = sum(task_success_list)
-        total_count = len(task_success_list)
-        success_rate = success_count / total_count if total_count > 0 else 0
-
-        with open(evaluation_result_path, "a", encoding="utf-8") as f:
-            f.write(
-                f"| {timestamp} | {self.env} | {self.policy} | {seed} | "
-                f"{success_count}/{total_count} ({success_rate:.0%}) |\n"
-            )
 
     def execute_job(
         self,

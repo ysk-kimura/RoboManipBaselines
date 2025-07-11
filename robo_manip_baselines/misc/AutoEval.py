@@ -1,5 +1,4 @@
 import argparse
-import contextlib
 import datetime
 import fcntl
 import glob
@@ -13,7 +12,6 @@ import tempfile
 import textwrap
 import time
 import traceback
-import uuid
 import venv
 from collections import defaultdict
 from pathlib import Path
@@ -37,7 +35,6 @@ JOB_BASE_PARAM_KEYS = [
     "input_checkpoint_file",
     "no_train",
     "no_rollout",
-    "instant",
 ]
 AUTOEVAL_INIT_PARAM_KEYS = ["policy"] + JOB_BASE_PARAM_KEYS
 AUTOEVAL_EXECUTE_PARAM_KEYS = [
@@ -85,7 +82,6 @@ class AutoEval:
         input_checkpoint_file=None,
         no_train=False,
         no_rollout=False,
-        instant=False,
     ):
         """Initialize the instance with default or provided configurations."""
         self.policy = policy
@@ -95,7 +91,6 @@ class AutoEval:
         self.queue_dir = queue_dir
         self.no_train = no_train
         self.no_rollout = no_rollout
-        self.instant = instant
         self.dataset_dir = None
 
         if target_dir is None:
@@ -665,18 +660,10 @@ class AutoEval:
         4) Train (unless no_train)
         5) Rollout and save results (unless no_rollout)
         """
-        if self.instant:
-            print(f"[{self.__class__.__name__}] Instant mode: skipping lock.")
-            lock_context = contextlib.nullcontext(None)
-        else:
-            print(f"[{self.__class__.__name__}] Lock file: {self.lock_file_path}")
-            lock_context = open(self.lock_file_path, "w", encoding="utf-8")
-        with lock_context as lock_file:
-            if not self.instant and lock_file is not None:
-                fcntl.flock(lock_file, fcntl.LOCK_EX)
-                print(
-                    f"[{self.__class__.__name__}] Lock acquired. Starting processing..."
-                )
+        print(f"[{self.__class__.__name__}] Lock file: {self.lock_file_path}")
+        with open(self.lock_file_path, "w", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            print(f"[{self.__class__.__name__}] Lock acquired. Starting processing...")
 
             # Clone the Git repository and switch to the specified commit
             self.git_clone()
@@ -759,16 +746,15 @@ class AutoEval:
                 placeholder="…",
             )
         )
-        if not self.instant:
-            try:
-                os.remove(self.lock_file_path)
-                print(
-                    f"[{self.__class__.__name__}] Lock file removed: {self.lock_file_path}"
-                )
-            except OSError as e:
-                print(
-                    f"[{self.__class__.__name__}] Warning: failed to remove lock file ({e})"
-                )
+        try:
+            os.remove(self.lock_file_path)
+            print(
+                f"[{self.__class__.__name__}] Lock file removed: {self.lock_file_path}"
+            )
+        except OSError as e:
+            print(
+                f"[{self.__class__.__name__}] Warning: failed to remove lock file ({e})"
+            )
 
 
 def camel_to_snake(name):
@@ -960,12 +946,6 @@ def parse_argument():
         metavar="HH:MM",
         help="daily schedule time, for example 18:30",
     )
-    parser.add_argument(
-        "-I",
-        "--instant",
-        action="store_true",
-        help="execute immediately without queuing or JSON registration",
-    )
     parsed_args = parser.parse_args()
 
     # Handle seeds: use [None] when not specified
@@ -1023,15 +1003,7 @@ def main():
         os.path.dirname(os.path.abspath(__file__)),
         f".sys_queue_{Path(__file__).resolve().stem}",
     )
-    if not getattr(args, "instant", False):
-        queue_name = args.jqueue
-    else:
-        queue_name = (
-            "instant_"
-            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            + "_"
-            + uuid.uuid4().hex[:6]
-        )
+    queue_name = args.jqueue
     queue_dir = os.path.join(qbase, queue_name)
     job_args = argparse.Namespace(**vars(args))
     job_args.queue_dir = queue_dir

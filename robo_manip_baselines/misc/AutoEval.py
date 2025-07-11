@@ -12,11 +12,14 @@ import sysconfig
 import tempfile
 import textwrap
 import time
+import traceback
 import uuid
 import venv
+from collections import defaultdict
 from pathlib import Path
 from urllib.parse import urlparse
 
+import numpy as np
 import schedule
 import yaml
 
@@ -506,8 +509,47 @@ class AutoEval:
             f"File has been saved: {output_file_path}"
         )
 
-    def append_eval_line_to_md(self, task_success_list, seed):
-        """Append a one-line evaluation result to result/evaluation_results.md in Markdown table format."""
+    @classmethod
+    def load_results_from_txt(cls):
+        pattern = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "result",
+            "*",  # timestamp
+            "*",  # policy
+            "*",  # env
+            "*",  # seed
+            "task_success_list.txt",
+        )
+        files = glob.glob(pattern)
+        assert len(files) >= 1
+        # temporary mapping (policy, env) -> list of (timestamp, rate)
+        temp = defaultdict(list)
+        for path in files:
+            parts = path.split(os.sep)
+            idx = parts.index("result")
+            timestamp = parts[idx + 1]
+            policy = parts[idx + 2]
+            env = parts[idx + 3]
+            # read successes
+            with open(path, "r", encoding="utf-8") as f:
+                data = f.read().strip().split()
+                vals = [int(x) for x in data]
+                rate = sum(vals) / len(vals)
+            temp[(policy, env)].append((timestamp, rate))
+
+        # build final metrics: (policy, env) -> (earliest_timestamp, [rates])
+        metrics = {}
+        for key, tr_list in temp.items():
+            # extract all timestamps and rates
+            timestamps, rates = zip(*tr_list)
+            earliest = min(timestamps)
+            metrics[key] = (earliest, list(rates))
+
+        return metrics
+
+    @classmethod
+    def append_eval_lines_to_md(cls):
+        """Append evaluation lines to result/evaluation_results.md in Markdown table format."""
         evaluation_result_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "result",
@@ -515,51 +557,90 @@ class AutoEval:
         )
         os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
 
+        metrics = cls.load_results_from_txt()
+        header_lines = [
+            "| Timestamp | Env | Policy | Success (ave) | Success (dev) |\n",
+            "|-----------|-----|--------|--------------|---------------|\n",
+        ]
+        rows = []
+        for (policy, env), (timestamp, rates) in sorted(metrics.items()):
+            ave = np.mean(rates)
+            dev = np.std(rates, ddof=1)  # Unbiased standard deviation
+            row = f"| {timestamp} | {env} | {policy} | {ave:.3f} | {dev:.3f} |\n"
+            rows.append(row)
+
+        # write new content: header_lines + rows
         if not os.path.exists(evaluation_result_path):
             with open(evaluation_result_path, "w", encoding="utf-8") as f:
-                f.write("| Timestamp | Env | Policy | Seed | Success |\n")
-                f.write("|-----------|-----|--------|------|---------|\n")
+                f.writelines(header_lines)
+                f.writelines(rows)
+        else:
+            with open(evaluation_result_path, "r", encoding="utf-8") as f:
+                orig_content = f.readlines()
+            new_content = header_lines + rows + orig_content[2:]
+            with open(evaluation_result_path, "w", encoding="utf-8") as f:
+                f.writelines(new_content)
 
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        success_count = sum(task_success_list)
-        total_count = len(task_success_list)
-        success_rate = success_count / total_count if total_count > 0 else 0
-
-        with open(evaluation_result_path, "a", encoding="utf-8") as f:
-            f.write(
-                f"| {timestamp} | {self.env} | {self.policy} | {seed} | "
-                f"{success_count}/{total_count} ({success_rate:.0%}) |\n"
+    @classmethod
+    def git_commit_result(cls, eval_md_branch):
+        """Commit and push evaluation_results.md to eval_md_branch, creating it if needed."""
+        try:
+            # Repository root directory
+            repo_root = os.path.dirname(os.path.abspath(__file__))
+            repo_dir_name = os.path.basename(repo_root)
+            md_path = os.path.join(repo_root, "result", "evaluation_results.md")
+            # Get the current branch name
+            result = subprocess.run(
+                ["git", "-C", repo_root, "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
             )
+            current_branch = result.stdout.strip()
+            # Check if the target branch exists
+            result = subprocess.run(
+                ["git", "-C", repo_root, "branch", "--list", eval_md_branch],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            exists = bool(result.stdout.strip())
+            # Create or switch to the target branch
+            if exists:
+                cls.exec_command(["git", "-C", repo_root, "checkout", eval_md_branch])
+            else:
+                cls.exec_command(
+                    ["git", "-C", repo_root, "checkout", "-b", eval_md_branch]
+                )
+            # Stage the file
+            cls.exec_command(["git", "-C", repo_root, "add", md_path])
+            # Commit the file
+            cls.exec_command(
+                [
+                    "git",
+                    "-C",
+                    repo_root,
+                    "commit",
+                    "-m",
+                    f"[{repo_dir_name}] {cls.__name__}: Update evaluation_results.md.",
+                ]
+            )
+            # Push the commit
+            cls.exec_command(["git", "-C", repo_root, "push", "origin", eval_md_branch])
+            # Switch back to the original branch
+            cls.exec_command(["git", "-C", repo_root, "checkout", current_branch])
 
-    def git_commit_result(self):
-        """Add, commit, and push evaluation_results.md to the current branch."""
-        # Determine repository root and its directory name
-        repo_root = os.path.dirname(os.path.abspath(__file__))
-        repo_dir_name = os.path.basename(repo_root)
-        # Path to the markdown file
-        md_path = os.path.join(repo_root, "result", "evaluation_results.md")
-        # Get current Git branch name
-        branch = subprocess.run(
-            ["git", "-C", repo_root, "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-        # git add
-        self.exec_command(["git", "-C", repo_root, "add", md_path])
-        # git commit
-        self.exec_command(
-            [
-                "git",
-                "-C",
-                repo_root,
-                "commit",
-                "-m",
-                f"[{repo_dir_name}] {self.__class__.__name__}: Update evaluation_results.md.",
-            ]
-        )
-        # git push
-        self.exec_command(["git", "-C", repo_root, "push", "origin", branch])
+        except subprocess.CalledProcessError as e:
+            print(
+                f"[{cls.__name__}] WARNING: Git operation failed with error: {e}",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(
+                f"[{cls.__name__}] WARNING: Unexpected error during git operation: {e}",
+                file=sys.stderr,
+            )
+            traceback.print_exc()
 
     def execute_job(
         self,
@@ -650,8 +731,6 @@ class AutoEval:
                         input_checkpoint_file,
                     )
                     self.save_result_to_txt(task_success_list, seed)
-                    self.append_eval_line_to_md(task_success_list, seed)
-                    self.git_commit_result()
                 else:
                     print(
                         f"[{self.__class__.__name__}] "
@@ -726,6 +805,20 @@ def add_job_queue_arguments(parser):
         dest="jqueue",
         help="name of job registration queue for mutual exclusion control",
     )
+    parser.add_argument(
+        "--report_eval_md",
+        action="store_true",
+        help=(
+            "collect task success count and append to evaluation markdown report: "
+            "perform git add commit push then exit immediately"
+        ),
+    )
+    parser.add_argument(
+        "--eval_md_branch",
+        type=str,
+        default="auto-eval/report",
+        help="target branch name to push evaluation markdown report",
+    )
 
 
 def parse_argument():
@@ -737,6 +830,7 @@ def parse_argument():
         or "--job_del" in sys.argv
         or "--jstat" in sys.argv
         or "--jdel" in sys.argv
+        or "--report_eval_md" in sys.argv
     ):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -946,6 +1040,11 @@ def main():
 
     if args.job_del:
         delete_queued_job(queue_dir, args.job_del)
+        return
+
+    if args.report_eval_md:
+        AutoEval.append_eval_lines_to_md()
+        AutoEval.git_commit_result(args.eval_md_branch)
         return
 
     def register_invocation():

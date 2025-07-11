@@ -582,11 +582,13 @@ class AutoEval:
     @classmethod
     def git_commit_result(cls, eval_md_branch):
         """Commit and push evaluation_results.md to eval_md_branch, creating it if needed."""
+        repo_root = os.path.dirname(
+            os.path.abspath(__file__)
+        )  # Repository root directory
+        repo_dir_name = os.path.basename(repo_root)
+        md_path = os.path.join(repo_root, "result", "evaluation_results.md")
+
         try:
-            # Repository root directory
-            repo_root = os.path.dirname(os.path.abspath(__file__))
-            repo_dir_name = os.path.basename(repo_root)
-            md_path = os.path.join(repo_root, "result", "evaluation_results.md")
             # Get the current branch name
             result = subprocess.run(
                 ["git", "-C", repo_root, "rev-parse", "--abbrev-ref", "HEAD"],
@@ -595,6 +597,14 @@ class AutoEval:
                 check=True,
             )
             current_branch = result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            print(
+                f"[{cls.__name__}] ERROR: Failed to get current git branch: {e}",
+                file=sys.stderr,
+            )
+            return
+
+        try:
             # Check if the target branch exists
             result = subprocess.run(
                 ["git", "-C", repo_root, "branch", "--list", eval_md_branch],
@@ -639,6 +649,15 @@ class AutoEval:
                 file=sys.stderr,
             )
             traceback.print_exc()
+        finally:
+            # Always return to the original branch
+            try:
+                cls.exec_command(["git", "-C", repo_root, "checkout", current_branch])
+            except Exception as e:
+                print(
+                    f"[{cls.__name__}] ERROR: Failed to return to original branch '{current_branch}': {e}",
+                    file=sys.stderr,
+                )
 
     def execute_job(
         self,

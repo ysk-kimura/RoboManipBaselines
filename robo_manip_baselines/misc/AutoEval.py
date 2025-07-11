@@ -477,7 +477,10 @@ class AutoEval:
         """Save task_success_list."""
 
         output_dir_path = os.path.join(
-            self.result_datetime_dir, self.policy, self.env, f"s{seed}"
+            self.result_datetime_dir,
+            self.policy,
+            self.env,
+            f"s{seed}" if type(seed) is int else f"s_{str(seed).lower()}",
         )
         os.makedirs(output_dir_path, exist_ok=True)
         output_file_path = os.path.join(output_dir_path, "task_success_list.txt")

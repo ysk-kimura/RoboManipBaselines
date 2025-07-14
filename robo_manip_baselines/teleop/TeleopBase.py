@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import glob
 import os
 import sys
 import time
@@ -19,6 +18,7 @@ from robo_manip_baselines.common import (
     PhaseManager,
     convert_depth_image_to_color_image,
     convert_depth_image_to_point_cloud,
+    find_rmb_files,
     remove_suffix,
     set_random_seed,
 )
@@ -202,23 +202,7 @@ class TeleopBase(ABC):
             self.replay_data_manager.setup_camera_info()
 
             # Set log files for replay
-            if self.args.replay_log.rstrip("/").endswith((".rmb", ".hdf5")):
-                self.replay_filenames = [self.args.replay_log]
-            elif os.path.isdir(self.args.replay_log):
-                self.replay_filenames = sorted(
-                    [
-                        f
-                        for f in glob.glob(
-                            f"{self.args.replay_log}/**/*.*", recursive=True
-                        )
-                        if f.endswith(".rmb")
-                        or (f.endswith(".hdf5") and not f.endswith(".rmb.hdf5"))
-                    ]
-                )
-            else:
-                raise ValueError(
-                    f"[{self.__class__.__name__}] Invalid path for replaying log: {self.args.replay_log}"
-                )
+            self.replay_filenames = find_rmb_files(self.args.replay_log)
             self.replay_file_idx = 0
 
         # Setup phase manager

@@ -54,6 +54,7 @@ class TeleopBaseVec(TeleopBase):
             self.info_list = self.env.unwrapped.info_list
             self.obs = self.obs_list[self.env.unwrapped.rep_env_idx]
             self.info = self.info_list[self.env.unwrapped.rep_env_idx]
+            self.reward = 0.0
 
             self.draw_image()
 

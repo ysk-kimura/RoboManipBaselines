@@ -1,7 +1,6 @@
 import argparse
 import copy
 import datetime
-import glob
 import os
 import pickle
 import random
@@ -18,6 +17,7 @@ from ..data.CachedDataset import CachedDataset
 from ..data.DataKey import DataKey
 from ..data.RmbData import RmbData
 from ..utils.DataUtils import get_skipped_data_seq
+from ..utils.FileUtils import find_rmb_files
 from ..utils.MathUtils import set_random_seed
 from ..utils.MiscUtils import remove_prefix
 
@@ -223,12 +223,7 @@ class TrainBase(ABC):
             )
 
         # Get file list
-        all_filenames = [
-            f
-            for f in glob.glob(f"{self.args.dataset_dir}/**/*.*", recursive=True)
-            if f.endswith(".rmb")
-            or (f.endswith(".hdf5") and not f.endswith(".rmb.hdf5"))
-        ]
+        all_filenames = find_rmb_files(self.args.dataset_dir)
         random.shuffle(all_filenames)
         train_num = max(
             int(np.clip(self.args.train_ratio, 0.0, 1.0) * len(all_filenames)), 1

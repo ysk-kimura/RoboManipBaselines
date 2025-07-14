@@ -40,13 +40,26 @@ def parse_argument():
         default=None,
         help="List of rgb image size (width, height) to be cropped before resize. Specify a 2-dimensional array if all images have the same size, or an array of <number-of-images> * 2 dimensions if the size differs for each individual image.",
     )
+    parser.add_argument(
+        "--display_stored_pointcloud",
+        action="store_true",
+        help="Whether to visualize the point cloud stored in the log file instead of generating it from depth image",
+    )
     return parser.parse_args()
 
 
 class VisualizeData:
     def __init__(
-        self, teleop_filename, skip, output_mp4_filename, mp4_codec, rgb_crop_size_list
+        self,
+        teleop_filename,
+        skip,
+        output_mp4_filename,
+        mp4_codec,
+        rgb_crop_size_list,
+        display_stored_pointcloud,
     ):
+        self.display_stored_pointcloud = display_stored_pointcloud
+
         print(f"[{self.__class__.__name__}] {self.data_setup.__name__} ...")
         self.data_setup(teleop_filename, skip, rgb_crop_size_list)
 
@@ -234,35 +247,46 @@ class VisualizeData:
 
     def handle_point_cloud(
         self,
-        ax_idx,
-        scatter_list,
-        depth_key,
+        sensor_idx,
+        time_idx,
+        sensor_name,
         rgb_image,
         depth_image,
     ):
-        if f"{depth_key}_fovy" not in self.data_manager.meta_data.keys():
-            if self.ax[ax_idx, 2] in self.fig.axes:
-                self.ax[ax_idx, 2].remove()
-            return
-        point_cloud_skip = 10
-        small_depth_image = depth_image[::point_cloud_skip, ::point_cloud_skip]
-        small_rgb_image = rgb_image[::point_cloud_skip, ::point_cloud_skip]
-        fovy = self.data_manager.get_meta_data(f"{depth_key}_fovy")
-        xyz_array, rgb_array = convert_depth_image_to_point_cloud(
-            small_depth_image,
-            fovy=fovy,
-            rgb_image=small_rgb_image,
-            far_clip=3.0,  # [m]
-        )
+        ax_idx = sensor_idx + 1
+        if self.display_stored_pointcloud:
+            pointcloud_key = DataKey.get_pointcloud_key(sensor_name)
+            xyzrgb_array = self.data_manager.get_data_seq(pointcloud_key)
+            xyz_array = xyzrgb_array[time_idx, :, :3]
+            rgb_array = xyzrgb_array[time_idx, :, 3:]
+        else:
+            depth_key = DataKey.get_depth_image_key(sensor_name)
+            if f"{depth_key}_fovy" not in self.data_manager.meta_data.keys():
+                if self.ax[ax_idx, 2] in self.fig.axes:
+                    self.ax[ax_idx, 2].remove()
+                return
+            point_cloud_skip = 10
+            small_depth_image = depth_image[::point_cloud_skip, ::point_cloud_skip]
+            small_rgb_image = rgb_image[::point_cloud_skip, ::point_cloud_skip]
+            fovy = self.data_manager.get_meta_data(f"{depth_key}_fovy")
+            xyz_array, rgb_array = convert_depth_image_to_point_cloud(
+                small_depth_image,
+                fovy=fovy,
+                rgb_image=small_rgb_image,
+                far_clip=3.0,  # [m]
+            )
         if not xyz_array.size:
             return
-        if scatter_list[ax_idx - 1] is None:
+        if self.scatter_list[ax_idx - 1] is None:
 
             def get_min_max(v_min, v_max):
-                return (
-                    0.75 * v_min + 0.25 * v_max,
-                    0.25 * v_min + 0.75 * v_max,
-                )
+                if self.display_stored_pointcloud:
+                    return (v_min, v_max)
+                else:
+                    return (
+                        0.75 * v_min + 0.25 * v_max,
+                        0.25 * v_min + 0.75 * v_max,
+                    )
 
             self.ax[ax_idx, 2].view_init(elev=-90, azim=-90)
             self.ax[ax_idx, 2].set_xlim(
@@ -275,10 +299,10 @@ class VisualizeData:
                 *get_min_max(xyz_array[:, 2].min(), xyz_array[:, 2].max())
             )
         else:
-            scatter_list[ax_idx - 1].remove()
+            self.scatter_list[ax_idx - 1].remove()
         self.ax[ax_idx, 2].axis("off")
         self.ax[ax_idx, 2].set_box_aspect(np.ptp(xyz_array, axis=0))
-        scatter_list[ax_idx - 1] = self.ax[ax_idx, 2].scatter(
+        self.scatter_list[ax_idx - 1] = self.ax[ax_idx, 2].scatter(
             xyz_array[:, 0], xyz_array[:, 1], xyz_array[:, 2], c=rgb_array
         )
 
@@ -360,7 +384,6 @@ class VisualizeData:
                 )
 
             for sensor_idx, sensor_name in enumerate(self.sensor_names):
-                ax_idx = sensor_idx + 1
                 rgb_key = DataKey.get_rgb_image_key(sensor_name)
                 depth_key = DataKey.get_depth_image_key(sensor_name)
 
@@ -369,9 +392,9 @@ class VisualizeData:
                 depth_image = self.handle_depth_image(sensor_idx, time_idx, depth_key)
 
                 self.handle_point_cloud(
-                    ax_idx,
-                    self.scatter_list,
-                    depth_key,
+                    sensor_idx,
+                    time_idx,
+                    sensor_name,
                     rgb_image,
                     depth_image,
                 )
@@ -421,5 +444,6 @@ if __name__ == "__main__":
         args.output_mp4_filename,
         args.mp4_codec,
         args.rgb_crop_size_list,
+        args.display_stored_pointcloud,
     )
     viz.plot()

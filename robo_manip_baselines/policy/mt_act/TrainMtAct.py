@@ -1,4 +1,3 @@
-import glob
 import os
 import sys
 
@@ -14,7 +13,7 @@ import os
 from detr.models.detr_vae import DETRVAE
 from policy import ACTPolicy
 
-from robo_manip_baselines.common import RmbData, TrainBase
+from robo_manip_baselines.common import RmbData, TrainBase, find_rmb_files
 
 from .MtActDataset import MtActDataset
 
@@ -50,12 +49,7 @@ class TrainMtAct(TrainBase):
         self.model_meta_info["data"]["chunk_size"] = self.args.chunk_size
 
         # Set list of all task descriptions
-        all_filenames = [
-            f
-            for f in glob.glob(f"{self.args.dataset_dir}/**/*.*", recursive=True)
-            if f.endswith(".rmb")
-            or (f.endswith(".hdf5") and not f.endswith(".rmb.hdf5"))
-        ]
+        all_filenames = find_rmb_files(self.args.dataset_dir)
         self.task_desc_list = set()
         for filename in all_filenames:
             with RmbData(filename) as rmb_data:

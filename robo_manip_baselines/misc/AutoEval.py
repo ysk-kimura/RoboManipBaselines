@@ -35,6 +35,7 @@ JOB_BASE_PARAM_KEYS = [
     "input_checkpoint_file",
     "no_train",
     "no_rollout",
+    "eval_md_result_root",
 ]
 AUTOEVAL_INIT_PARAM_KEYS = ["policy"] + JOB_BASE_PARAM_KEYS
 AUTOEVAL_EXECUTE_PARAM_KEYS = [
@@ -55,7 +56,7 @@ JSON_INVOCATION_REGISTER_KEYS = JSON_STATIC_METADATA_KEYS + JOB_ALL_PARAM_KEYS
 
 
 class AutoEval:
-    """Class that automatically performs installation, training, and rollout."""
+    """Class that automatically performs installation, training, rollout, and evaluation report."""
 
     REPOSITORY_NAME = "RoboManipBaselines"
     THIRD_PARTY_PATHS = {
@@ -82,6 +83,7 @@ class AutoEval:
         input_checkpoint_file=None,
         no_train=False,
         no_rollout=False,
+        eval_md_result_root=None,
     ):
         """Initialize the instance with default or provided configurations."""
         self.policy = policy
@@ -91,6 +93,7 @@ class AutoEval:
         self.queue_dir = queue_dir
         self.no_train = no_train
         self.no_rollout = no_rollout
+        self.eval_md_result_root = eval_md_result_root
         self.dataset_dir = None
 
         if target_dir is None:
@@ -135,13 +138,6 @@ class AutoEval:
         self.lock_file_path = os.path.join(
             queue_dir,
             "." + Path(__file__).resolve().stem + ".lock",
-        )
-
-        # Create a result directory with a timestamp for organized output storage
-        self.result_datetime_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "result/",
-            datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
         )
 
     @classmethod
@@ -468,14 +464,17 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result_to_txt(self, task_success_list, seed):
+    def save_result_to_txt(self, task_success_list, input_dataset_location, seed):
         """Save task_success_list."""
 
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir_path = os.path.join(
-            self.result_datetime_dir,
+            self.eval_md_result_root,
+            timestamp,
             self.policy,
             self.env,
-            f"s{seed}" if type(seed) is int else f"s_{str(seed).lower()}",
+            "_".join(camel_to_snake(input_dataset_location).split("_")[-2:])[:20],
+            f"s{seed}" if isinstance(seed, int) else f"s_{str(seed).lower()}",
         )
         os.makedirs(output_dir_path, exist_ok=True)
         output_file_path = os.path.join(output_dir_path, "task_success_list.txt")
@@ -508,135 +507,115 @@ class AutoEval:
         )
 
     @classmethod
-    def load_results_from_txt(cls):
-        pattern = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "result",
-            "*",  # timestamp
-            "*",  # policy
-            "*",  # env
-            "*",  # seed
-            "task_success_list.txt",
-        )
-        files = glob.glob(pattern)
-        assert len(files) >= 1
-        # temporary mapping (policy, env) -> list of (timestamp, rate)
+    def load_results_from_txt(cls, eval_md_result_root):
         temp = defaultdict(list)
-        for path in files:
-            parts = path.split(os.sep)
-            idx = parts.index("result")
-            timestamp = parts[idx + 1]
-            policy = parts[idx + 2]
-            env = parts[idx + 3]
-            # read successes
-            with open(path, "r", encoding="utf-8") as f:
-                data = f.read().strip().split()
-                vals = [int(x) for x in data]
-                rate = sum(vals) / len(vals)
-            temp[(policy, env)].append((timestamp, rate))
+        for root, _, files in os.walk(eval_md_result_root):
+            for file in files:
+                if not file.startswith("task_success_list") or not file.endswith(
+                    ".txt"
+                ):
+                    continue
+                path = os.path.join(root, file)
+                parts = path.split(os.sep)
+                try:
+                    idx = parts.index(os.path.basename(eval_md_result_root))
+                    timestamp = parts[idx + 1]
+                    policy = parts[idx + 2]
+                    env = parts[idx + 3]
+                    dataset = parts[idx + 4]
+                except (IndexError, ValueError):
+                    continue
+                with open(path, "r", encoding="utf-8") as f:
+                    vals = [int(x) for x in f.read().strip().split()]
+                    if not vals:
+                        continue
+                    rate = sum(vals) / len(vals)
+                temp[(policy, env)].append((timestamp, rate, dataset))
 
-        # build final metrics: (policy, env) -> (earliest_timestamp, [rates])
         metrics = {}
         for key, tr_list in temp.items():
-            # extract all timestamps and rates
-            timestamps, rates = zip(*tr_list)
+            timestamps, rates, datasets = zip(*tr_list)
             earliest = min(timestamps)
-            metrics[key] = (earliest, list(rates))
+            metrics[key] = (earliest, list(rates), datasets)
 
         return metrics
 
     @classmethod
-    def append_eval_lines_to_md(cls):
+    def append_eval_lines_to_md(cls, eval_md_result_root):
         """Append evaluation lines to result/evaluation_results.md in Markdown table format."""
-        evaluation_result_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "result",
-            "evaluation_results.md",
+        evaluevaluation_result_pathation_result_path = os.path.join(
+            eval_md_result_root, "evaluation_results.md"
         )
-        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
+        os.makedirs(
+            os.path.dirname(evaluevaluation_result_pathation_result_path), exist_ok=True
+        )
 
-        metrics = cls.load_results_from_txt()
+        metrics = cls.load_results_from_txt(eval_md_result_root)
         header_lines = [
-            "| Timestamp | Env | Policy | Success (ave) | Success (dev) |\n",
-            "|-----------|-----|--------|--------------|---------------|\n",
+            "| Timestamp | Policy | Env | Dataset | Success (ave) | Success (dev) |\n",
+            "|-----------|--------|-----|---------|---------------|---------------|\n",
         ]
         rows = []
-        for (policy, env), (timestamp, rates) in sorted(metrics.items()):
+        for (policy, env), (timestamp, rates, dataset) in sorted(metrics.items()):
             ave = np.mean(rates)
-            dev = np.std(rates, ddof=1)  # Unbiased standard deviation
-            row = f"| {timestamp} | {env} | {policy} | {ave:.3f} | {dev:.3f} |\n"
-            rows.append(row)
+            if len(rates) > 1:
+                dev = np.std(rates, ddof=1)  # Unbiased standard deviation
+            else:
+                dev = 0.0
+            rows.append(
+                f"| {timestamp} | {policy} | {env} | {dataset} | {ave:.3f} | {dev:.3f} |\n"
+            )
 
-        # write new content: header_lines + rows
-        if not os.path.exists(evaluation_result_path):
-            with open(evaluation_result_path, "w", encoding="utf-8") as f:
-                f.writelines(header_lines)
-                f.writelines(rows)
+        if not os.path.exists(evaluevaluation_result_pathation_result_path):
+            with open(
+                evaluevaluation_result_pathation_result_path, "w", encoding="utf-8"
+            ) as f:
+                f.writelines(header_lines + rows)
         else:
-            with open(evaluation_result_path, "r", encoding="utf-8") as f:
+            with open(
+                evaluevaluation_result_pathation_result_path, "r", encoding="utf-8"
+            ) as f:
                 orig_content = f.readlines()
             new_content = header_lines + rows + orig_content[2:]
-            with open(evaluation_result_path, "w", encoding="utf-8") as f:
+            with open(
+                evaluevaluation_result_pathation_result_path, "w", encoding="utf-8"
+            ) as f:
                 f.writelines(new_content)
 
     @classmethod
-    def git_commit_result(cls, eval_md_branch):
-        """Commit and push evaluation_results.md to eval_md_branch, creating it if needed."""
-        repo_root = os.path.dirname(
-            os.path.abspath(__file__)
-        )  # Repository root directory
-        repo_dir_name = os.path.basename(repo_root)
-        md_path = os.path.join(repo_root, "result", "evaluation_results.md")
-
-        try:
-            # Get the current branch name
-            result = subprocess.run(
-                ["git", "-C", repo_root, "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            current_branch = result.stdout.strip()
-        except subprocess.CalledProcessError as e:
-            print(
-                f"[{cls.__name__}] ERROR: Failed to get current git branch: {e}",
-                file=sys.stderr,
-            )
+    def git_commit_result(cls, eval_md_result_root, eval_md_repo_dir):
+        """
+        Push evaluation_results.md into an existing local Git repository directory.
+        If `eval_md_repo_dir` is not valid, prints a warning and returns.
+        """
+        # Directory must exist and be a Git repository
+        if not os.path.isdir(eval_md_repo_dir) or not os.path.isdir(
+            os.path.join(eval_md_repo_dir, ".git")
+        ):
+            print(f"[AutoEval] WARNING: not a valid git directory: {eval_md_repo_dir}")
             return
 
+        md_src = os.path.join(eval_md_result_root, "evaluation_results.md")
+        md_dst = os.path.join(eval_md_repo_dir, "result/evaluation_results.md")
+
         try:
-            # Check if the target branch exists
-            result = subprocess.run(
-                ["git", "-C", repo_root, "branch", "--list", eval_md_branch],
-                capture_output=True,
-                text=True,
-                check=True,
+            # Copy file into target repo
+            cls.exec_command(["cp", md_src, md_dst])
+            # Stage, commit, push
+            cls.exec_command(
+                ["git", "-C", eval_md_repo_dir, "add", "result/evaluation_results.md"]
             )
-            exists = bool(result.stdout.strip())
-            # Create or switch to the target branch
-            if exists:
-                cls.exec_command(["git", "-C", repo_root, "checkout", eval_md_branch])
-            else:
-                cls.exec_command(
-                    ["git", "-C", repo_root, "checkout", "-b", eval_md_branch]
-                )
-            # Stage the file
-            cls.exec_command(["git", "-C", repo_root, "add", md_path])
-            # Commit the file
             cls.exec_command(
                 [
                     "git",
                     "-C",
-                    repo_root,
+                    eval_md_repo_dir,
                     "commit",
                     "-m",
-                    f"[{repo_dir_name}] {cls.__name__}: Update evaluation_results.md.",
+                    f"{cls.__name__}: Update evaluation_results.md.",
                 ]
             )
-            # Push the commit
-            cls.exec_command(["git", "-C", repo_root, "push", "origin", eval_md_branch])
-            # Switch back to the original branch
-            cls.exec_command(["git", "-C", repo_root, "checkout", current_branch])
+            cls.exec_command(["git", "-C", eval_md_repo_dir, "push"])
 
         except subprocess.CalledProcessError as e:
             print(
@@ -649,15 +628,6 @@ class AutoEval:
                 file=sys.stderr,
             )
             traceback.print_exc()
-        finally:
-            # Always return to the original branch
-            try:
-                cls.exec_command(["git", "-C", repo_root, "checkout", current_branch])
-            except Exception as e:
-                print(
-                    f"[{cls.__name__}] ERROR: Failed to return to original branch '{current_branch}': {e}",
-                    file=sys.stderr,
-                )
 
     def execute_job(
         self,
@@ -669,7 +639,7 @@ class AutoEval:
         upgrade_pip_setuptools,
         world_idx_list,
         result_filename,
-        seeds=[None],
+        seeds=None,
     ):
         """
         Execute a single job:
@@ -720,7 +690,7 @@ class AutoEval:
                 ]
             )
 
-            for seed in seeds:
+            for seed in seeds if seeds is not None else [None]:
                 # Training phase
                 if not self.no_train:
                     self.get_dataset(input_dataset_location)
@@ -739,7 +709,9 @@ class AutoEval:
                         result_filename,
                         input_checkpoint_file,
                     )
-                    self.save_result_to_txt(task_success_list, seed)
+                    self.save_result_to_txt(
+                        task_success_list, input_dataset_location, seed
+                    )
                 else:
                     print(
                         f"[{self.__class__.__name__}] "
@@ -816,16 +788,19 @@ def add_job_queue_arguments(parser):
     parser.add_argument(
         "--report_eval_md",
         action="store_true",
-        help=(
-            "collect task success count and append to evaluation markdown report: "
-            "perform git add commit push then exit immediately"
-        ),
+        help="append evaluation results and optionally push to local git repository",
     )
     parser.add_argument(
-        "--eval_md_branch",
+        "--eval_md_repo_dir",
         type=str,
-        default="auto-eval/report",
-        help="target branch name to push evaluation markdown report",
+        default=None,
+        help="local git repository directory to push evaluation report file",
+    )
+    parser.add_argument(
+        "--eval_md_result_root",
+        type=str,
+        default="<EVAL_MD_RESULT_ROOT>",
+        help="directory for evaluation markdown data",
     )
 
 
@@ -1017,6 +992,10 @@ def delete_queued_job(queue_dir, job_id):
 
 def main():
     args = parse_argument()
+    args.eval_md_result_root = args.eval_md_result_root.replace(
+        "<EVAL_MD_RESULT_ROOT>",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "result"),
+    )
 
     qbase = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -1037,8 +1016,9 @@ def main():
         return
 
     if args.report_eval_md:
-        AutoEval.append_eval_lines_to_md()
-        AutoEval.git_commit_result(args.eval_md_branch)
+        AutoEval.append_eval_lines_to_md(args.eval_md_result_root)
+        if args.eval_md_repo_dir:
+            AutoEval.git_commit_result(args.eval_md_result_root, args.eval_md_repo_dir)
         return
 
     def register_invocation():
@@ -1112,8 +1092,6 @@ def main():
                     *(inv_info[k] for k in AUTOEVAL_EXECUTE_PARAM_KEYS)
                 )
             except Exception:
-                import traceback
-
                 traceback.print_exc()
                 has_error = True
 

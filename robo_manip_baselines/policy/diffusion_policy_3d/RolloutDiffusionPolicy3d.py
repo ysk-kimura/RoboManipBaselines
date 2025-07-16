@@ -16,7 +16,7 @@ sys.path.append(
 from diffusion_policy_3d.policy.dp3 import DP3
 from robo_manip_baselines.common import (
     RolloutBase,
-    convert_depth_image_to_point_cloud,
+    convert_depth_image_to_pointcloud,
     denormalize_data,
     normalize_data,
 )
@@ -138,7 +138,7 @@ class RolloutDiffusionPolicy3d(RolloutBase):
 
         # Convert to pointcloud
         pointcloud = np.concat(
-            convert_depth_image_to_point_cloud(depth_image, fovy, rgb_image),
+            convert_depth_image_to_pointcloud(depth_image, fovy, rgb_image),
             axis=1,
         )
         # Crop and downsample pointcloud

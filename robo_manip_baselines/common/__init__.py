@@ -29,7 +29,7 @@ from .utils.MathUtils import (
 from .utils.VisionUtils import (
     crop_and_resize,
     convert_depth_image_to_color_image,
-    convert_depth_image_to_point_cloud,
+    convert_depth_image_to_pointcloud,
 )
 from .utils.DataUtils import (
     normalize_data,

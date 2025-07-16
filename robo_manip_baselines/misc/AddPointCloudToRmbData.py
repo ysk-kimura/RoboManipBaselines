@@ -7,7 +7,7 @@ from tqdm import tqdm
 from robo_manip_baselines.common import (
     DataKey,
     RmbData,
-    convert_depth_image_to_point_cloud,
+    convert_depth_image_to_pointcloud,
     find_rmb_files,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
@@ -149,7 +149,7 @@ class AddPointCloudToRmbData:
             for single_rgb_image, single_depth_image in zip(rgb_image, depth_image):
                 # Convert to pointcloud
                 single_pointcloud = np.concat(
-                    convert_depth_image_to_point_cloud(
+                    convert_depth_image_to_pointcloud(
                         single_depth_image, fovy, single_rgb_image
                     ),
                     axis=1,

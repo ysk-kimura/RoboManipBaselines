@@ -546,13 +546,9 @@ class AutoEval:
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir):
-        """Append evaluation lines to result/evaluation_results.md in Markdown table format."""
-        evaluevaluation_result_pathation_result_path = os.path.join(
-            result_data_dir, "evaluation_results.md"
-        )
-        os.makedirs(
-            os.path.dirname(evaluevaluation_result_pathation_result_path), exist_ok=True
-        )
+        """Append evaluation lines to <result_data_dir>/evaluation_results.md in Markdown table format."""
+        evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
+        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
 
         metrics = cls.load_results_from_txt(result_data_dir)
         header_lines = [
@@ -570,20 +566,14 @@ class AutoEval:
                 f"| {timestamp} | {policy} | {env} | {dataset} | {ave:.3f} | {dev:.3f} |\n"
             )
 
-        if not os.path.exists(evaluevaluation_result_pathation_result_path):
-            with open(
-                evaluevaluation_result_pathation_result_path, "w", encoding="utf-8"
-            ) as f:
+        if not os.path.exists(evaluation_result_path):
+            with open(evaluation_result_path, "w", encoding="utf-8") as f:
                 f.writelines(header_lines + rows)
         else:
-            with open(
-                evaluevaluation_result_pathation_result_path, "r", encoding="utf-8"
-            ) as f:
+            with open(evaluation_result_path, "r", encoding="utf-8") as f:
                 orig_content = f.readlines()
             new_content = header_lines + rows + orig_content[2:]
-            with open(
-                evaluevaluation_result_pathation_result_path, "w", encoding="utf-8"
-            ) as f:
+            with open(evaluation_result_path, "w", encoding="utf-8") as f:
                 f.writelines(new_content)
 
     @classmethod

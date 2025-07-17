@@ -35,7 +35,7 @@ JOB_BASE_PARAM_KEYS = [
     "input_checkpoint_file",
     "no_train",
     "no_rollout",
-    "eval_md_result_root",
+    "result_data_dir",
 ]
 AUTOEVAL_INIT_PARAM_KEYS = ["policy"] + JOB_BASE_PARAM_KEYS
 AUTOEVAL_EXECUTE_PARAM_KEYS = [
@@ -83,7 +83,7 @@ class AutoEval:
         input_checkpoint_file=None,
         no_train=False,
         no_rollout=False,
-        eval_md_result_root=None,
+        result_data_dir=None,
     ):
         """Initialize the instance with default or provided configurations."""
         self.policy = policy
@@ -93,7 +93,7 @@ class AutoEval:
         self.queue_dir = queue_dir
         self.no_train = no_train
         self.no_rollout = no_rollout
-        self.eval_md_result_root = eval_md_result_root
+        self.result_data_dir = result_data_dir
         self.dataset_dir = None
 
         if target_dir is None:
@@ -358,6 +358,10 @@ class AutoEval:
         else:
             raise ValueError(f"Invalid: {input_dataset_location=}.")
 
+    @classmethod
+    def extract_dataset_tag(cls, input_dataset_location):
+        return "_".join(camel_to_snake(input_dataset_location).split("_")[-2:])[:20]
+
     def train(self, args_file_train, seed):
         """Execute the training process using the specified arguments file."""
         assert self.dataset_dir
@@ -464,16 +468,16 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result_to_txt(self, task_success_list, input_dataset_location, seed):
+    def save_result_to_txt(self, task_success_list, dataset_tag, seed):
         """Save task_success_list."""
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir_path = os.path.join(
-            self.eval_md_result_root,
+            self.result_data_dir,
             timestamp,
             self.policy,
             self.env,
-            "_".join(camel_to_snake(input_dataset_location).split("_")[-2:])[:20],
+            dataset_tag,
             f"s{seed}" if isinstance(seed, int) else f"s_{str(seed).lower()}",
         )
         os.makedirs(output_dir_path, exist_ok=True)
@@ -507,9 +511,9 @@ class AutoEval:
         )
 
     @classmethod
-    def load_results_from_txt(cls, eval_md_result_root):
+    def load_results_from_txt(cls, result_data_dir):
         temp = defaultdict(list)
-        for root, _, files in os.walk(eval_md_result_root):
+        for root, _, files in os.walk(result_data_dir):
             for file in files:
                 if not file.startswith("task_success_list") or not file.endswith(
                     ".txt"
@@ -518,7 +522,7 @@ class AutoEval:
                 path = os.path.join(root, file)
                 parts = path.split(os.sep)
                 try:
-                    idx = parts.index(os.path.basename(eval_md_result_root))
+                    idx = parts.index(os.path.basename(result_data_dir))
                     timestamp = parts[idx + 1]
                     policy = parts[idx + 2]
                     env = parts[idx + 3]
@@ -541,16 +545,16 @@ class AutoEval:
         return metrics
 
     @classmethod
-    def append_eval_lines_to_md(cls, eval_md_result_root):
+    def append_eval_lines_to_md(cls, result_data_dir):
         """Append evaluation lines to result/evaluation_results.md in Markdown table format."""
         evaluevaluation_result_pathation_result_path = os.path.join(
-            eval_md_result_root, "evaluation_results.md"
+            result_data_dir, "evaluation_results.md"
         )
         os.makedirs(
             os.path.dirname(evaluevaluation_result_pathation_result_path), exist_ok=True
         )
 
-        metrics = cls.load_results_from_txt(eval_md_result_root)
+        metrics = cls.load_results_from_txt(result_data_dir)
         header_lines = [
             "| Timestamp | Policy | Env | Dataset | Success (ave) | Success (dev) |\n",
             "|-----------|--------|-----|---------|---------------|---------------|\n",
@@ -583,39 +587,42 @@ class AutoEval:
                 f.writelines(new_content)
 
     @classmethod
-    def git_commit_result(cls, eval_md_result_root, eval_md_repo_dir):
+    def git_commit_result(cls, result_data_dir, eval_commit_dir):
         """
         Push evaluation_results.md into an existing local Git repository directory.
-        If `eval_md_repo_dir` is not valid, prints a warning and returns.
+        If `eval_commit_dir` is not valid, prints a warning and returns.
         """
         # Directory must exist and be a Git repository
-        if not os.path.isdir(eval_md_repo_dir) or not os.path.isdir(
-            os.path.join(eval_md_repo_dir, ".git")
+        if not os.path.isdir(eval_commit_dir) or not os.path.isdir(
+            os.path.join(eval_commit_dir, ".git")
         ):
-            print(f"[AutoEval] WARNING: not a valid git directory: {eval_md_repo_dir}")
+            print(f"[AutoEval] WARNING: not a valid git directory: {eval_commit_dir}")
             return
 
-        md_src = os.path.join(eval_md_result_root, "evaluation_results.md")
-        md_dst = os.path.join(eval_md_repo_dir, "result/evaluation_results.md")
+        eval_commit_result_dir = os.path.join(eval_commit_dir, "result")
+        os.makedirs(eval_commit_result_dir, exist_ok=True)
+
+        md_src = os.path.join(result_data_dir, "evaluation_results.md")
+        md_dst = os.path.join(eval_commit_result_dir, "evaluation_results.md")
 
         try:
             # Copy file into target repo
             cls.exec_command(["cp", md_src, md_dst])
             # Stage, commit, push
             cls.exec_command(
-                ["git", "-C", eval_md_repo_dir, "add", "result/evaluation_results.md"]
+                ["git", "-C", eval_commit_result_dir, "add", "evaluation_results.md"]
             )
             cls.exec_command(
                 [
                     "git",
                     "-C",
-                    eval_md_repo_dir,
+                    eval_commit_result_dir,
                     "commit",
                     "-m",
                     f"{cls.__name__}: Update evaluation_results.md.",
                 ]
             )
-            cls.exec_command(["git", "-C", eval_md_repo_dir, "push"])
+            cls.exec_command(["git", "-C", eval_commit_result_dir, "push"])
 
         except subprocess.CalledProcessError as e:
             print(
@@ -710,7 +717,9 @@ class AutoEval:
                         input_checkpoint_file,
                     )
                     self.save_result_to_txt(
-                        task_success_list, input_dataset_location, seed
+                        task_success_list,
+                        self.extract_dataset_tag(input_dataset_location),
+                        seed,
                     )
                 else:
                     print(
@@ -786,21 +795,21 @@ def add_job_queue_arguments(parser):
         help="name of job registration queue for mutual exclusion control",
     )
     parser.add_argument(
-        "--report_eval_md",
+        "--do_report_eval_md",
         action="store_true",
         help="append evaluation results and optionally push to local git repository",
     )
     parser.add_argument(
-        "--eval_md_repo_dir",
+        "--eval_commit_dir",
         type=str,
         default=None,
         help="local git repository directory to push evaluation report file",
     )
     parser.add_argument(
-        "--eval_md_result_root",
+        "--result_data_dir",
         type=str,
-        default="<EVAL_MD_RESULT_ROOT>",
-        help="directory for evaluation markdown data",
+        default="<RESULT_DATA_DIR>",
+        help="directory containing both intermediate experiment results and final markdown report",
     )
 
 
@@ -813,7 +822,7 @@ def parse_argument():
         or "--job_del" in sys.argv
         or "--jstat" in sys.argv
         or "--jdel" in sys.argv
-        or "--report_eval_md" in sys.argv
+        or "--do_report_eval_md" in sys.argv
     ):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -992,8 +1001,8 @@ def delete_queued_job(queue_dir, job_id):
 
 def main():
     args = parse_argument()
-    args.eval_md_result_root = args.eval_md_result_root.replace(
-        "<EVAL_MD_RESULT_ROOT>",
+    args.result_data_dir = args.result_data_dir.replace(
+        "<RESULT_DATA_DIR>",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "result"),
     )
 
@@ -1015,10 +1024,15 @@ def main():
         delete_queued_job(queue_dir, args.job_del)
         return
 
-    if args.report_eval_md:
-        AutoEval.append_eval_lines_to_md(args.eval_md_result_root)
-        if args.eval_md_repo_dir:
-            AutoEval.git_commit_result(args.eval_md_result_root, args.eval_md_repo_dir)
+    if args.do_report_eval_md:
+        AutoEval.append_eval_lines_to_md(args.result_data_dir)
+        if not args.eval_commit_dir:
+            print(
+                f"[{AutoEval.__name__}] Skipped {AutoEval.git_commit_result.__name__}: "
+                + "--eval_commit_dir was not specified."
+            )
+            return
+        AutoEval.git_commit_result(args.result_data_dir, args.eval_commit_dir)
         return
 
     def register_invocation():

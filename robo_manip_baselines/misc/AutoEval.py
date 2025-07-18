@@ -15,11 +15,13 @@ import traceback
 import venv
 from collections import defaultdict
 from pathlib import Path
+from statistics import median
 from urllib.parse import urlparse
 
-import numpy as np
 import schedule
 import yaml
+
+POLICIES = ["Mlp", "Sarnn", "Act", "DiffusionPolicy", "MtAct"]
 
 JSON_STATIC_METADATA_KEYS = [
     "invocation_id",
@@ -298,6 +300,21 @@ class AutoEval:
         ), f"[{cls.__name__}] Error: The URL '{dataset_url}' does not end with 'dl=1'."
         return dataset_url
 
+    @classmethod
+    def format_task_name(cls, task_key):
+        """Format task_key by extracting suffix word and disambiguated action."""
+        top, sub = task_key.split("/", 1)
+        # extract last segment of top task
+        top_snake = camel_to_snake(top)
+        last_word = top_snake.split("_")[-1].capitalize()
+
+        # extract base of subtask (before timestamp underscore)
+        sub_base = sub.split("_", 1)[0]
+        if sub_base.lower() == last_word.lower():
+            return last_word
+        else:
+            return f"{last_word}{sub_base.capitalize()}"
+
     def download_dataset(self, dataset_url):
         """Download the dataset from the specified URL."""
         zip_filename = "dataset.zip"
@@ -512,69 +529,125 @@ class AutoEval:
 
     @classmethod
     def load_results_from_txt(cls, result_data_dir):
-        temp = defaultdict(list)
-        for root, _, files in os.walk(result_data_dir):
-            for file in files:
-                if not file.startswith("task_success_list") or not file.endswith(
-                    ".txt"
-                ):
-                    continue
-                path = os.path.join(root, file)
-                parts = path.split(os.sep)
-                try:
-                    idx = parts.index(os.path.basename(result_data_dir))
-                    timestamp = parts[idx + 1]
-                    policy = parts[idx + 2]
-                    env = parts[idx + 3]
-                    dataset = parts[idx + 4]
-                except (IndexError, ValueError):
-                    continue
-                with open(path, "r", encoding="utf-8") as f:
-                    vals = [int(x) for x in f.read().strip().split()]
-                    if not vals:
-                        continue
-                    rate = sum(vals) / len(vals)
-                temp[(policy, env)].append((timestamp, rate, dataset))
+        metrics = {
+            policy: {"successes": defaultdict(int), "trials": defaultdict(int)}
+            for policy in POLICIES
+        }
+        pattern = os.path.join(result_data_dir, "**", "task_success_list*.txt")
+        for ts_file in glob.iglob(pattern, recursive=True):
+            rel_path = os.path.relpath(ts_file, result_data_dir)
+            parts = rel_path.split(os.sep)
+            if len(parts) < 6:
+                print(
+                    f"[{cls.__name__}] Warning: Skipping due to insufficient directory depth: {rel_path}"
+                )
+                continue
+            _, policy, env_name, data_tag, _ = parts[-6:-1]
+            task_key = f"{env_name}/{data_tag}"
+            if policy not in POLICIES:
+                print(
+                    f"[{cls.__name__}] Warning: Skipping due to undefined policy '{policy}': {rel_path}"
+                )
+                continue
+            try:
+                with open(ts_file, "r", encoding="utf-8") as f:
+                    values = f.read().strip().split()
+                    succ = sum(int(v) for v in values)
+                    n_trials = len(values)
+            except FileNotFoundError:
+                print(f"[{cls.__name__}] Warning: File not found, skipping: {ts_file}")
+                continue
+            except ValueError:
+                print(
+                    f"[{cls.__name__}] Warning: Invalid file contents, skipping: {ts_file}"
+                )
+                continue
+            except OSError as e:
+                print(
+                    f"[{cls.__name__}] Warning: I/O error while reading file ({e}), skipping: {ts_file}"
+                )
+                continue
+            metrics[policy]["successes"][task_key] += succ
+            metrics[policy]["trials"][task_key] += n_trials
 
-        metrics = {}
-        for key, tr_list in temp.items():
-            timestamps, rates, datasets = zip(*tr_list)
-            earliest = min(timestamps)
-            metrics[key] = (earliest, list(rates), datasets)
-
+        all_n_trials = [
+            trials
+            for policy_data in metrics.values()
+            for trials in policy_data["trials"].values()
+            if trials > 0
+        ]
+        if all_n_trials:
+            median_trials = int(median(all_n_trials))
+            for policy in POLICIES:
+                for task_key, trials in metrics[policy]["trials"].items():
+                    if trials > 0 and trials != median_trials:
+                        print(
+                            f"[{cls.__name__}] Warning: Inconsistent n_trials: "
+                            f"policy={policy}, task={task_key}, n_trials={trials} "
+                            f"(median={median_trials})"
+                        )
         return metrics
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir):
-        """Append evaluation lines to <result_data_dir>/evaluation_results.md in Markdown table format."""
-        evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
-        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
+        """Generate a Markdown table summarizing task success rates by policy."""
 
         metrics = cls.load_results_from_txt(result_data_dir)
-        header_lines = [
-            "| Timestamp | Policy | Env | Dataset | Success (ave) | Success (dev) |\n",
-            "|-----------|--------|-----|---------|---------------|---------------|\n",
-        ]
-        rows = []
-        for (policy, env), (timestamp, rates, dataset) in sorted(metrics.items()):
-            ave = np.mean(rates)
-            if len(rates) > 1:
-                dev = np.std(rates, ddof=1)  # Unbiased standard deviation
+        task_keys = sorted(
+            {
+                task_key
+                for policy_data in metrics.values()
+                for task_key in policy_data["trials"].keys()
+            }
+        )
+        display_tasks = [cls.format_task_name(t) for t in task_keys]
+        header_lines = (
+            "| <nobr>Policy \\\\ Task</nobr> | "
+            + " | ".join(display_tasks)
+            + " | Average |\n"
+        )
+        sep = "|---" + "|---" * (len(display_tasks) + 1) + "|\n"
+        lines = [header_lines, sep]
+        for policy in POLICIES:
+            cells = []
+            numeric_values = []
+            missing_tasks = []
+            for task_key in task_keys:
+                succ = metrics[policy]["successes"].get(task_key, 0)
+                trials = metrics[policy]["trials"].get(task_key, None)
+                if trials is None or trials == 0:
+                    missing_tasks.append((policy, task_key))
+                    pct = None
+                else:
+                    pct = round(succ / trials * 100)
+                if pct is None:
+                    cells.append("N/A")
+                else:
+                    cells.append(f"{pct:d}")
+                    numeric_values.append(pct)
+            if all(c == "N/A" for c in cells):
+                continue
+            for _, task_key in missing_tasks:
+                print(
+                    f"[{cls.__name__}] Warning: N/A for policy={policy}, task={task_key}"
+                )
+            if numeric_values:
+                avg_pct = round(sum(numeric_values) / len(numeric_values))
+                avg_cell = f"{avg_pct:d}"
             else:
-                dev = 0.0
-            rows.append(
-                f"| {timestamp} | {policy} | {env} | {dataset} | {ave:.3f} | {dev:.3f} |\n"
-            )
+                avg_cell = "N/A"
+            row = f"| {policy} | " + " | ".join(cells) + f" | {avg_cell} |\n"
+            lines.append(row)
 
-        if not os.path.exists(evaluation_result_path):
-            with open(evaluation_result_path, "w", encoding="utf-8") as f:
-                f.writelines(header_lines + rows)
-        else:
-            with open(evaluation_result_path, "r", encoding="utf-8") as f:
-                orig_content = f.readlines()
-            new_content = header_lines + rows + orig_content[2:]
-            with open(evaluation_result_path, "w", encoding="utf-8") as f:
-                f.writelines(new_content)
+        evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
+        os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
+        with open(evaluation_result_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+        print(
+            f"[{cls.__name__}] Markdown result written to:\n"
+            f"  {evaluation_result_path}  (Rows: {len(lines) - 2}, Cols: {lines[-1].count('|') - 1})"
+        )
 
     @classmethod
     def git_commit_result(cls, result_data_dir, eval_commit_dir):
@@ -835,7 +908,7 @@ def parse_argument():
         "policies",
         type=str,
         nargs="+",
-        choices=["Mlp", "Sarnn", "Act", "DiffusionPolicy", "MtAct"],
+        choices=POLICIES,
         help="policies",
     )
     parser.add_argument("env", type=str, help="environment")

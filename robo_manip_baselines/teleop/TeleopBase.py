@@ -168,8 +168,6 @@ class EndReplayPhase(PhaseBase):
             else:
                 self.op.reset_flag = True
 
-        return False
-
 
 class TeleopBase(ABC):
     MotionManagerClass = MotionManager
@@ -343,6 +341,8 @@ class TeleopBase(ABC):
 
         parser.add_argument("--seed", type=int, default=-1, help="random seed")
 
+        self.set_additional_args(parser)
+
         if argv is None:
             argv = sys.argv
         self.args = parser.parse_args(argv[1:])
@@ -354,6 +354,9 @@ class TeleopBase(ABC):
 
         if self.args.seed < 0:
             self.args.seed = int(time.time()) % (2**32)
+
+    def set_additional_args(self, parser):
+        pass
 
     def setup_env(self):
         raise NotImplementedError(

@@ -24,9 +24,6 @@ from .DiffusionPolicyDataset import DiffusionPolicyDataset
 class TrainDiffusionPolicy(TrainBase):
     DatasetClass = DiffusionPolicyDataset
 
-    def setup_args(self):
-        super().setup_args()
-
     def set_additional_args(self, parser):
         parser.set_defaults(enable_rmb_cache=True)
 

@@ -27,9 +27,6 @@ from .DiffusionPolicy3dDataset import DiffusionPolicy3dDataset
 class TrainDiffusionPolicy3d(TrainBase):
     DatasetClass = DiffusionPolicy3dDataset
 
-    def setup_args(self):
-        super().setup_args()
-
     def set_additional_args(self, parser):
         for action in parser._actions:
             if action.dest == "camera_names":

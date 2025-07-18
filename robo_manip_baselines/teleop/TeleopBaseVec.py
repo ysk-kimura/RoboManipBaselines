@@ -12,8 +12,8 @@ from .TeleopBase import TeleopBase
 class TeleopBaseVec(TeleopBase):
     DataManagerClass = DataManagerVec
 
-    def setup_args(self, parser=None, argv=None):
-        super().setup_args(parser, argv)
+    def setup_args(self):
+        super().setup_args()
 
         if self.args.replay_log is not None:
             raise NotImplementedError(

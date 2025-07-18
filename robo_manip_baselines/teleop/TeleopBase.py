@@ -206,22 +206,7 @@ class TeleopBase(ABC):
             self.replay_file_idx = 0
 
         # Setup phase manager
-        if self.args.replay_log is None:
-            operation_phases = [
-                StandbyTeleopPhase(self),
-                TeleopPhase(self),
-                EndTeleopPhase(self),
-            ]
-            if self.args.sync_before_record:
-                operation_phases.insert(1, SyncPhase(self))
-        else:
-            operation_phases = [ReplayPhase(self), EndReplayPhase(self)]
-        phase_order = [
-            InitialTeleopPhase(self),
-            *self.get_pre_motion_phases(),
-            *operation_phases,
-        ]
-        self.phase_manager = PhaseManager(phase_order)
+        self.setup_phase_manager()
 
         # Setup plot
         if self.args.plot_pointcloud:
@@ -374,6 +359,24 @@ class TeleopBase(ABC):
         raise NotImplementedError(
             f"[{self.__class__.__name__}] This method should be defined in the Operation class and inherited from it."
         )
+
+    def setup_phase_manager(self):
+        if self.args.replay_log is None:
+            operation_phases = [
+                StandbyTeleopPhase(self),
+                TeleopPhase(self),
+                EndTeleopPhase(self),
+            ]
+            if self.args.sync_before_record:
+                operation_phases.insert(1, SyncPhase(self))
+        else:
+            operation_phases = [ReplayPhase(self), EndReplayPhase(self)]
+        phase_order = [
+            InitialTeleopPhase(self),
+            *self.get_pre_motion_phases(),
+            *operation_phases,
+        ]
+        self.phase_manager = PhaseManager(phase_order)
 
     def get_pre_motion_phases(self):
         return []

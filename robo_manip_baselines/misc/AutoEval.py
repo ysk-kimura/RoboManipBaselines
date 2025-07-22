@@ -184,29 +184,46 @@ class AutoEval:
     @classmethod
     def exec_command(cls, command, cwd=None, subproc_env=None):
         """Execute a shell command, optionally in the specified working directory,
-        and return lines from standard output that match the given regex pattern."""
+        print real-time output to standard output, and raise an exception on failure."""
         print(
             f"[{cls.__name__}] [{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
             f"Executing command: {' '.join(command)}",
             flush=True,
         )
 
-        with subprocess.Popen(
-            command,
-            cwd=cwd,
-            env=subproc_env,
-            shell=False,  # secure default: using list avoids shell injection risks
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        ) as process:
-            for stdout_line in process.stdout:
-                print(stdout_line, end="", flush=True)
+        try:
+            with subprocess.Popen(
+                command,
+                cwd=cwd,
+                env=subproc_env,
+                shell=False,  # secure default: using list avoids shell injection risks
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            ) as process:
+                output_lines = []
+                for stdout_line in process.stdout:
+                    print(stdout_line, end="", flush=True)
+                    output_lines.append(stdout_line)
 
-            return_code = process.wait()
-            if return_code != 0:
-                raise subprocess.CalledProcessError(return_code, " ".join(command))
+                return_code = process.wait()
+                if return_code != 0:
+                    full_output = "".join(output_lines)
+                    raise subprocess.CalledProcessError(
+                        return_code, command, output=full_output
+                    )
+        except subprocess.CalledProcessError as e:
+            print(
+                f"[{cls.__name__}] ERROR: Command failed with return code {e.returncode}",
+                file=sys.stderr,
+            )
+            if e.output:
+                print(
+                    f"[{cls.__name__}] Output from subprocess:\n{e.output}",
+                    file=sys.stderr,
+                )
+            raise
 
     def git_clone(self):
         """Clone the target Git repository into a temporary directory."""

@@ -21,7 +21,18 @@ from urllib.parse import urlparse
 import schedule
 import yaml
 
-POLICIES = ["Mlp", "Sarnn", "Act", "DiffusionPolicy", "MtAct"]
+POLICIES = ["Mlp", "Act", "Sarnn", "DiffusionPolicy", "MtAct"]
+MD_DISPLAY_TASKS = [
+    "Cable",
+    "Ring",
+    "Particle",
+    "Cloth",
+    "Door",
+    "Toolbox",
+    "CabinetSlide",
+    "CabinetHinge",
+    "Insert",
+]
 
 JSON_STATIC_METADATA_KEYS = [
     "invocation_id",
@@ -610,29 +621,35 @@ class AutoEval:
         """Generate a Markdown table summarizing task success rates by policy."""
 
         metrics = cls.load_results_from_txt(result_data_dir)
-        task_keys = sorted(
+        all_task_keys = sorted(
             {
                 task_key
                 for policy_data in metrics.values()
                 for task_key in policy_data["trials"].keys()
             }
         )
-        display_tasks = [cls.format_task_name(t) for t in task_keys]
+        display_md_map = {t: cls.format_task_name(t) for t in all_task_keys}
+        matched_tasks = [
+            raw_t for raw_t, disp in display_md_map.items() if disp in MD_DISPLAY_TASKS
+        ]
+        other_tasks = [t for t in all_task_keys if t not in matched_tasks]
+        md_task_order = matched_tasks + sorted(other_tasks)
+        md_display_names = [display_md_map[t] for t in md_task_order]
         header_lines = (
             "| <nobr>Policy \\\\ Task</nobr> | "
-            + " | ".join(display_tasks)
+            + " | ".join(md_display_names)
             + " | Average |\n"
         )
-        sep = "|---" + "|---" * (len(display_tasks) + 1) + "|\n"
+        sep = "|---" + "|---" * (len(md_display_names) + 1) + "|\n"
         lines = [header_lines, sep]
         for policy in POLICIES:
             cells = []
             numeric_values = []
             missing_tasks = []
-            for task_key in task_keys:
+            for task_key in md_task_order:
                 succ = metrics[policy]["successes"].get(task_key, 0)
-                trials = metrics[policy]["trials"].get(task_key, None)
-                if trials is None or trials == 0:
+                trials = metrics[policy]["trials"].get(task_key)
+                if not trials:
                     missing_tasks.append((policy, task_key))
                     pct = None
                 else:
@@ -648,11 +665,11 @@ class AutoEval:
                 print(
                     f"[{cls.__name__}] Warning: N/A for policy={policy}, task={task_key}"
                 )
-            if numeric_values:
-                avg_pct = round(sum(numeric_values) / len(numeric_values))
-                avg_cell = f"{avg_pct:d}"
-            else:
-                avg_cell = "N/A"
+            avg_cell = (
+                f"{round(sum(numeric_values) / len(numeric_values)):d}"
+                if numeric_values
+                else "N/A"
+            )
             row = f"| {policy} | " + " | ".join(cells) + f" | {avg_cell} |\n"
             lines.append(row)
 

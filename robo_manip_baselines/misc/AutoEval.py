@@ -629,8 +629,11 @@ class AutoEval:
             }
         )
         display_md_map = {t: cls.format_task_name(t) for t in all_task_keys}
+        inv_display_map = {disp: raw_t for raw_t, disp in display_md_map.items()}
         matched_tasks = [
-            raw_t for raw_t, disp in display_md_map.items() if disp in MD_DISPLAY_TASKS
+            inv_display_map[disp]
+            for disp in MD_DISPLAY_TASKS
+            if disp in inv_display_map
         ]
         other_tasks = [t for t in all_task_keys if t not in matched_tasks]
         md_task_order = matched_tasks + sorted(other_tasks)

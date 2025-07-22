@@ -556,7 +556,7 @@ class AutoEval:
         )
 
     @classmethod
-    def load_results_from_txt(cls, result_data_dir):
+    def load_results_from_txt(cls, result_data_dir, expected_n_trials=None):
         metrics = {
             policy: {"successes": defaultdict(int), "trials": defaultdict(int)}
             for policy in POLICIES
@@ -604,23 +604,23 @@ class AutoEval:
             for trials in policy_data["trials"].values()
             if trials > 0
         ]
-        if all_n_trials:
-            median_trials = int(median(all_n_trials))
-            for policy in POLICIES:
-                for task_key, trials in metrics[policy]["trials"].items():
-                    if trials > 0 and trials != median_trials:
-                        print(
-                            f"[{cls.__name__}] Warning: Inconsistent n_trials: "
-                            f"policy={policy}, task={task_key}, n_trials={trials} "
-                            f"(median={median_trials})"
-                        )
-        return metrics
+        if expected_n_trials is None:
+            expected_n_trials = int(median(all_n_trials)) if all_n_trials else 0
+        for policy in POLICIES:
+            for task_key, trials in metrics[policy]["trials"].items():
+                if trials > 0 and trials != expected_n_trials:
+                    print(
+                        f"[{cls.__name__}] Warning: Inconsistent n_trials: "
+                        f"policy={policy}, task={task_key}, n_trials={trials} "
+                        f"(expected={expected_n_trials})"
+                    )
+        return metrics, expected_n_trials
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir):
         """Generate a Markdown table summarizing task success rates by policy."""
 
-        metrics = cls.load_results_from_txt(result_data_dir)
+        metrics, expected_n_trials = cls.load_results_from_txt(result_data_dir)
         all_task_keys = sorted(
             {
                 task_key
@@ -651,19 +651,23 @@ class AutoEval:
                 trials = metrics[policy]["trials"].get(task_key)
                 if not trials:
                     missing_tasks.append((policy, task_key))
-                    pct = None
-                else:
-                    pct = round(succ / trials * 100)
-                if pct is None:
                     cells.append("N/A")
-                else:
-                    cells.append(f"{pct:d}")
-                    numeric_values.append(pct)
+                    continue
+                if trials > expected_n_trials:
+                    cells.append("!!")
+                    continue
+                if trials < expected_n_trials:
+                    cells.append("--")
+                    continue
+                pct = round(succ / trials * 100)
+                cell_str = f"{pct:d}"
+                numeric_values.append(pct)
+                cells.append(cell_str)
             if all(c == "N/A" for c in cells):
                 continue
             for _, task_key in missing_tasks:
                 print(
-                    f"[{cls.__name__}] Warning: N/A for policy={policy}, task={task_key}"
+                    f"[{cls.__name__}] Warning: No data available for policy={policy}, task={task_key}"
                 )
             avg_cell = (
                 f"{round(sum(numeric_values) / len(numeric_values)):d}"

@@ -599,19 +599,19 @@ class AutoEval:
             metrics[policy]["trials"][task_key] += n_trials
 
         all_n_trials = [
-            trials
+            n_trials
             for policy_data in metrics.values()
-            for trials in policy_data["trials"].values()
-            if trials > 0
+            for n_trials in policy_data["trials"].values()
+            if n_trials > 0
         ]
         if expected_n_trials is None:
             expected_n_trials = int(median(all_n_trials)) if all_n_trials else 0
         for policy in POLICIES:
-            for task_key, trials in metrics[policy]["trials"].items():
-                if trials > 0 and trials != expected_n_trials:
+            for task_key, n_trials in metrics[policy]["trials"].items():
+                if n_trials > 0 and n_trials != expected_n_trials:
                     print(
                         f"[{cls.__name__}] Warning: Inconsistent n_trials: "
-                        f"policy={policy}, task={task_key}, n_trials={trials} "
+                        f"policy={policy}, task={task_key}, n_trials={n_trials} "
                         f"(expected={expected_n_trials})"
                     )
         return metrics, expected_n_trials
@@ -653,19 +653,21 @@ class AutoEval:
             missing_tasks = []
             for task_key in md_task_order:
                 succ = metrics[policy]["successes"].get(task_key, 0)
-                trials = metrics[policy]["trials"].get(task_key)
-                if not trials:
+                n_trials = metrics[policy]["trials"].get(task_key)
+                if not n_trials:
                     missing_tasks.append((policy, task_key))
                     cells.append("N/A")
                     continue
-                if trials > expected_n_trials:
+                if n_trials > expected_n_trials:
                     cells.append("!!")
                     continue
-                if trials < expected_n_trials:
+                if n_trials < expected_n_trials:
                     cells.append("--")
                     continue
-                pct = round(succ / trials * 100)
-                cell_str = f"{pct:d}"
+                p = succ / n_trials
+                pct = round(p * 100)
+                stddev = round(100 * ((p * (1 - p) / (n_trials - 1)) ** 0.5))
+                cell_str = f"{pct:d} (&plusmn;{stddev:d})"
                 numeric_values.append(pct)
                 cells.append(cell_str)
             if all(c == "N/A" for c in cells):

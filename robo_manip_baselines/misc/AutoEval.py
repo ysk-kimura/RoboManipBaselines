@@ -444,8 +444,11 @@ class AutoEval:
         world_idx_list,
         result_filename,
         input_checkpoint_file,
+        timestamp,
+        seed,
+        dataset_tag,
     ):
-        """Execute the rollout using the provided configuration and duration."""
+        """Execute the rollout using the provided configuration."""
         if self.input_checkpoint_file:
             input_checkpoint_file = self.input_checkpoint_file
         else:
@@ -460,6 +463,37 @@ class AutoEval:
             raise FileNotFoundError(
                 f"checkpoint file not found: {input_checkpoint_file}"
             )
+
+        output_image_dir = os.path.join(
+            self.result_data_dir,
+            timestamp,
+            self.policy,
+            self.env,
+            dataset_tag,
+            f"s{seed}" if isinstance(seed, int) else f"s_{str(seed).lower()}",
+        )
+
+        # Rename existing PNG files under output_image_dir to avoid overwriting
+        if os.path.isdir(output_image_dir):
+            png_files = glob.glob(os.path.join(output_image_dir, "*.png"))
+            for png_path in png_files:
+                base, ext = os.path.splitext(png_path)
+                max_attempts = 100
+                for counter in range(1, max_attempts + 1):
+                    new_file_path = f"{base}_old_{counter}{ext}"
+                    if not os.path.exists(new_file_path):
+                        os.rename(png_path, new_file_path)
+                        print(
+                            f"[{self.__class__.__name__}] "
+                            f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                            f"Renamed existing image: {png_path} -> {new_file_path}"
+                        )
+                        break
+                else:
+                    raise RuntimeError(
+                        f"Exceeded {max_attempts} attempts to rename PNG file: {png_path}"
+                    )
+
         command = [
             self.venv_python,
             os.path.join(self.repository_dir, "robo_manip_baselines/bin/Rollout.py"),
@@ -472,12 +506,7 @@ class AutoEval:
             "--no_render",
             "--save_last_image",
             "--output_image_dir",
-            os.path.join(
-                self.repository_dir,
-                "robo_manip_baselines/checkpoint_dir/",
-                self.policy,
-                self.env,
-            ),
+            output_image_dir,
         ]
         if world_idx_list:
             command.append("--world_idx_list")
@@ -513,10 +542,9 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result_to_txt(self, task_success_list, dataset_tag, seed):
+    def save_result_to_txt(self, task_success_list, dataset_tag, seed, timestamp):
         """Save task_success_list."""
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir_path = os.path.join(
             self.result_data_dir,
             timestamp,
@@ -807,6 +835,8 @@ class AutoEval:
 
             for seed in seeds if seeds is not None else [None]:
                 # Training phase
+                dataset_tag = self.extract_dataset_tag(input_dataset_location)
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 if not self.no_train:
                     self.get_dataset(input_dataset_location)
                     self.train(args_file_train, seed)
@@ -823,11 +853,15 @@ class AutoEval:
                         world_idx_list,
                         result_filename,
                         input_checkpoint_file,
+                        timestamp,
+                        seed,
+                        dataset_tag,
                     )
                     self.save_result_to_txt(
                         task_success_list,
-                        self.extract_dataset_tag(input_dataset_location),
+                        dataset_tag,
                         seed,
+                        timestamp,
                     )
                 else:
                     print(

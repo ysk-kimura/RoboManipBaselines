@@ -617,10 +617,12 @@ class AutoEval:
         return metrics, expected_n_trials
 
     @classmethod
-    def append_eval_lines_to_md(cls, result_data_dir):
+    def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
         """Generate a Markdown table summarizing task success rates by policy."""
 
-        metrics, expected_n_trials = cls.load_results_from_txt(result_data_dir)
+        metrics, expected_n_trials = cls.load_results_from_txt(
+            result_data_dir, expected_n_trials
+        )
         all_task_keys = sorted(
             {
                 task_key
@@ -915,6 +917,13 @@ def add_job_queue_arguments(parser):
         default="<RESULT_DATA_DIR>",
         help="directory containing both intermediate experiment results and final markdown report",
     )
+    parser.add_argument(
+        "--n_eval_trials_expected",
+        type=int,
+        required=False,
+        default=None,
+        help="expected number of evaluation trials; used for validating trial consistency in markdown report generation",
+    )
 
 
 def parse_argument():
@@ -946,11 +955,7 @@ def parse_argument():
 
     add_job_queue_arguments(parser)
     parser.add_argument(
-        "policies",
-        type=str,
-        nargs="+",
-        choices=POLICIES,
-        help="policies",
+        "policies", type=str, nargs="+", choices=POLICIES, help="policies"
     )
     parser.add_argument("env", type=str, help="environment")
     parser.add_argument(

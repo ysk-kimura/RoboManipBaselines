@@ -587,6 +587,7 @@ class AutoEval:
 
     @classmethod
     def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
+        """Read success list files and return metrics with expected trial count."""
         metrics = {
             policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
             for policy in POLICIES
@@ -622,8 +623,8 @@ class AutoEval:
 
         all_n_trials = [
             n_trials
-            for policy_data in metrics.values()
-            for n_trials in policy_data["trials"].values()
+            for policy_dict in metrics.values()
+            for n_trials in policy_dict["trials"].values()
             if n_trials > 0
         ]
         if expected_n_trials is None:
@@ -640,19 +641,19 @@ class AutoEval:
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
-        """Generate a Markdown table summarizing task success rates by policy."""
+        """Generate or merge a Markdown table summarizing task success rates by policy."""
 
         metrics, expected_n_trials = cls.load_rollout_results_from_txt(
             result_data_dir, expected_n_trials
         )
-        all_task_keys = sorted(
+        new_task_keys = sorted(
             {
                 task_key
-                for policy_data in metrics.values()
-                for task_key in policy_data["trials"].keys()
+                for policy_dict in metrics.values()
+                for task_key in policy_dict["trials"].keys()
             }
         )
-        display_md_map = {t: cls.format_task_name(t) for t in all_task_keys}
+        display_md_map = {t: cls.format_task_name(t) for t in new_task_keys}
         inv_display_map = {disp: raw_t for raw_t, disp in display_md_map.items()}
         matched_tasks = [
             inv_display_map[disp]
@@ -660,46 +661,39 @@ class AutoEval:
             if disp in inv_display_map
         ]
         md_task_order = matched_tasks + sorted(
-            [t for t in all_task_keys if t not in matched_tasks]
+            [t for t in new_task_keys if t not in matched_tasks]
         )
-        md_display_names = [display_md_map[t] for t in md_task_order]
-        header_lines = (
-            "| <nobr>Policy \\\\ Task</nobr> | "
-            + " | ".join(md_display_names)
-            + " | Average |\n"
-        )
-        sep = "|---" + "|---" * (len(md_display_names) + 1) + "|\n"
-        lines = [header_lines, sep]
+        new_results_dict = {}
         for policy in POLICIES:
-            cells = []
+            cells = {}
             numeric_values = []
             missing_tasks = []
             for task_key in md_task_order:
-                n_trials = metrics[policy]["trials"].get(task_key)
+                n_trials = metrics[policy]["trials"].get(task_key, None)
                 if not n_trials:
                     missing_tasks.append((policy, task_key))
-                    cells.append("N/A")
+                    cells[task_key] = "N/A"
                     continue
                 if n_trials > expected_n_trials:
-                    cells.append("!!")
+                    cells[task_key] = "!!"
                     print(
                         f"[{cls.__name__}] Warning: Excess trials detected for policy={policy}, task={task_key} - displaying '!!'"
                     )
                     continue
                 if n_trials < expected_n_trials:
-                    cells.append("--")
+                    cells[task_key] = "--"
                     print(
                         f"[{cls.__name__}] Warning: Insufficient trials for policy={policy}, task={task_key} - displaying '--'"
                     )
                     continue
                 succ_list = metrics[policy]["succ_lists"].get(task_key, [])
-                percentages = [sum(row) / len(row) * 100 for row in succ_list]
-                mean_pct = mean(percentages)
-                stddev_pct = stdev(percentages)
-                cell_str = f"{round(mean_pct):d} (&plusmn;{round(stddev_pct):d})"
+                pct_list = [sum(row) / len(row) * 100 for row in succ_list]
+                mean_pct = round(mean(pct_list))
+                stdev_pct = round(stdev(pct_list) if len(pct_list) > 1 else 0)
+                cell_str = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
                 numeric_values.append(mean_pct)
-                cells.append(cell_str)
-            if all(c == "N/A" for c in cells):
+                cells[task_key] = cell_str
+            if all(c == "N/A" for c in cells.values()):
                 continue
             for _, task_key in missing_tasks:
                 print(
@@ -710,10 +704,66 @@ class AutoEval:
                 if numeric_values
                 else "N/A"
             )
-            row = f"| {policy} | " + " | ".join(cells) + f" | {avg_cell} |\n"
-            lines.append(row)
+            new_results_dict[policy] = cells
+            new_results_dict[policy]["Average"] = avg_cell
 
         evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
+        existing_results_dict = {}
+        header_tasks = []
+
+        # Read existing file if present
+        if os.path.exists(evaluation_result_path):
+            with open(evaluation_result_path, "r", encoding="utf-8") as f:
+                lines = [line.rstrip("\n") for line in f]
+            # Parse header (line 0)
+            cols = lines[0].split("|")[1:-1]
+            header_tasks = [c.strip() for c in cols[1:]]
+            # Parse data rows
+            for row in lines[2:]:
+                parts = [p.strip() for p in row.split("|")[1:-1]]
+                policy = parts[0]
+                existing_results_dict[policy] = {}
+                for i, cell in enumerate(parts[1:]):
+                    existing_results_dict[policy][header_tasks[i]] = cell
+                existing_results_dict[policy]["Average"] = parts[-1]
+
+        # Merge results
+        all_headers = [display_md_map[t] for t in md_task_order]
+        merged_policies = sorted(
+            set(existing_results_dict.keys()) | set(new_results_dict.keys())
+        )
+        merged_rows = {policy: {} for policy in merged_policies}
+        for policy in merged_policies:
+            row = merged_rows[policy]
+            if policy in existing_results_dict:
+                for disp, val in existing_results_dict[policy].items():
+                    row[disp] = val
+            if policy in new_results_dict:
+                new_row = new_results_dict[policy]
+                for t_key, val in new_row.items():
+                    disp = (
+                        display_md_map.get(t_key, t_key)
+                        if t_key != "Average"
+                        else "Average"
+                    )
+                    row[disp] = val
+
+        # Build Markdown lines
+        header_line = (
+            "| <nobr>Policy \\\\ Task</nobr> | "
+            + " | ".join(all_headers)
+            + " | Average |\n"
+        )
+        sep_line = "|" + "---|" * (len(all_headers) + 2) + "\n"
+        lines = [header_line, sep_line]
+        for policy in merged_policies:
+            cells = (
+                [policy]
+                + [merged_rows[policy].get(h, "N/A") for h in all_headers]
+                + [merged_rows[policy].get("Average", "N/A")]
+            )
+            lines.append("| " + " | ".join(cells) + " |")
+
         os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
         with open(evaluation_result_path, "w", encoding="utf-8") as f:
             f.writelines(lines)

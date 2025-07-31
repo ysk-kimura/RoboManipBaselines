@@ -15,7 +15,7 @@ import traceback
 import venv
 from collections import defaultdict
 from pathlib import Path
-from statistics import median
+from statistics import mean, median, stdev
 from urllib.parse import urlparse
 
 import schedule
@@ -586,7 +586,7 @@ class AutoEval:
     @classmethod
     def load_results_from_txt(cls, result_data_dir, expected_n_trials=None):
         metrics = {
-            policy: {"successes": defaultdict(int), "trials": defaultdict(int)}
+            policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
             for policy in POLICIES
         }
         pattern = os.path.join(result_data_dir, "**", "task_success_list*.txt")
@@ -608,22 +608,14 @@ class AutoEval:
             try:
                 with open(ts_file, "r", encoding="utf-8") as f:
                     values = f.read().strip().split()
-                    succ = sum(int(v) for v in values)
+                    succ_values = [int(v) for v in values]
                     n_trials = len(values)
-            except FileNotFoundError:
-                print(f"[{cls.__name__}] Warning: File not found, skipping: {ts_file}")
-                continue
-            except ValueError:
+            except (FileNotFoundError, ValueError, OSError) as e:
                 print(
-                    f"[{cls.__name__}] Warning: Invalid file contents, skipping: {ts_file}"
+                    f"[{cls.__name__}] Warning: Failed to read/parse file ({e}), skipping: {ts_file}"
                 )
                 continue
-            except OSError as e:
-                print(
-                    f"[{cls.__name__}] Warning: I/O error while reading file ({e}), skipping: {ts_file}"
-                )
-                continue
-            metrics[policy]["successes"][task_key] += succ
+            metrics[policy]["succ_lists"][task_key].append(succ_values)
             metrics[policy]["trials"][task_key] += n_trials
 
         all_n_trials = [
@@ -665,8 +657,9 @@ class AutoEval:
             for disp in MD_DISPLAY_TASKS
             if disp in inv_display_map
         ]
-        other_tasks = [t for t in all_task_keys if t not in matched_tasks]
-        md_task_order = matched_tasks + sorted(other_tasks)
+        md_task_order = matched_tasks + sorted(
+            [t for t in all_task_keys if t not in matched_tasks]
+        )
         md_display_names = [display_md_map[t] for t in md_task_order]
         header_lines = (
             "| <nobr>Policy \\\\ Task</nobr> | "
@@ -680,7 +673,6 @@ class AutoEval:
             numeric_values = []
             missing_tasks = []
             for task_key in md_task_order:
-                succ = metrics[policy]["successes"].get(task_key, 0)
                 n_trials = metrics[policy]["trials"].get(task_key)
                 if not n_trials:
                     missing_tasks.append((policy, task_key))
@@ -688,21 +680,28 @@ class AutoEval:
                     continue
                 if n_trials > expected_n_trials:
                     cells.append("!!")
+                    print(
+                        f"[{cls.__name__}] Warning: Excess trials detected for policy={policy}, task={task_key} - displaying '!!'"
+                    )
                     continue
                 if n_trials < expected_n_trials:
                     cells.append("--")
+                    print(
+                        f"[{cls.__name__}] Warning: Insufficient trials for policy={policy}, task={task_key} - displaying '--'"
+                    )
                     continue
-                p = succ / n_trials
-                pct = round(p * 100)
-                stddev = round(100 * ((p * (1 - p) / (n_trials - 1)) ** 0.5))
-                cell_str = f"{pct:d} (&plusmn;{stddev:d})"
-                numeric_values.append(pct)
+                succ_list = metrics[policy]["succ_lists"].get(task_key, [])
+                percentages = [sum(row) / len(row) * 100 for row in succ_list]
+                mean_pct = mean(percentages)
+                stddev_pct = stdev(percentages)
+                cell_str = f"{round(mean_pct):d} (&plusmn;{round(stddev_pct):d})"
+                numeric_values.append(mean_pct)
                 cells.append(cell_str)
             if all(c == "N/A" for c in cells):
                 continue
             for _, task_key in missing_tasks:
                 print(
-                    f"[{cls.__name__}] Warning: No data available for policy={policy}, task={task_key}"
+                    f"[{cls.__name__}] Warning: No data available for policy={policy}, task={task_key} - displaying 'N/A'"
                 )
             avg_cell = (
                 f"{round(sum(numeric_values) / len(numeric_values)):d}"

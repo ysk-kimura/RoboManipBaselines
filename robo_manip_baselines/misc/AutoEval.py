@@ -542,7 +542,9 @@ class AutoEval:
             raise KeyError(f"'success' field is missing in {actual_result_filename}")
         return list(map(int, data["success"]))
 
-    def save_result_to_txt(self, task_success_list, dataset_tag, seed, timestamp):
+    def save_rollout_result_to_txt(
+        self, task_success_list, dataset_tag, seed, timestamp
+    ):
         """Save task_success_list."""
 
         output_dir_path = os.path.join(
@@ -584,7 +586,7 @@ class AutoEval:
         )
 
     @classmethod
-    def load_results_from_txt(cls, result_data_dir, expected_n_trials=None):
+    def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
         metrics = {
             policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
             for policy in POLICIES
@@ -640,7 +642,7 @@ class AutoEval:
     def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
         """Generate a Markdown table summarizing task success rates by policy."""
 
-        metrics, expected_n_trials = cls.load_results_from_txt(
+        metrics, expected_n_trials = cls.load_rollout_results_from_txt(
             result_data_dir, expected_n_trials
         )
         all_task_keys = sorted(
@@ -856,7 +858,7 @@ class AutoEval:
                         seed,
                         dataset_tag,
                     )
-                    self.save_result_to_txt(
+                    self.save_rollout_result_to_txt(
                         task_success_list,
                         dataset_tag,
                         seed,

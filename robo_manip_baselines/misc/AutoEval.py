@@ -680,14 +680,14 @@ class AutoEval:
         )
         md_task_order, display_md_map = cls._determine_task_order(metrics)
         new_results = cls._build_new_results(metrics, md_task_order, expected_n_trials)
-        existing_results_dict, evaluation_result_path = cls._read_existing_md(
-            result_data_dir
+        existing_results_dict, evaluation_result_path, merged_task_order = (
+            cls._read_existing_md(result_data_dir, md_task_order)
         )
         merged_policies, merged_rows = cls._merge_results(
             existing_results_dict, new_results, display_md_map
         )
         lines = cls._build_markdown_lines(
-            merged_policies, merged_rows, display_md_map, md_task_order
+            merged_policies, merged_rows, display_md_map, merged_task_order
         )
         cls._write_md(lines, evaluation_result_path)
 
@@ -764,8 +764,8 @@ class AutoEval:
         return new_results_dict
 
     @classmethod
-    def _read_existing_md(cls, result_data_dir):
-        """Read existing file if present, validating column consistency."""
+    def _read_existing_md(cls, result_data_dir, md_task_order):
+        """Read existing file and merge its headers with new task order."""
         evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
         existing_results_dict = {}
         header_tasks = []
@@ -778,7 +778,7 @@ class AutoEval:
             # Parse header (line 0)
             header_cols = lines[0].split("|")[1:-1]
             # The first cell is "Policy", followed by task headers, and ending with "Average"
-            header_tasks = [c.strip() for c in header_cols[1:]]
+            header_tasks = [c.strip() for c in header_cols[1:-1]]
             # Expected number of pipe characters: one at the start, one between each cell,
             # and one at the end: head + tasks + average + both ends
             expected_pipe_count = 1 + len(header_tasks) + 1 + 1
@@ -790,7 +790,7 @@ class AutoEval:
                 actual_pipe_count = row.count("|")
                 if actual_pipe_count != expected_pipe_count:
                     raise ValueError(
-                        f"[{cls.__name__}] Column count mismatch on line {lineno}:\n"
+                        f"Column count mismatch on line {lineno}:\n"
                         f"  Expected pipes: {expected_pipe_count}, Actual pipes: {actual_pipe_count}\n"
                         f"  Row content: {row!r}"
                     )
@@ -803,35 +803,44 @@ class AutoEval:
                         f"  Parsed parts: {parts}"
                     )
                 policy = parts[0]
-                existing_results_dict[policy] = {}
-                for i, cell in enumerate(parts[1:]):
+                existing_results_dict.setdefault(policy, {})
+                for i, cell in enumerate(parts[1:-1]):
                     existing_results_dict[policy][header_tasks[i]] = cell
                 existing_results_dict[policy]["Average"] = parts[-1]
         else:
             print(
                 f"[{cls.__name__}] No existing markdown results found at {evaluation_result_path}"
             )
-        return existing_results_dict, evaluation_result_path
+        # Merge headers: existing first, then any new tasks
+        merged_task_order = header_tasks + [
+            t for t in md_task_order if cls.format_task_name(t) not in header_tasks
+        ]
+        return existing_results_dict, evaluation_result_path, merged_task_order
 
     @classmethod
     def _merge_results(cls, existing_results_dict, new_results_dict, display_md_map):
+        """Merge existing and new results, overwriting only when new is meaningful."""
         merged_policies = sorted(
             set(existing_results_dict.keys()) | set(new_results_dict.keys())
         )
         merged_rows = {policy: {} for policy in merged_policies}
         for policy in merged_policies:
             row = merged_rows[policy]
+            # Insert existing results as initial values
             if policy in existing_results_dict:
                 for disp, val in existing_results_dict[policy].items():
                     row[disp] = val
+            # Merge new results: overwrite only if value is meaningful
             if policy in new_results_dict:
-                new_row = new_results_dict[policy]
-                for t_key, val in new_row.items():
+                for t_key, val in new_results_dict[policy].items():
                     disp = (
                         display_md_map.get(t_key, t_key)
                         if t_key != "Average"
                         else "Average"
                     )
+                    # Do not overwrite with placeholders
+                    if val in ("--", "!!", "N/A"):
+                        continue
                     row[disp] = val
         return merged_policies, merged_rows
 
@@ -839,18 +848,20 @@ class AutoEval:
     def _build_markdown_lines(
         cls, merged_policies, merged_rows, display_md_map, md_task_order
     ):
-        all_headers = [display_md_map[t] for t in md_task_order]
+        # Header line
+        all_tasks = [display_md_map.get(t, t) for t in md_task_order]
         header_line = (
             "| <nobr>Policy \\\\ Task</nobr> | "
-            + " | ".join(all_headers)
+            + " | ".join(all_tasks)
             + " | Average |\n"
         )
-        sep_line = "|" + "---|" * (len(all_headers) + 2) + "\n"
+        sep_line = "|" + "---|" * (len(all_tasks) + 2) + "\n"
         lines = [header_line, sep_line]
+        # Rows per policy
         for policy in merged_policies:
             cells = (
                 [policy]
-                + [merged_rows[policy].get(h, "N/A") for h in all_headers]
+                + [merged_rows[policy].get(h, "N/A") for h in all_tasks]
                 + [merged_rows[policy].get("Average", "N/A")]
             )
             lines.append("| " + " | ".join(cells) + " |\n")

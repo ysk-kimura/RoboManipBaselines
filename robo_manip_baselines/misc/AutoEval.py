@@ -588,39 +588,65 @@ class AutoEval:
     @classmethod
     def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
         """Read success list files and return metrics with expected trial count."""
-        metrics = {
-            policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
-            for policy in POLICIES
-        }
-        pattern = os.path.join(result_data_dir, "**", "task_success_list*.txt")
-        for ts_file in glob.iglob(pattern, recursive=True):
-            rel_path = os.path.relpath(ts_file, result_data_dir)
-            parts = rel_path.split(os.sep)
-            if len(parts) < 6:
-                print(
-                    f"[{cls.__name__}] Warning: Skipping due to insufficient directory depth: {rel_path}"
-                )
+        metrics = cls._init_empty_metrics()
+        for ts_file in cls._find_txt_files(result_data_dir):
+            policy, task_key = cls._parse_ts_filepath(ts_file, result_data_dir)
+            if policy is None or task_key is None:
                 continue
-            _, policy, env_name, data_tag, _ = parts[-6:-1]
-            task_key = f"{env_name}/{data_tag}"
-            if policy not in POLICIES:
-                print(
-                    f"[{cls.__name__}] Warning: Skipping due to undefined policy '{policy}': {rel_path}"
-                )
-                continue
-            try:
-                with open(ts_file, "r", encoding="utf-8") as f:
-                    values = f.read().strip().split()
-                    succ_values = [int(v) for v in values]
-                    n_trials = len(values)
-            except (FileNotFoundError, ValueError, OSError) as e:
-                print(
-                    f"[{cls.__name__}] Warning: Failed to read/parse file ({e}), skipping: {ts_file}"
-                )
+            succ_values, n_trials = cls._read_success_list(ts_file)
+            if not succ_values and n_trials == 0:
                 continue
             metrics[policy]["succ_lists"][task_key].append(succ_values)
             metrics[policy]["trials"][task_key] += n_trials
 
+        expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)
+        cls._warn_inconsistent_trials(metrics, expected_n_trials)
+        return metrics, expected_n_trials
+
+    @classmethod
+    def _init_empty_metrics(cls):
+        return {
+            policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
+            for policy in POLICIES
+        }
+
+    @classmethod
+    def _find_txt_files(cls, result_data_dir):
+        pattern = os.path.join(result_data_dir, "**", "task_success_list*.txt")
+        return glob.iglob(pattern, recursive=True)
+
+    @classmethod
+    def _parse_ts_filepath(cls, ts_file, result_data_dir):
+        rel_path = os.path.relpath(ts_file, result_data_dir)
+        parts = rel_path.split(os.sep)
+        if len(parts) < 6:
+            print(
+                f"[{cls.__name__}] Warning: Skipping due to insufficient directory depth: {rel_path}"
+            )
+            return None, None
+        _, policy, env_name, data_tag, _ = parts[-6:-1]
+        if policy not in POLICIES:
+            print(
+                f"[{cls.__name__}] Warning: Skipping due to undefined policy '{policy}': {rel_path}"
+            )
+            return None, None
+        return policy, f"{env_name}/{data_tag}"
+
+    @classmethod
+    def _read_success_list(cls, ts_file):
+        try:
+            with open(ts_file, "r", encoding="utf-8") as f:
+                values = f.read().strip().split()
+                succ_values = [int(v) for v in values]
+                return succ_values, len(values)
+        except (OSError, ValueError) as e:
+            print(
+                f"[{cls.__name__}] Warning: Failed to read/parse file {ts_file} ({e})"
+            )
+            return [], 0
+
+    @classmethod
+    def _compute_expected_trials(cls, metrics, expected_n_trials):
         all_n_trials = [
             n_trials
             for policy_dict in metrics.values()
@@ -629,6 +655,13 @@ class AutoEval:
         ]
         if expected_n_trials is None:
             expected_n_trials = int(median(all_n_trials)) if all_n_trials else 0
+            print(
+                f"[{cls.__name__}] Estimated expected_n_trials as median: {expected_n_trials}"
+            )
+        return expected_n_trials
+
+    @classmethod
+    def _warn_inconsistent_trials(cls, metrics, expected_n_trials):
         for policy in POLICIES:
             for task_key, n_trials in metrics[policy]["trials"].items():
                 if n_trials > 0 and n_trials != expected_n_trials:
@@ -637,7 +670,6 @@ class AutoEval:
                         f"policy={policy}, task={task_key}, n_trials={n_trials} "
                         f"(expected={expected_n_trials})"
                     )
-        return metrics, expected_n_trials
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
@@ -646,6 +678,21 @@ class AutoEval:
         metrics, expected_n_trials = cls.load_rollout_results_from_txt(
             result_data_dir, expected_n_trials
         )
+        md_task_order, display_md_map = cls._determine_task_order(metrics)
+        new_results = cls._build_new_results(metrics, md_task_order, expected_n_trials)
+        existing_results_dict, evaluation_result_path = cls._read_existing_md(
+            result_data_dir
+        )
+        merged_policies, merged_rows = cls._merge_results(
+            existing_results_dict, new_results, display_md_map
+        )
+        lines = cls._build_markdown_lines(
+            merged_policies, merged_rows, display_md_map, md_task_order
+        )
+        cls._write_md(lines, evaluation_result_path)
+
+    @classmethod
+    def _determine_task_order(cls, metrics):
         new_task_keys = sorted(
             {
                 task_key
@@ -663,6 +710,10 @@ class AutoEval:
         md_task_order = matched_tasks + sorted(
             [t for t in new_task_keys if t not in matched_tasks]
         )
+        return md_task_order, display_md_map
+
+    @classmethod
+    def _build_new_results(cls, metrics, md_task_order, expected_n_trials):
         new_results_dict = {}
         for policy in POLICIES:
             cells = {}
@@ -686,49 +737,84 @@ class AutoEval:
                         f"[{cls.__name__}] Warning: Insufficient trials for policy={policy}, task={task_key} - displaying '--'"
                     )
                     continue
-                succ_list = metrics[policy]["succ_lists"].get(task_key, [])
+                try:
+                    succ_list = metrics[policy]["succ_lists"][task_key]
+                except KeyError as e:
+                    raise KeyError(
+                        f"Missing task_key '{task_key}' in succ_lists for policy '{policy}'"
+                    ) from e
                 pct_list = [sum(row) / len(row) * 100 for row in succ_list]
                 mean_pct = round(mean(pct_list))
                 stdev_pct = round(stdev(pct_list) if len(pct_list) > 1 else 0)
-                cell_str = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
+                cells[task_key] = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
                 numeric_values.append(mean_pct)
-                cells[task_key] = cell_str
             if all(c == "N/A" for c in cells.values()):
                 continue
             for _, task_key in missing_tasks:
                 print(
-                    f"[{cls.__name__}] Warning: No data available for policy={policy}, task={task_key} - displaying 'N/A'"
+                    f"[{cls.__name__}] Warning: No data available for "
+                    + f"policy={policy}, task={task_key} - displaying 'N/A'"
                 )
-            avg_cell = (
+            new_results_dict[policy] = cells
+            new_results_dict[policy]["Average"] = (
                 f"{round(sum(numeric_values) / len(numeric_values)):d}"
                 if numeric_values
                 else "N/A"
             )
-            new_results_dict[policy] = cells
-            new_results_dict[policy]["Average"] = avg_cell
+        return new_results_dict
 
+    @classmethod
+    def _read_existing_md(cls, result_data_dir):
+        """Read existing file if present, validating column consistency."""
         evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
         existing_results_dict = {}
         header_tasks = []
-
-        # Read existing file if present
         if os.path.exists(evaluation_result_path):
+            print(
+                f"[{cls.__name__}] Loading existing markdown results from {evaluation_result_path}"
+            )
             with open(evaluation_result_path, "r", encoding="utf-8") as f:
                 lines = [line.rstrip("\n") for line in f]
             # Parse header (line 0)
-            cols = lines[0].split("|")[1:-1]
-            header_tasks = [c.strip() for c in cols[1:]]
+            header_cols = lines[0].split("|")[1:-1]
+            # The first cell is "Policy", followed by task headers, and ending with "Average"
+            header_tasks = [c.strip() for c in header_cols[1:]]
+            # Expected number of pipe characters: one at the start, one between each cell,
+            # and one at the end: head + tasks + average + both ends
+            expected_pipe_count = 1 + len(header_tasks) + 1 + 1
             # Parse data rows
-            for row in lines[2:]:
+            for lineno, row in enumerate(lines[2:], start=3):
+                # Extract actual cells between pipes
                 parts = [p.strip() for p in row.split("|")[1:-1]]
+                # Count actual number of pipe characters in the line
+                actual_pipe_count = row.count("|")
+                if actual_pipe_count != expected_pipe_count:
+                    raise ValueError(
+                        f"[{cls.__name__}] Column count mismatch on line {lineno}:\n"
+                        f"  Expected pipes: {expected_pipe_count}, Actual pipes: {actual_pipe_count}\n"
+                        f"  Row content: {row!r}"
+                    )
+                # Validate number of parsed cells against expected number
+                expected_cells = 1 + len(header_tasks) + 1  # policy + tasks + average
+                if len(parts) != expected_cells:
+                    raise ValueError(
+                        f"[{cls.__name__}] Cell count mismatch on line {lineno}:\n"
+                        f"  Expected cells: {expected_cells}, Actual cells: {len(parts)}\n"
+                        f"  Parsed parts: {parts}"
+                    )
                 policy = parts[0]
                 existing_results_dict[policy] = {}
                 for i, cell in enumerate(parts[1:]):
                     existing_results_dict[policy][header_tasks[i]] = cell
                 existing_results_dict[policy]["Average"] = parts[-1]
+        else:
+            print(
+                f"[{cls.__name__}] No existing markdown results found at {evaluation_result_path}"
+            )
+        return existing_results_dict, evaluation_result_path
 
-        # Merge results
-        all_headers = [display_md_map[t] for t in md_task_order]
+    @classmethod
+    def _merge_results(cls, existing_results_dict, new_results_dict, display_md_map):
         merged_policies = sorted(
             set(existing_results_dict.keys()) | set(new_results_dict.keys())
         )
@@ -747,8 +833,13 @@ class AutoEval:
                         else "Average"
                     )
                     row[disp] = val
+        return merged_policies, merged_rows
 
-        # Build Markdown lines
+    @classmethod
+    def _build_markdown_lines(
+        cls, merged_policies, merged_rows, display_md_map, md_task_order
+    ):
+        all_headers = [display_md_map[t] for t in md_task_order]
         header_line = (
             "| <nobr>Policy \\\\ Task</nobr> | "
             + " | ".join(all_headers)
@@ -762,12 +853,14 @@ class AutoEval:
                 + [merged_rows[policy].get(h, "N/A") for h in all_headers]
                 + [merged_rows[policy].get("Average", "N/A")]
             )
-            lines.append("| " + " | ".join(cells) + " |")
+            lines.append("| " + " | ".join(cells) + " |\n")
+        return lines
 
+    @classmethod
+    def _write_md(cls, lines, evaluation_result_path):
         os.makedirs(os.path.dirname(evaluation_result_path), exist_ok=True)
         with open(evaluation_result_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
-
         print(
             f"[{cls.__name__}] Markdown result written to:\n"
             f"  {evaluation_result_path}  (Rows: {len(lines) - 2}, Cols: {lines[-1].count('|') - 1})"

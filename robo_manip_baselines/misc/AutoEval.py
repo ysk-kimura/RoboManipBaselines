@@ -891,11 +891,8 @@ class AutoEval:
         for policy in merged_policies:
             cells = (
                 [policy]
-                + [
-                    "<nobr>" + merged_rows[policy].get(h, "N/A") + "</nobr>"
-                    for h in merged_display_task_order
-                ]
-                + ["<nobr>" + merged_rows[policy].get("Average", "N/A") + "</nobr>"]
+                + [merged_rows[policy].get(h, "N/A") for h in merged_display_task_order]
+                + [merged_rows[policy].get("Average", "N/A")]
             )
             lines.append("| " + " | ".join(cells) + " |\n")
         return lines

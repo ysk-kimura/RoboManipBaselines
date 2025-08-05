@@ -678,41 +678,45 @@ class AutoEval:
         metrics, expected_n_trials = cls.load_rollout_results_from_txt(
             result_data_dir, expected_n_trials
         )
-        new_task_keys, display_md_map = cls._get_task_keys_with_names(metrics)
-        new_results = cls._build_new_results(metrics, new_task_keys, expected_n_trials)
-        existing_results_dict, existing_header_tasks, evaluation_result_path = (
-            cls._read_existing_md(result_data_dir)
+        new_raw_task_keys, display_md_map = cls._get_task_keys_with_names(metrics)
+        new_raw_results_dict = cls._build_new_results(
+            metrics, new_raw_task_keys, expected_n_trials
         )
-        merged_policies, merged_rows, merged_task_order = cls._merge_results(
-            existing_results_dict,
-            existing_header_tasks,
-            new_results,
-            new_task_keys,
+        (
+            existing_display_results_dict,
+            existing_header_display_tasks,
+            evaluation_result_path,
+        ) = cls._read_existing_md(result_data_dir)
+        merged_policies, merged_rows, merged_display_task_order = cls._merge_results(
+            existing_display_results_dict,
+            existing_header_display_tasks,
+            new_raw_results_dict,
+            new_raw_task_keys,
             display_md_map,
         )
         lines = cls._build_markdown_lines(
-            merged_policies, merged_rows, merged_task_order, display_md_map
+            merged_policies, merged_rows, merged_display_task_order
         )
         cls._write_md(lines, evaluation_result_path)
 
     @classmethod
     def _get_task_keys_with_names(cls, metrics):
-        new_task_keys = {
+        new_raw_task_keys = {
             task_key
             for policy_dict in metrics.values()
             for task_key in policy_dict["trials"].keys()
         }
-        display_md_map = {t: cls.format_task_name(t) for t in new_task_keys}
-        return new_task_keys, display_md_map
+        display_md_map = {t: cls.format_task_name(t) for t in new_raw_task_keys}
+        return new_raw_task_keys, display_md_map
 
     @classmethod
-    def _build_new_results(cls, metrics, new_task_keys, expected_n_trials):
-        new_results_dict = {}
+    def _build_new_results(cls, metrics, new_raw_task_keys, expected_n_trials):
+        new_raw_results_dict = {}
         for policy in POLICIES:
             cells = {}
             numeric_values = []
             missing_tasks = []
-            for task_key in new_task_keys:
+            for task_key in new_raw_task_keys:
                 n_trials = metrics[policy]["trials"].get(task_key, None)
                 if not n_trials:
                     missing_tasks.append((policy, task_key))
@@ -750,20 +754,20 @@ class AutoEval:
                     f"[{cls.__name__}] Warning: No data available for "
                     + f"policy={policy}, task={task_key} - displaying 'N/A'"
                 )
-            new_results_dict[policy] = cells
-            new_results_dict[policy]["Average"] = (
+            new_raw_results_dict[policy] = cells
+            new_raw_results_dict[policy]["Average"] = (
                 f"{round(sum(numeric_values) / len(numeric_values)):d}"
                 if numeric_values
                 else "N/A"
             )
-        return new_results_dict
+        return new_raw_results_dict
 
     @classmethod
     def _read_existing_md(cls, result_data_dir):
         """Read existing file and merge its headers with new task order."""
         evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
-        existing_results_dict = {}
-        existing_header_tasks = []
+        existing_display_results_dict = {}
+        existing_header_display_tasks = []
         if os.path.exists(evaluation_result_path):
             print(
                 f"[{cls.__name__}] Loading existing markdown results from {evaluation_result_path}"
@@ -773,10 +777,10 @@ class AutoEval:
             # Parse header (line 0)
             header_cols = lines[0].split("|")[1:-1]
             # The first cell is "Policy", followed by task headers, and ending with "Average"
-            existing_header_tasks = [c.strip() for c in header_cols[1:-1]]
+            existing_header_display_tasks = [c.strip() for c in header_cols[1:-1]]
             # Expected number of pipe characters: one at the start, one between each cell,
             # and one at the end: head + tasks + average + both ends
-            expected_pipe_count = 1 + len(existing_header_tasks) + 1 + 1
+            expected_pipe_count = 1 + len(existing_header_display_tasks) + 1 + 1
             # Parse data rows
             for lineno, row in enumerate(lines[2:], start=3):
                 # Extract actual cells between pipes
@@ -791,7 +795,7 @@ class AutoEval:
                     )
                 # Validate number of parsed cells against expected number
                 expected_cells = (
-                    1 + len(existing_header_tasks) + 1
+                    1 + len(existing_header_display_tasks) + 1
                 )  # policy + tasks + average
                 if len(parts) != expected_cells:
                     raise ValueError(
@@ -800,75 +804,74 @@ class AutoEval:
                         f"  Parsed parts: {parts}"
                     )
                 policy = parts[0]
-                existing_results_dict.setdefault(policy, {})
+                existing_display_results_dict.setdefault(policy, {})
                 for i, cell in enumerate(parts[1:-1]):
-                    existing_results_dict[policy][existing_header_tasks[i]] = cell
-                existing_results_dict[policy]["Average"] = parts[-1]
+                    existing_display_results_dict[policy][
+                        existing_header_display_tasks[i]
+                    ] = cell
+                existing_display_results_dict[policy]["Average"] = parts[-1]
         else:
             print(
                 f"[{cls.__name__}] No existing markdown results found at {evaluation_result_path}"
             )
-        return existing_results_dict, existing_header_tasks, evaluation_result_path
+        return (
+            existing_display_results_dict,
+            existing_header_display_tasks,
+            evaluation_result_path,
+        )
 
     @classmethod
     def _merge_results(
         cls,
-        existing_results_dict,
-        existing_header_tasks,
-        new_results_dict,
-        new_task_keys,
+        existing_display_results_dict,
+        existing_header_display_tasks,
+        new_raw_results_dict,
+        new_raw_task_keys,
         display_md_map,
     ):
         """Merge existing and new results."""
-        # Convert new task to display name
-        new_display_tasks = {display_md_map[t] for t in new_task_keys}
-        # Build a column set by combining existing headers (display names)
-        merged_display_tasks = list(
-            existing_header_tasks
-        )  # Preserve the existing order
-        # Add new display names only if they are not already included
-        for d in sorted(new_display_tasks):
-            if d not in merged_display_tasks:
-                merged_display_tasks.append(d)
-        # Order the priority display tasks (MD_DISPLAY_TASKS)
-        # (Assuming MD_DISPLAY_TASKS itself is a display name list)
-        priority = [d for d in MD_DISPLAY_TASKS if d in merged_display_tasks]
-        # Order the remaining tasks in merged_display_tasks, excluding priority
-        remaining = [d for d in merged_display_tasks if d not in priority]
-        merged_task_order = priority + remaining
-        # Construct merged_rows with the display-name key
-        merged_policies = set(existing_results_dict) | set(new_results_dict)
+        new_display_tasks = {display_md_map[t] for t in new_raw_task_keys}
+        merged_display_tasks = list(existing_header_display_tasks)
+        for display_task in sorted(new_display_tasks):
+            if display_task not in merged_display_tasks:
+                merged_display_tasks.append(display_task)
+        priority_display_tasks = [
+            t for t in MD_DISPLAY_TASKS if t in merged_display_tasks
+        ]
+        remaining_display_tasks = [
+            t for t in merged_display_tasks if t not in priority_display_tasks
+        ]
+        merged_display_task_order = priority_display_tasks + remaining_display_tasks
+        merged_policies = set(existing_display_results_dict) | set(new_raw_results_dict)
         merged_rows = {policy: {} for policy in merged_policies}
         for policy in merged_policies:
-            # Use existing data (display name key) as is
-            if policy in existing_results_dict:
-                merged_rows[policy].update(existing_results_dict[policy])
-            # Merge new data from raw to display, overwriting only meaningful values
-            if policy in new_results_dict:
-                for raw_key, val in new_results_dict[policy].items():
+            if policy in existing_display_results_dict:
+                merged_rows[policy].update(existing_display_results_dict[policy])
+            if policy in new_raw_results_dict:
+                for raw_task_key, val in new_raw_results_dict[policy].items():
                     if val in ("--", "!!", "N/A"):
                         continue
-                    disp = display_md_map.get(raw_key, raw_key)
-                    merged_rows[policy][disp] = val
-        return merged_policies, merged_rows, merged_task_order
+                    display_task = display_md_map.get(raw_task_key, raw_task_key)
+                    merged_rows[policy][display_task] = val
+        return merged_policies, merged_rows, merged_display_task_order
 
     @classmethod
     def _build_markdown_lines(
-        cls, merged_policies, merged_rows, merged_task_order, display_md_map
+        cls, merged_policies, merged_rows, merged_display_task_order
     ):
         # Header line
         header_line = (
             "| <nobr>Policy \\\\ Task</nobr> | "
-            + " | ".join(display_md_map.get(t, t) for t in merged_task_order)
+            + " | ".join(merged_display_task_order)
             + " | Average |\n"
         )
-        sep_line = "|" + "---|" * (len(merged_task_order) + 2) + "\n"
+        sep_line = "|" + "---|" * (len(merged_display_task_order) + 2) + "\n"
         lines = [header_line, sep_line]
         # Rows per policy
         for policy in merged_policies:
             cells = (
                 [policy]
-                + [merged_rows[policy].get(h, "N/A") for h in merged_task_order]
+                + [merged_rows[policy].get(h, "N/A") for h in merged_display_task_order]
                 + [merged_rows[policy].get("Average", "N/A")]
             )
             lines.append("| " + " | ".join(cells) + " |\n")

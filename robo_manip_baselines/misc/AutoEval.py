@@ -842,7 +842,10 @@ class AutoEval:
             t for t in merged_display_tasks if t not in priority_display_tasks
         ]
         merged_display_task_order = priority_display_tasks + remaining_display_tasks
-        merged_policies = set(existing_display_results_dict) | set(new_raw_results_dict)
+        mixed_policies = set(existing_display_results_dict) | set(new_raw_results_dict)
+        known_policies = [p for p in POLICIES if p in mixed_policies]
+        unknown_policies = sorted([p for p in mixed_policies if p not in POLICIES])
+        merged_policies = known_policies + unknown_policies
         merged_rows = {policy: {} for policy in merged_policies}
         for policy in merged_policies:
             if policy in existing_display_results_dict:

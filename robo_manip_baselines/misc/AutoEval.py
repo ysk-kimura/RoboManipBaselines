@@ -755,11 +755,6 @@ class AutoEval:
                     + f"policy={policy}, task={task_key} - displaying 'N/A'"
                 )
             new_raw_results_dict[policy] = cells
-            new_raw_results_dict[policy]["Average"] = (
-                f"{round(sum(numeric_values) / len(numeric_values)):d}"
-                if numeric_values
-                else "N/A"
-            )
         return new_raw_results_dict
 
     @classmethod
@@ -849,13 +844,35 @@ class AutoEval:
         merged_rows = {policy: {} for policy in merged_policies}
         for policy in merged_policies:
             if policy in existing_display_results_dict:
-                merged_rows[policy].update(existing_display_results_dict[policy])
+                for display_task, val in existing_display_results_dict[policy].items():
+                    if display_task != "Average":
+                        merged_rows[policy][display_task] = val
             if policy in new_raw_results_dict:
                 for raw_task_key, val in new_raw_results_dict[policy].items():
                     if val in ("--", "!!", "N/A"):
                         continue
                     display_task = display_md_map.get(raw_task_key, raw_task_key)
                     merged_rows[policy][display_task] = val
+            numeric_values = []
+            for display_task in existing_header_display_tasks + sorted(
+                {t for t in display_md_map.values() if t in merged_rows[policy]}
+            ):
+                cell = merged_rows[policy].get(display_task)
+                if not cell or cell in ("--", "!!", "N/A"):
+                    continue
+                try:
+                    num = int(cell.split()[0])
+                    numeric_values.append(num)
+                except (ValueError, IndexError):
+                    pass
+            if numeric_values:
+                mean_val = round(mean(numeric_values))
+                stdev_val = round(
+                    stdev(numeric_values) if len(numeric_values) > 1 else 0
+                )
+                merged_rows[policy]["Average"] = f"{mean_val:d} (&plusmn;{stdev_val:d})"
+            else:
+                merged_rows[policy]["Average"] = "N/A"
         return merged_policies, merged_rows, merged_display_task_order
 
     @classmethod
@@ -874,8 +891,11 @@ class AutoEval:
         for policy in merged_policies:
             cells = (
                 [policy]
-                + [merged_rows[policy].get(h, "N/A") for h in merged_display_task_order]
-                + [merged_rows[policy].get("Average", "N/A")]
+                + [
+                    "<nobr>" + merged_rows[policy].get(h, "N/A") + "</nobr>"
+                    for h in merged_display_task_order
+                ]
+                + ["<nobr>" + merged_rows[policy].get("Average", "N/A") + "</nobr>"]
             )
             lines.append("| " + " | ".join(cells) + " |\n")
         return lines

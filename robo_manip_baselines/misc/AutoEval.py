@@ -14,6 +14,7 @@ import time
 import traceback
 import venv
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 from statistics import mean, median, stdev
 from urllib.parse import urlparse
@@ -60,6 +61,7 @@ AUTOEVAL_EXECUTE_PARAM_KEYS = [
     "upgrade_pip_setuptools",
     "world_idx_list",
     "result_filename",
+    "setting_remark",
     "seeds",
 ]
 JOB_ALL_PARAM_KEYS = list(
@@ -149,7 +151,7 @@ class AutoEval:
 
         # Generate a unique lock file path to manage concurrent process access
         self.lock_file_path = os.path.join(
-            queue_dir,
+            str(queue_dir),
             "." + Path(__file__).resolve().stem + ".lock",
         )
 
@@ -214,6 +216,7 @@ class AutoEval:
                 bufsize=1,
             ) as process:
                 output_lines = []
+                assert process.stdout is not None
                 for stdout_line in process.stdout:
                     print(stdout_line, end="", flush=True)
                     output_lines.append(stdout_line)
@@ -340,8 +343,7 @@ class AutoEval:
         sub_base = sub.split("_", 1)[0]
         if sub_base.lower() == last_word.lower():
             return last_word
-        else:
-            return f"{last_word}{sub_base.capitalize()}"
+        return f"{last_word}{sub_base.capitalize()}"
 
     def download_dataset(self, dataset_url):
         """Download the dataset from the specified URL."""
@@ -350,7 +352,7 @@ class AutoEval:
             [
                 "wget",
                 "-O",
-                os.path.join(self.dataset_dir, zip_filename),
+                os.path.join(str(self.dataset_dir), zip_filename),
                 self.adjust_dataset_url(dataset_url),
             ],
         )
@@ -373,7 +375,9 @@ class AutoEval:
                 f"{e.returncode}. {e_stderr}\n"
             )
         rmb_items_count = len(
-            glob.glob(os.path.join(self.dataset_dir, "**", "*.rmb"), recursive=True)
+            glob.glob(
+                os.path.join(str(self.dataset_dir), "**", "*.rmb"), recursive=True
+            )
         )
         print(
             f"[{self.__class__.__name__}] [{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
@@ -465,7 +469,7 @@ class AutoEval:
             )
 
         output_image_dir = os.path.join(
-            self.result_data_dir,
+            str(self.result_data_dir),
             timestamp,
             self.policy,
             self.env,
@@ -548,7 +552,7 @@ class AutoEval:
         """Save task_success_list."""
 
         output_dir_path = os.path.join(
-            self.result_data_dir,
+            str(self.result_data_dir),
             timestamp,
             self.policy,
             self.env,
@@ -587,17 +591,20 @@ class AutoEval:
 
     @classmethod
     def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
-        """Read success list files and return metrics with expected trial count."""
+        """Read task success list files and return metrics with expected trial count."""
         metrics = cls._init_empty_metrics()
-        for ts_file in cls._find_txt_files(result_data_dir):
-            policy, task_key = cls._parse_ts_filepath(ts_file, result_data_dir)
-            if policy is None or task_key is None:
+        for tsk_suc_file in cls._find_txt_files(result_data_dir):
+            policy, raw_task_key = cls._parse_tsk_suc_filepath(
+                tsk_suc_file, result_data_dir
+            )
+            if policy is None or raw_task_key is None:
                 continue
-            succ_values, n_trials = cls._read_success_list(ts_file)
+            succ_values, n_trials = cls._read_success_list(tsk_suc_file)
             if not succ_values and n_trials == 0:
                 continue
-            metrics[policy]["succ_lists"][task_key].append(succ_values)
-            metrics[policy]["trials"][task_key] += n_trials
+            metrics[policy]["succ_lists"][raw_task_key].append(succ_values)
+            metrics[policy]["trials"][raw_task_key] += n_trials
+            cls._collect_metrics_remarks(metrics, result_data_dir, policy)
 
         expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)
         cls._warn_inconsistent_trials(metrics, expected_n_trials)
@@ -606,7 +613,11 @@ class AutoEval:
     @classmethod
     def _init_empty_metrics(cls):
         return {
-            policy: {"succ_lists": defaultdict(list), "trials": defaultdict(int)}
+            policy: {
+                "succ_lists": defaultdict(list),
+                "trials": defaultdict(int),
+                "remarks": defaultdict(str),
+            }
             for policy in POLICIES
         }
 
@@ -616,8 +627,12 @@ class AutoEval:
         return glob.iglob(pattern, recursive=True)
 
     @classmethod
-    def _parse_ts_filepath(cls, ts_file, result_data_dir):
-        rel_path = os.path.relpath(ts_file, result_data_dir)
+    def _make_raw_task_key(cls, env_name, data_tag):
+        return f"{env_name}/{data_tag}"
+
+    @classmethod
+    def _parse_tsk_suc_filepath(cls, tsk_suc_file, result_data_dir):
+        rel_path = os.path.relpath(tsk_suc_file, result_data_dir)
         parts = rel_path.split(os.sep)
         if len(parts) < 6:
             print(
@@ -630,20 +645,58 @@ class AutoEval:
                 f"[{cls.__name__}] Warning: Skipping due to undefined policy '{policy}': {rel_path}"
             )
             return None, None
-        return policy, f"{env_name}/{data_tag}"
+        raw_task_key = cls._make_raw_task_key(env_name, data_tag)
+        return policy, raw_task_key
 
     @classmethod
-    def _read_success_list(cls, ts_file):
+    def _read_success_list(cls, tsk_suc_file):
         try:
-            with open(ts_file, "r", encoding="utf-8") as f:
+            with open(tsk_suc_file, "r", encoding="utf-8") as f:
                 values = f.read().strip().split()
                 succ_values = [int(v) for v in values]
                 return succ_values, len(values)
         except (OSError, ValueError) as e:
             print(
-                f"[{cls.__name__}] Warning: Failed to read/parse file {ts_file} ({e})"
+                f"[{cls.__name__}] Warning: Failed to read/parse file {tsk_suc_file} ({e})"
             )
             return [], 0
+
+    @classmethod
+    def _collect_metrics_remarks(cls, metrics, result_data_dir, policy):
+        base_dir = Path(result_data_dir)
+        remark_files = cls._get_remark_files(base_dir, policy)
+        for cand in remark_files:
+            try:
+                rel_parts = cand.relative_to(base_dir).parts
+                pol_idx = rel_parts.index(policy)
+                env_name = (
+                    rel_parts[pol_idx + 1] if len(rel_parts) > pol_idx + 1 else None
+                )
+                data_tag = (
+                    rel_parts[pol_idx + 2] if len(rel_parts) > pol_idx + 2 else None
+                )
+            except (ValueError, IndexError):
+                continue
+            remark = cand.read_text(encoding="utf-8").strip()
+            depth_after = len(rel_parts) - (pol_idx + 3)
+            if pol_idx == len(rel_parts) - 2:
+                for key in metrics[policy]["remarks"]:
+                    metrics[policy]["remarks"][key] = remark
+            elif depth_after < 1 and cand.parent.name == env_name:
+                for key in metrics[policy]["remarks"]:
+                    if key.startswith(f"{env_name}/"):
+                        metrics[policy]["remarks"][key] = remark
+            else:
+                raw_task_key = cls._make_raw_task_key(env_name, data_tag)
+                metrics[policy]["remarks"][raw_task_key] = remark
+
+    @classmethod
+    @lru_cache()
+    def _get_remark_files(cls, base_dir, policy):
+        p = Path(str(base_dir / policy))
+        if not p.exists():
+            return []
+        return list(p.rglob("**/setting_remark.txt"))
 
     @classmethod
     def _compute_expected_trials(cls, metrics, expected_n_trials):
@@ -755,6 +808,9 @@ class AutoEval:
                     + f"policy={policy}, task={task_key} - displaying 'N/A'"
                 )
             new_raw_results_dict[policy] = cells
+            new_raw_results_dict[policy]["__remark__"] = metrics[policy]["remarks"].get(
+                task_key, ""
+            )  # Keep remarks for each policy/task
         return new_raw_results_dict
 
     @classmethod
@@ -880,21 +936,23 @@ class AutoEval:
         cls, merged_policies, merged_rows, merged_display_task_order
     ):
         # Header line
-        header_line = (
-            "| <nobr>Policy \\\\ Task</nobr> | "
-            + " | ".join(merged_display_task_order)
-            + " | Average |\n"
+        lines = []
+        header = (
+            ["<nobr>Policy \\\\ Task</nobr>"]
+            + merged_display_task_order
+            + ["Average", "Remark"]
         )
-        sep_line = "|" + "---|" * (len(merged_display_task_order) + 2) + "\n"
-        lines = [header_line, sep_line]
-        # Rows per policy
+        lines.append("| " + " | ".join(header) + " |\n")
+        lines.append("|" + "|".join([" --- "] * len(header)) + "|\n")
+        # Lines per policy
         for policy in merged_policies:
-            cells = (
+            row_cells = (
                 [policy]
                 + [merged_rows[policy].get(h, "N/A") for h in merged_display_task_order]
                 + [merged_rows[policy].get("Average", "N/A")]
+                + [merged_rows[policy].get("__remark__", "")]
             )
-            lines.append("| " + " | ".join(cells) + " |\n")
+            lines.append("| " + " | ".join(row_cells) + " |\n")
         return lines
 
     @classmethod
@@ -957,6 +1015,14 @@ class AutoEval:
             )
             traceback.print_exc()
 
+    @classmethod
+    def write_setting_remark_txt(cls, setting_remark, output_dir):
+        if setting_remark:
+            os.makedirs(output_dir, exist_ok=True)
+            remark_path = os.path.join(output_dir, "setting_remark.txt")
+            with open(remark_path, "w", encoding="utf-8") as f:
+                f.write(setting_remark.strip() + "\n")
+
     def execute_job(
         self,
         input_dataset_location,
@@ -967,6 +1033,7 @@ class AutoEval:
         upgrade_pip_setuptools,
         world_idx_list,
         result_filename,
+        setting_remark,
         seeds=None,
     ):
         """
@@ -1032,6 +1099,10 @@ class AutoEval:
                     )
 
                 # Rollout & save results
+                self.write_setting_remark_txt(
+                    setting_remark,
+                    os.path.join(str(self.result_data_dir), timestamp, self.policy),
+                )
                 if not self.no_rollout:
                     task_success_list = self.rollout(
                         args_file_rollout,
@@ -1137,6 +1208,12 @@ def add_job_queue_arguments(parser):
         type=str,
         default="<RESULT_DATA_DIR>",
         help="directory containing both intermediate experiment results and final markdown report",
+    )
+    parser.add_argument(
+        "--setting_remark",
+        type=str,
+        default=None,
+        help="optional remark to write into setting_remark.txt under each rollout output directory",
     )
     parser.add_argument(
         "--n_eval_trials_expected",
@@ -1375,12 +1452,12 @@ def main():
             created = []
             for policy in args.policies:
                 # Construct unique invocation ID by combining timestamp and policy
-                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                invocation_id = f"{ts}_{policy}"
+                tim_stp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                invocation_id = f"{tim_stp}_{policy}"
                 # Aggregate invocation details including common parameters and the policy
                 info = {
                     "invocation_id": invocation_id,
-                    "timestamp": ts,
+                    "timestamp": tim_stp,
                     "policy": policy,
                     **{k: getattr(job_args, k) for k in JOB_ALL_PARAM_KEYS},
                 }

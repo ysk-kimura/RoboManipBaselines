@@ -1,5 +1,15 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/76636cfe-9abe-4b6f-b867-1afbd1669120" alt="logo" width="300">
+  <br/>
+  <a href="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml">
+    <img src="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml/badge.svg" alt="CI-install">
+  </a>
+  <a href="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/pre-commit.yml">
+    <img src="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/pre-commit.yml/badge.svg" alt="CI-pre-commit">
+  </a>
+  <a href="https://github.com/isri-aist/RoboManipBaselines/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/isri-aist/RoboManipBaselines" alt="LICENSE">
+  </a>
 </p>
 
 ---
@@ -8,10 +18,6 @@
 
 A software framework integrating various **imitation learning methods** and **benchmark environments** for robotic manipulation.  
 Provides easy-to-use **baselines** for policy training, evaluation, and deployment.
-
-[![CI-install](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml/badge.svg)](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml)
-[![CI-pre-commit](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/isri-aist/RoboManipBaselines/actions/workflows/pre-commit.yml)
-[![LICENSE](https://img.shields.io/github/license/isri-aist/RoboManipBaselines)](https://github.com/isri-aist/RoboManipBaselines/blob/master/LICENSE)
 
 https://github.com/user-attachments/assets/c37c9956-2d50-488d-83ae-9c11c3900992
 

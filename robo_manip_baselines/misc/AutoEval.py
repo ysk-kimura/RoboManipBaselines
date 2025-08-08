@@ -225,7 +225,7 @@ class AutoEval:
                 if return_code != 0:
                     full_output = "".join(output_lines)
                     raise subprocess.CalledProcessError(
-                        return_code, command, output=full_output
+                        return_code, " ".join(command), output=full_output
                     )
         except subprocess.CalledProcessError as e:
             print(

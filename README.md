@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/76636cfe-9abe-4b6f-b867-1afbd1669120" alt="logo" width="300">
+  <a href="https://isri-aist.github.io/RoboManipBaselines-ProjectPage">
+    <img src="https://github.com/user-attachments/assets/76636cfe-9abe-4b6f-b867-1afbd1669120" alt="logo" width="300">
+  </a>
   <br/>
   <a href="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml">
     <img src="https://github.com/isri-aist/RoboManipBaselines/actions/workflows/install.yml/badge.svg" alt="CI-install">

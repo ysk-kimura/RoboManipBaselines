@@ -1432,7 +1432,9 @@ def main():
         return
 
     if args.do_report_eval_md:
-        AutoEval.append_eval_lines_to_md(args.result_data_dir)
+        AutoEval.append_eval_lines_to_md(
+            args.result_data_dir, expected_n_trials=args.n_eval_trials_expected
+        )
         if not args.eval_commit_dir:
             print(
                 f"[{AutoEval.__name__}] Skipped {AutoEval.git_commit_result.__name__}: "

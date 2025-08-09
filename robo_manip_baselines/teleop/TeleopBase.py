@@ -122,11 +122,7 @@ class EndTeleopPhase(PhaseBase):
             self.op.result["success"].append(bool(self.op.reward >= 1.0))
             self.op.result["reward"].append(float(self.op.reward))
             self.op.result["duration"].append(self.op.episode_duration)
-
-            filename = self.op.get_data_filename()
-            self.op.data_manager.save_data(filename)
-            print(f"[{self.op.__class__.__name__}] Save the data as {filename}")
-
+            self.op.save_data()
             self.op.reset_flag = True
         elif self.op.key == ord("f"):
             print(f"[{self.op.__class__.__name__}] Reset without saving the data.")
@@ -178,14 +174,9 @@ class EndReplayPhase(PhaseBase):
             self.op.result["success"].append(bool(self.op.reward >= 1.0))
             self.op.result["reward"].append(float(self.op.reward))
             self.op.result["duration"].append(self.op.episode_duration)
-
             if self.op.args.save_replay:
-                filename = self.op.get_data_filename()
-                self.op.data_manager.save_data(filename)
-                print(f"[{self.op.__class__.__name__}] Save the data as {filename}")
-
+                self.op.save_data()
             self.op.replay_file_idx += 1
-
             if self.op.replay_file_idx == len(self.op.replay_filenames):
                 self.op.quit_flag = True
             else:
@@ -570,7 +561,7 @@ class TeleopBase(OperationDataMixin, ABC):
                 self.replay_data_manager.get_single_data(abs_key, 0),
             )
 
-    def get_data_filename(self):
+    def save_data(self):
         filename = os.path.normpath(
             os.path.join(
                 os.path.dirname(__file__),
@@ -580,7 +571,8 @@ class TeleopBase(OperationDataMixin, ABC):
                 f"{self.demo_name}_world{self.data_manager.world_idx:0>1}_{self.data_manager.episode_idx:0>3}.{self.args.file_format}",
             )
         )
-        return filename
+        self.data_manager.save_data(filename)
+        print(f"[{self.__class__.__name__}] Save the data as {filename}")
 
     def draw_image(self):
         phase_image = self.phase_manager.get_phase_image(

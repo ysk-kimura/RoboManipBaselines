@@ -35,6 +35,25 @@ class MujocoAlohaHandoverEnv(MujocoAlohaEnvBase):
             ]
         )  # [m]
 
+    def _get_reward(self):
+        obj_base_pos = self.data.geom("obj_base").xpos.copy()
+        obj_handle_pos = self.data.geom("obj_handle").xpos.copy()
+        mat2_pos = self.data.body("mat2").xpos.copy()
+        mat2_half_extents = np.array([0.1, 0.1, 0.08])  # [m]
+        right_gripper_pos = self.data.site("right/gripper").xpos.copy()
+        left_gripper_pos = self.data.site("left/gripper").xpos.copy()
+        grasp_thre = 0.1  # [m]
+
+        reward = 0.0
+        if np.all(np.abs(obj_base_pos - mat2_pos) <= mat2_half_extents):
+            reward = 1.0
+        elif np.linalg.norm(obj_handle_pos - right_gripper_pos) < grasp_thre:
+            reward = 0.5
+        elif np.linalg.norm(obj_handle_pos - left_gripper_pos) < grasp_thre:
+            reward = 0.2
+
+        return reward
+
     def modify_world(self, world_idx=None, cumulative_idx=None):
         if world_idx is None:
             world_idx = cumulative_idx % len(self.obj_pos_offsets)

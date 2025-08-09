@@ -17,6 +17,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from torchvision.transforms import v2
 
 from ..data.DataKey import DataKey
+from ..data.OperationDataMixin import OperationDataMixin
+from ..manager.DataManager import DataManager
 from ..manager.MotionManager import MotionManager
 from ..manager.PhaseManager import PhaseManager
 from ..utils.DataUtils import normalize_data
@@ -49,9 +51,6 @@ class RolloutPhase(PhaseBase):
         print(
             f"[{self.op.__class__.__name__}] Start policy rollout. Press the 'n' key to finish policy rollout."
         )
-        print(f"  - world idx: {self.op.world_idx}")
-        if self.op.require_task_desc:
-            print(f"  - task desc: {self.op.args.task_desc}")
 
     def pre_update(self):
         if self.op.rollout_time_idx % self.op.args.skip == 0:
@@ -118,13 +117,20 @@ class EndRolloutPhase(PhaseBase):
     def start(self):
         super().start()
 
+        msg = f"[{self.op.__class__.__name__}] Policy rollout is finished."
         if not self.op.args.auto_exit:
-            print(f"[{self.op.__class__.__name__}] Press the 'n' key to exit.")
+            msg += " Press the 'n' key to reset."
+        print(msg)
 
     def check_transition(self):
         if (self.op.key == ord("n")) or self.op.args.auto_exit:
-            self.op.episode_idx += 1
-            if self.op.episode_idx == len(self.op.args.world_idx_list):
+            if self.op.args.save_rollout:
+                filename = self.op.get_data_filename()
+                self.op.data_manager.save_data(filename)
+                print(f"[{self.op.__class__.__name__}] Save the data as {filename}")
+            else:
+                self.op.data_manager.episode_idx += 1
+            if self.op.data_manager.episode_idx == len(self.op.args.world_idx_list):
                 self.op.quit_flag = True
             else:
                 self.op.reset_flag = True
@@ -132,28 +138,43 @@ class EndRolloutPhase(PhaseBase):
         return False
 
 
-class RolloutBase(ABC):
+class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
 
     def __init__(self):
+        # Setup arguments
         self.setup_args()
 
         set_random_seed(self.args.seed)
 
+        # Setup gym environment
         render_mode = None if self.args.no_render else "human"
         self.setup_env(render_mode=render_mode)
+        self.demo_name = self.args.demo_name or remove_suffix(self.env.spec.name, "Env")
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task
 
+        # Setup policy
         self.setup_model_meta_info()
-
         self.setup_policy()
 
+        # Setup plot
         if not self.args.no_plot:
             self.setup_plot()
 
+        # Setup motion manager
         self.motion_manager = MotionManager(self.env)
 
+        # Setup data manager
+        task_desc = self.args.task_desc if self.require_task_desc else ""
+        self.data_manager = DataManager(
+            self.env, demo_name=self.demo_name, task_desc=task_desc
+        )
+        self.data_manager.setup_camera_info()
+        self.datetime_now = datetime.datetime.now()
+        self.result = {key: [] for key in ("success", "reward", "duration")}
+
+        # Setup phase manager
         phase_order = [
             InitialRolloutPhase(self),
             *self.get_pre_motion_phases(),
@@ -186,6 +207,12 @@ class RolloutBase(ABC):
             nargs="*",
             default=None,
             help="list of world indexes",
+        )
+        parser.add_argument(
+            "--world_idx_repeat_count",
+            type=int,
+            default=1,
+            help="number of times to repeat world indexes",
         )
         parser.add_argument(
             "--world_random_scale",
@@ -244,6 +271,12 @@ class RolloutBase(ABC):
         )
 
         parser.add_argument(
+            "--save_rollout",
+            action="store_true",
+            help="whether to save rollout data",
+        )
+
+        parser.add_argument(
             "--result_filename",
             type=str,
             default=None,
@@ -266,6 +299,9 @@ class RolloutBase(ABC):
         )
 
         parser.add_argument(
+            "--demo_name", type=str, default="", help="demonstration name"
+        )
+        parser.add_argument(
             "--target_task", type=str, default=None, help="target task name"
         )
         if self.require_task_desc:
@@ -281,6 +317,7 @@ class RolloutBase(ABC):
 
         if self.args.world_idx_list is None:
             self.args.world_idx_list = [self.args.world_idx]
+        self.args.world_idx_list *= self.args.world_idx_repeat_count
 
         if self.args.world_random_scale is not None:
             self.args.world_random_scale = np.array(self.args.world_random_scale)
@@ -357,11 +394,6 @@ class RolloutBase(ABC):
     def setup_variables(self):
         self.image_transforms = v2.ToDtype(torch.float32, scale=True)
 
-        self.episode_idx = 0
-        self.datetime_now = datetime.datetime.now()
-
-        self.result = {key: [] for key in ("success", "reward", "duration")}
-
     def reset_variables(self):
         self.policy_action_list = np.empty((0, self.action_dim))
 
@@ -407,6 +439,10 @@ class RolloutBase(ABC):
                     for key in self.env.unwrapped.command_keys_for_step
                 ]
             )
+
+            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
+                self.record_data()
+
             self.obs, self.reward, _, _, self.info = self.env.step(env_action)
 
             self.phase_manager.post_update()
@@ -447,13 +483,19 @@ class RolloutBase(ABC):
         # Reset motion manager
         self.motion_manager.reset()
 
+        # Reset data manager
+        self.data_manager.reset()
+
         # Reset environment
         self.env.unwrapped.world_random_scale = self.args.world_random_scale
-        world_idx = self.args.world_idx_list[
-            self.episode_idx % len(self.args.world_idx_list)
-        ]
-        self.world_idx = self.env.unwrapped.modify_world(world_idx=world_idx)
+        world_idx = self.args.world_idx_list[self.data_manager.episode_idx]
+        self.data_manager.setup_env_world(world_idx)
         self.obs, self.info = self.env.reset(seed=self.args.seed)
+        self.reward = 0
+        msg = f"[{self.__class__.__name__}] Reset environment. demo_name: {self.demo_name}, world_idx: {self.data_manager.world_idx}, episode_idx: {self.data_manager.episode_idx}"
+        if self.require_task_desc:
+            msg += f", task desc: {self.args.task_desc}"
+        print(msg)
 
         # Reset phase manager
         self.phase_manager.reset()
@@ -513,6 +555,19 @@ class RolloutBase(ABC):
             )
             action_idx += action_dim
 
+    def get_data_filename(self):
+        filename = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "dataset",
+                f"Rollout{self.policy_name}_{self.demo_name}_{self.datetime_now:%Y%m%d_%H%M%S}",
+                f"{self.demo_name}_world{self.data_manager.world_idx:0>1}_{self.data_manager.episode_idx:0>3}.rmb",
+            )
+        )
+        return filename
+
     def plot_images(self, axes):
         for camera_idx, camera_name in enumerate(self.camera_names):
             axes[camera_idx].imshow(self.info["rgb_images"][camera_name])
@@ -547,14 +602,13 @@ class RolloutBase(ABC):
         image = cv2.hconcat(list(self.info["rgb_images"].values()))
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        demo_name = remove_suffix(self.env.spec.name, "Env")
         success_str = "success" if self.reward >= 1.0 else "failure"
         image_path = os.path.abspath(
             os.path.join(
                 self.args.output_image_dir,
                 (
-                    f"Rollout{self.policy_name}_{demo_name}_world{self.world_idx:0>1}_"
-                    f"{success_str}_{self.datetime_now:%Y%m%d_%H%M%S}.png"
+                    f"Rollout{self.policy_name}_{self.demo_name}_world{self.data_manager.world_idx:0>1}_"
+                    f"{self.data_manager.episode_idx:0>3}_{success_str}_{self.datetime_now:%Y%m%d_%H%M%S}.png"
                 ),
             )
         )

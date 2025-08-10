@@ -4,7 +4,6 @@ import os
 import sys
 
 import torch
-from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from tqdm import tqdm
 
 sys.path.append(
@@ -41,7 +40,14 @@ class TrainDiffusionPolicy(TrainBase):
             "--use_ema",
             action=argparse.BooleanOptionalAction,
             default=True,
-            help="Enable or disable exponential moving average (EMA)",
+            help="enable or disable exponential moving average (EMA)",
+        )
+        parser.add_argument(
+            "--scheduler",
+            type=str,
+            default="ddpm",
+            choices=["ddpm", "ddim"],
+            help="type of noise scheduler ('ddpm' or 'ddim')",
         )
 
         parser.add_argument(
@@ -85,6 +91,7 @@ class TrainDiffusionPolicy(TrainBase):
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps
 
         self.model_meta_info["policy"]["use_ema"] = self.args.use_ema
+        self.model_meta_info["policy"]["scheduler"] = self.args.scheduler
 
     def get_extra_norm_config(self):
         if self.args.norm_type == "limits":
@@ -116,11 +123,9 @@ class TrainDiffusionPolicy(TrainBase):
             "horizon": self.args.horizon,
             "n_action_steps": self.args.n_action_steps,
             "n_obs_steps": self.args.n_obs_steps,
-            "num_inference_steps": 100,
             "obs_as_global_cond": True,
             "crop_shape": self.args.image_crop_size[::-1],  # (height, width)
             "diffusion_step_embed_dim": 128,
-            "down_dims": [512, 1024, 2048],
             "kernel_size": 5,
             "n_groups": 8,
             "cond_predict_scale": True,
@@ -134,13 +139,48 @@ class TrainDiffusionPolicy(TrainBase):
             "clip_sample": True,
             "num_train_timesteps": 100,
             "prediction_type": "epsilon",
-            "variance_type": "fixed_small",
         }
 
         # Construct policy
-        noise_scheduler = DDPMScheduler(
-            **self.model_meta_info["policy"]["noise_scheduler_args"]
-        )
+        if self.model_meta_info["policy"]["scheduler"] == "ddpm":
+            from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+
+            self.model_meta_info["policy"]["args"].update(
+                {
+                    "num_inference_steps": 100,
+                    "down_dims": [512, 1024, 2048],
+                }
+            )
+            self.model_meta_info["policy"]["noise_scheduler_args"].update(
+                {
+                    "variance_type": "fixed_small",
+                }
+            )
+            noise_scheduler = DDPMScheduler(
+                **self.model_meta_info["policy"]["noise_scheduler_args"]
+            )
+        elif self.model_meta_info["policy"]["scheduler"] == "ddim":
+            from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+
+            self.model_meta_info["policy"]["args"].update(
+                {
+                    "num_inference_steps": 8,
+                    "down_dims": [256, 512, 1024],
+                }
+            )
+            self.model_meta_info["policy"]["noise_scheduler_args"].update(
+                {
+                    "set_alpha_to_one": True,
+                    "steps_offset": 0,
+                }
+            )
+            noise_scheduler = DDIMScheduler(
+                **self.model_meta_info["policy"]["noise_scheduler_args"]
+            )
+        else:
+            raise ValueError(
+                f"[{self.__class__.__name__}] Invalid scheduler: {self.model_meta_info['policy']['scheduler']}"
+            )
         self.policy = DiffusionUnetHybridImagePolicy(
             noise_scheduler=noise_scheduler,
             **self.model_meta_info["policy"]["args"],
@@ -181,7 +221,7 @@ class TrainDiffusionPolicy(TrainBase):
 
         # Print policy information
         self.print_policy_info()
-        print(f"  - use ema: {self.args.use_ema}")
+        print(f"  - use ema: {self.args.use_ema}, scheduler: {self.args.scheduler}")
         print(
             f"  - horizon: {self.args.horizon}, obs steps: {self.args.n_obs_steps}, action steps: {self.args.n_action_steps}"
         )

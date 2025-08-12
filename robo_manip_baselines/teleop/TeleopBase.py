@@ -14,6 +14,7 @@ from robo_manip_baselines.common import (
     DataKey,
     DataManager,
     MotionManager,
+    OperationDataMixin,
     PhaseBase,
     PhaseManager,
     convert_depth_image_to_color_image,
@@ -121,7 +122,6 @@ class EndTeleopPhase(PhaseBase):
             self.op.result["success"].append(bool(self.op.reward >= 1.0))
             self.op.result["reward"].append(float(self.op.reward))
             self.op.result["duration"].append(self.op.episode_duration)
-
             self.op.save_data()
             self.op.reset_flag = True
         elif self.op.key == ord("f"):
@@ -174,7 +174,6 @@ class EndReplayPhase(PhaseBase):
             self.op.result["success"].append(bool(self.op.reward >= 1.0))
             self.op.result["reward"].append(float(self.op.reward))
             self.op.result["duration"].append(self.op.episode_duration)
-
             if self.op.args.save_replay:
                 self.op.save_data()
             self.op.replay_file_idx += 1
@@ -184,7 +183,7 @@ class EndReplayPhase(PhaseBase):
                 self.op.reset_flag = True
 
 
-class TeleopBase(ABC):
+class TeleopBase(OperationDataMixin, ABC):
     MotionManagerClass = MotionManager
     DataManagerClass = DataManager
 
@@ -562,70 +561,18 @@ class TeleopBase(ABC):
                 self.replay_data_manager.get_single_data(abs_key, 0),
             )
 
-    def record_data(self):
-        # Add time
-        self.data_manager.append_single_data(
-            DataKey.TIME, self.phase_manager.phase.get_elapsed_duration()
+    def save_data(self):
+        filename = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "dataset",
+                f"{self.demo_name}_{self.datetime_now:%Y%m%d_%H%M%S}",
+                f"{self.demo_name}_world{self.data_manager.world_idx:0>1}_{self.data_manager.episode_idx:0>3}.{self.args.file_format}",
+            )
         )
-
-        # Add reward
-        self.data_manager.append_single_data(DataKey.REWARD, self.reward)
-
-        # Add measured data
-        for key in self.env.unwrapped.measured_keys_to_save:
-            self.data_manager.append_single_data(
-                key, self.motion_manager.get_measured_data(key, self.obs)
-            )
-
-        # Add command data
-        for key in self.env.unwrapped.command_keys_to_save:
-            self.data_manager.append_single_data(
-                key, self.motion_manager.get_command_data(key)
-            )
-
-        # Add relative data
-        for key in (
-            DataKey.MEASURED_JOINT_POS_REL,
-            DataKey.COMMAND_JOINT_POS_REL,
-            DataKey.MEASURED_GRIPPER_JOINT_POS_REL,
-            DataKey.COMMAND_GRIPPER_JOINT_POS_REL,
-            DataKey.MEASURED_EEF_POSE_REL,
-            DataKey.COMMAND_EEF_POSE_REL,
-        ):
-            abs_key = DataKey.get_abs_key(key)
-            if abs_key not in (
-                *self.env.unwrapped.measured_keys_to_save,
-                *self.env.unwrapped.command_keys_to_save,
-            ):
-                continue
-
-            self.data_manager.append_single_data(
-                key, self.data_manager.calc_rel_data(key)
-            )
-
-        # Add image
-        for camera_name in self.env.unwrapped.camera_names:
-            self.data_manager.append_single_data(
-                DataKey.get_rgb_image_key(camera_name),
-                self.info["rgb_images"][camera_name],
-            )
-            self.data_manager.append_single_data(
-                DataKey.get_depth_image_key(camera_name),
-                self.info["depth_images"][camera_name],
-            )
-        for rgb_tactile_name in self.env.unwrapped.rgb_tactile_names:
-            self.data_manager.append_single_data(
-                DataKey.get_rgb_image_key(rgb_tactile_name),
-                self.info["rgb_images"][rgb_tactile_name],
-            )
-
-        # Add tactile
-        if "intensity_tactile" in self.info:
-            for intensity_tactile_name in self.info["intensity_tactile"]:
-                self.data_manager.append_single_data(
-                    intensity_tactile_name,
-                    self.info["intensity_tactile"][intensity_tactile_name].copy(),
-                )
+        self.data_manager.save_data(filename)
+        print(f"[{self.__class__.__name__}] Save the data as {filename}")
 
     def draw_image(self):
         phase_image = self.phase_manager.get_phase_image(
@@ -724,20 +671,6 @@ class TeleopBase(ABC):
             ax.set_title(tactile_name)
         plt.draw()
         plt.pause(0.001)
-
-    def save_data(self, filename=None):
-        if filename is None:
-            filename = os.path.normpath(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "dataset",
-                    f"{self.demo_name}_{self.datetime_now:%Y%m%d_%H%M%S}",
-                    f"{self.demo_name}_world{self.data_manager.world_idx:0>1}_{self.data_manager.episode_idx:0>3}.{self.args.file_format}",
-                )
-            )
-        self.data_manager.save_data(filename)
-        print(f"[{self.__class__.__name__}] Save the data as {filename}")
 
     def print_statistics(self):
         print(f"[{self.__class__.__name__}] Statistics on teleoperation")

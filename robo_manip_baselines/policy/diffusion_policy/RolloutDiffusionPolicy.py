@@ -5,7 +5,6 @@ import cv2
 import matplotlib.pylab as plt
 import numpy as np
 import torch
-from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 sys.path.append(
     os.path.join(os.path.dirname(__file__), "../../../third_party/diffusion_policy")
@@ -23,9 +22,15 @@ from robo_manip_baselines.common import (
 
 class RolloutDiffusionPolicy(RolloutBase):
     def setup_policy(self):
+        # For backward compatibility
+        if "scheduler" not in self.model_meta_info["policy"]:
+            self.model_meta_info["policy"]["scheduler"] = "ddpm"
+
         # Print policy information
         self.print_policy_info()
-        print(f"  - use ema: {self.model_meta_info['policy']['use_ema']}")
+        print(
+            f"  - use ema: {self.model_meta_info['policy']['use_ema']}, scheduler: {self.model_meta_info['policy']['scheduler']}"
+        )
         print(
             f"  - horizon: {self.model_meta_info['data']['horizon']}, obs steps: {self.model_meta_info['data']['n_obs_steps']}, action steps: {self.model_meta_info['data']['n_action_steps']}"
         )
@@ -34,9 +39,22 @@ class RolloutDiffusionPolicy(RolloutBase):
         )
 
         # Construct policy
-        noise_scheduler = DDPMScheduler(
-            **self.model_meta_info["policy"]["noise_scheduler_args"]
-        )
+        if self.model_meta_info["policy"]["scheduler"] == "ddpm":
+            from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+
+            noise_scheduler = DDPMScheduler(
+                **self.model_meta_info["policy"]["noise_scheduler_args"]
+            )
+        elif self.model_meta_info["policy"]["scheduler"] == "ddim":
+            from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+
+            noise_scheduler = DDIMScheduler(
+                **self.model_meta_info["policy"]["noise_scheduler_args"]
+            )
+        else:
+            raise ValueError(
+                f"[{self.__class__.__name__}] Invalid scheduler: {self.model_meta_info['policy']['scheduler']}"
+            )
         self.policy = DiffusionUnetHybridImagePolicy(
             noise_scheduler=noise_scheduler,
             **self.model_meta_info["policy"]["args"],

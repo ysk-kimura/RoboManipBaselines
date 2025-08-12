@@ -34,6 +34,26 @@ class MujocoHsrTidyupEnv(MujocoHsrEnvBase):
             ]
         )  # [m]
 
+        self.target_task = None  # One of [None, "either", "both"]
+
+    def _get_reward(self):
+        bottle1_pos = self.data.body("bottle1").xpos.copy()
+        bottle2_pos = self.data.body("bottle2").xpos.copy()
+        container1_pos = self.data.body("container1").xpos.copy()
+        container2_pos = self.data.body("container2").xpos.copy()
+        container_half_extents = np.array([0.1, 0.15, 0.08])  # [m]
+
+        reward = 0.0
+        if np.all(np.abs(bottle1_pos - container1_pos) <= container_half_extents):
+            reward += 0.5
+        if np.all(np.abs(bottle2_pos - container2_pos) <= container_half_extents):
+            reward += 0.5
+
+        if self.target_task == "either":
+            reward = np.min([2.0 * reward, 1.0])
+
+        return reward
+
     def modify_world(self, world_idx=None, cumulative_idx=None):
         if world_idx is None:
             world_idx = cumulative_idx % len(self.bottle_pos_offsets)

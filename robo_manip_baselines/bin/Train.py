@@ -22,6 +22,7 @@ def main():
             "MtAct",
             "DiffusionPolicy",
             "DiffusionPolicy3d",
+            "Cmm",
         ],
         help="policy",
     )

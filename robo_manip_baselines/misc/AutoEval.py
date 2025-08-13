@@ -666,12 +666,6 @@ class AutoEval:
     def _collect_metrics_remarks(cls, metrics, result_data_dir, policy):
         base_dir = Path(result_data_dir)
         remark_files = cls._get_remark_files(base_dir, policy)
-        print(
-            f"[DEBUG] _get_remark_files returned {len(remark_files)} files for policy='{policy}':"
-        )
-        for f in remark_files:
-            print(f"  [DEBUG] Remark file found: {f}")
-
         for cand in remark_files:
             try:
                 rel_parts = cand.relative_to(base_dir).parts
@@ -683,44 +677,29 @@ class AutoEval:
                     rel_parts[pol_idx + 2] if len(rel_parts) > pol_idx + 2 else None
                 )
             except (ValueError, IndexError):
-                print(f"[DEBUG] Skipping file due to path structure issue: {cand}")
                 continue
             remark = cand.read_text(encoding="utf-8").strip()
             depth_after = len(rel_parts) - (pol_idx + 3)
             if pol_idx == len(rel_parts) - 2:
                 for key in metrics[policy]["remarks"]:
                     metrics[policy]["remarks"][key] = remark
-                print(
-                    f"[DEBUG] Assigned remark to all keys for policy={policy}: {remark}"
-                )
             elif depth_after < 1 and cand.parent.name == env_name:
                 for key in metrics[policy]["remarks"]:
                     if key.startswith(f"{env_name}/"):
                         metrics[policy]["remarks"][key] = remark
-                print(
-                    f"[DEBUG] Assigned remark to keys starting with '{env_name}/' for policy={policy}: {remark}"
-                )
             else:
                 raw_task_key = cls._make_raw_task_key(env_name, data_tag)
                 metrics[policy]["remarks"][raw_task_key] = remark
-                print(
-                    f"[DEBUG] Assigned remark to raw_task_key={raw_task_key} for policy={policy}: {remark}"
-                )
 
     @classmethod
     @lru_cache()
     def _get_remark_files(cls, base_dir, policy):
         p = Path(base_dir)
-        print(
-            f"[DEBUG] Searching remark files under base directory: {p} for policy='{policy}'"
-        )
         if not p.exists():
-            print(f"[DEBUG] Base directory does not exist: {p}")
             return []
         pattern = f"**/{policy}/**/setting_remark.txt"
         found_files = []
         for f in p.glob(pattern):
-            print(f"[DEBUG] Found remark file: {f}")
             found_files.append(f)
         return found_files
 

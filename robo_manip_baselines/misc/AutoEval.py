@@ -604,6 +604,7 @@ class AutoEval:
                 continue
             metrics[policy]["succ_lists"][raw_task_key].append(succ_values)
             metrics[policy]["trials"][raw_task_key] += n_trials
+            metrics[policy]["remarks"][raw_task_key] = ""
             cls._collect_metrics_remarks(metrics, result_data_dir, policy)
 
         expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)

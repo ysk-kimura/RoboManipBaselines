@@ -10,6 +10,14 @@ import yaml
 class RolloutMain:
     operation_parent_module_str = "robo_manip_baselines.envs.operation"
     policy_parent_module_str = "robo_manip_baselines.policy"
+    policy_choices = [
+        "Mlp",
+        "Sarnn",
+        "Act",
+        "MtAct",
+        "DiffusionPolicy",
+        "DiffusionPolicy3d",
+    ]
 
     def __init__(self):
         self.setup_args()
@@ -33,14 +41,7 @@ class RolloutMain:
             type=str,
             nargs="?",
             default=None,
-            choices=[
-                "Mlp",
-                "Sarnn",
-                "Act",
-                "MtAct",
-                "DiffusionPolicy",
-                "DiffusionPolicy3d",
-            ],
+            choices=self.policy_choices,
             help="policy",
         )
         parser.add_argument(

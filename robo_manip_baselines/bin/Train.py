@@ -5,6 +5,14 @@ import sys
 
 class TrainMain:
     policy_parent_module_str = "robo_manip_baselines.policy"
+    policy_choices = [
+        "Mlp",
+        "Sarnn",
+        "Act",
+        "MtAct",
+        "DiffusionPolicy",
+        "DiffusionPolicy3d",
+    ]
 
     def __init__(self):
         self.setup_args()
@@ -21,14 +29,7 @@ class TrainMain:
             type=str,
             nargs="?",
             default=None,
-            choices=[
-                "Mlp",
-                "Sarnn",
-                "Act",
-                "MtAct",
-                "DiffusionPolicy",
-                "DiffusionPolicy3d",
-            ],
+            choices=self.policy_choices,
             help="policy",
         )
         parser.add_argument(

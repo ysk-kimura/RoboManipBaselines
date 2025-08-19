@@ -136,7 +136,9 @@ class ReplayPhase(PhaseBase):
         self.op.init_for_relative_command()
 
         self.op.teleop_time_idx = 0
-        print(f"[{self.op.__class__.__name__}] Start to replay the log motion.")
+        print(
+            f"[{self.op.__class__.__name__}] Start to replay the log motion. Press the 'h' key to stop replay."
+        )
 
     def pre_update(self):
         for replay_key in self.op.args.replay_keys:
@@ -151,7 +153,7 @@ class ReplayPhase(PhaseBase):
         self.op.teleop_time_idx += 1
 
     def check_transition(self):
-        if self.op.teleop_time_idx == len(
+        if self.op.key == ord("h") or self.op.teleop_time_idx == len(
             self.op.replay_data_manager.get_data_seq(DataKey.TIME)
         ):
             self.op.episode_duration = self.get_elapsed_duration()

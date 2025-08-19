@@ -72,11 +72,16 @@ Task to manipulate a cable with two grippers.
 
 https://github.com/user-attachments/assets/dfa154ab-4ca6-42bf-82aa-d45f189dbcc2
 
+#### MujocoAlohaHandover
+Task to transfer an object grasped by the left gripper to the right gripper and place it.
+
+https://github.com/user-attachments/assets/4ceef03a-11ac-47de-b3cc-e5ec222a1191
+
 ### HSR
 #### MujocoHsrTidyup
 Task to tidy up objects on the floor.
 
-https://github.com/user-attachments/assets/f3bece16-f8f6-4777-a120-dc25d91dcb4c
+https://github.com/user-attachments/assets/2e5aef49-10da-4cf5-ba8a-1c9240672eff
 
 ### Unitree G1
 #### MujocoG1Bottles

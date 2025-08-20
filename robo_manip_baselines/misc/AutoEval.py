@@ -68,6 +68,9 @@ JOB_ALL_PARAM_KEYS = list(
     dict.fromkeys(JOB_BASE_PARAM_KEYS + AUTOEVAL_EXECUTE_PARAM_KEYS)
 )
 JSON_INVOCATION_REGISTER_KEYS = JSON_STATIC_METADATA_KEYS + JOB_ALL_PARAM_KEYS
+TAG_NA = "."
+TAG_EXCESS = "!!"
+TAG_INSUFFICIENT = "--"
 
 
 class AutoEval:
@@ -591,36 +594,41 @@ class AutoEval:
 
     @classmethod
     def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
-        """Read task success list files and return metrics with expected trial count."""
-        metrics = cls._init_empty_metrics()
+        """Read task success list files and return metrics grouped by remark."""
+        # metrics = { remark: { policy: { succ_lists, trials } } }
+        metrics = defaultdict(
+            lambda: defaultdict(
+                lambda: {
+                    "succ_lists": defaultdict(list),
+                    "trials": defaultdict(int),
+                }
+            )
+        )
+        # Scan success list files
         for tsk_suc_file in cls._find_txt_files(result_data_dir):
             policy, raw_task_key = cls._parse_tsk_suc_filepath(
                 tsk_suc_file, result_data_dir
             )
             if policy is None or raw_task_key is None:
                 continue
+            # Get success values and number of trials
             succ_values, n_trials = cls._read_success_list(tsk_suc_file)
             if not succ_values and n_trials == 0:
                 continue
-            metrics[policy]["succ_lists"][raw_task_key].append(succ_values)
-            metrics[policy]["trials"][raw_task_key] += n_trials
-            metrics[policy]["remarks"][raw_task_key] = ""
-            cls._collect_metrics_remarks(metrics, result_data_dir, policy)
+            # Get remark (empty string if none)
+            remark = cls._read_remark(
+                tsk_suc_file, result_data_dir, policy, raw_task_key
+            )
+            if remark is None:
+                remark = ""
+            # Add to metrics
+            metrics[remark][policy]["succ_lists"][raw_task_key].append(succ_values)
+            metrics[remark][policy]["trials"][raw_task_key] += n_trials
 
+        # Calculate the expected number of trials and perform consistency check
         expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)
         cls._warn_inconsistent_trials(metrics, expected_n_trials)
         return metrics, expected_n_trials
-
-    @classmethod
-    def _init_empty_metrics(cls):
-        return {
-            policy: {
-                "succ_lists": defaultdict(list),
-                "trials": defaultdict(int),
-                "remarks": defaultdict(str),
-            }
-            for policy in POLICIES
-        }
 
     @classmethod
     def _find_txt_files(cls, result_data_dir):
@@ -663,51 +671,60 @@ class AutoEval:
             return [], 0
 
     @classmethod
-    def _collect_metrics_remarks(cls, metrics, result_data_dir, policy):
-        base_dir = Path(result_data_dir)
-        remark_files = cls._get_remark_files(base_dir, policy)
-        for cand in remark_files:
+    def _read_remark(cls, tsk_suc_file, base_dir, policy, raw_task_key):
+        """Return the task remark ensuring no conflicts, raise on multiple matches."""
+        remark_file_paths = cls._get_remark_files(
+            str(tsk_suc_file), str(base_dir), policy
+        )
+        matched_remarks = set()
+        for remark_file_path in remark_file_paths:
             try:
-                rel_parts = cand.relative_to(base_dir).parts
-                pol_idx = rel_parts.index(policy)
-                env_name = (
-                    rel_parts[pol_idx + 1] if len(rel_parts) > pol_idx + 1 else None
-                )
-                data_tag = (
-                    rel_parts[pol_idx + 2] if len(rel_parts) > pol_idx + 2 else None
-                )
-            except (ValueError, IndexError):
+                remark_text = Path(remark_file_path).read_text(encoding="utf-8").strip()
+            except OSError:
                 continue
-            remark = cand.read_text(encoding="utf-8").strip()
-            depth_after = len(rel_parts) - (pol_idx + 3)
-            if pol_idx == len(rel_parts) - 2:
-                for key in metrics[policy]["remarks"]:
-                    metrics[policy]["remarks"][key] = remark
-            elif depth_after < 1 and cand.parent.name == env_name:
-                for key in metrics[policy]["remarks"]:
-                    if key.startswith(f"{env_name}/"):
-                        metrics[policy]["remarks"][key] = remark
-            else:
-                raw_task_key = cls._make_raw_task_key(env_name, data_tag)
-                metrics[policy]["remarks"][raw_task_key] = remark
+            matched_remarks.add(remark_text)
+        if len(matched_remarks) > 1:  # Check for multiple matches
+            raise AssertionError(
+                f"Multiple remarks found for task '{raw_task_key}' under policy '{policy}': {matched_remarks}"
+            )
+        if len(matched_remarks) == 1:
+            return next(iter(matched_remarks))
+        return ""  # No remark exists
 
     @classmethod
     @lru_cache()
-    def _get_remark_files(cls, base_dir, policy):
-        p = Path(base_dir)
-        if not p.exists():
+    def _get_remark_files(cls, tsk_suc_file, base_dir, policy):
+        """Return setting_remark.txt paths from base_dir to tsk_suc_file directory."""
+        tsk_suc_file_path = Path(tsk_suc_file)
+        base_dir_path = Path(base_dir)
+        if not base_dir_path.exists():
             return []
-        pattern = f"**/{policy}/**/setting_remark.txt"
-        found_files = []
-        for f in p.glob(pattern):
-            found_files.append(f)
-        return found_files
+        try:
+            rel_path_to_base = tsk_suc_file_path.relative_to(base_dir_path)
+        except ValueError:
+            raise AssertionError(
+                f"tsk_suc_file_path '{tsk_suc_file_path}' is not under base_dir_path '{base_dir_path}'"
+            )
+        rel_dir_parts = rel_path_to_base.parts
+        if policy not in rel_dir_parts:
+            raise AssertionError(
+                f"policy '{policy}' not found in relative path '{rel_path_to_base}'."
+            )
+        remark_file_paths = []
+        current_dir_path = base_dir_path
+        for dir_part in rel_dir_parts[:-1]:
+            current_dir_path = current_dir_path / dir_part
+            remark_file_path = current_dir_path / "setting_remark.txt"
+            if remark_file_path.is_file():
+                remark_file_paths.append(remark_file_path)
+        return remark_file_paths
 
     @classmethod
     def _compute_expected_trials(cls, metrics, expected_n_trials):
         all_n_trials = [
             n_trials
-            for policy_dict in metrics.values()
+            for remark_dict in metrics.values()
+            for policy_dict in remark_dict.values()
             for n_trials in policy_dict["trials"].values()
             if n_trials > 0
         ]
@@ -720,14 +737,17 @@ class AutoEval:
 
     @classmethod
     def _warn_inconsistent_trials(cls, metrics, expected_n_trials):
-        for policy in POLICIES:
-            for task_key, n_trials in metrics[policy]["trials"].items():
-                if n_trials > 0 and n_trials != expected_n_trials:
-                    print(
-                        f"[{cls.__name__}] Warning: Inconsistent n_trials: "
-                        f"policy={policy}, task={task_key}, n_trials={n_trials} "
-                        f"(expected={expected_n_trials})"
-                    )
+        for remark, remark_dict in metrics.items():
+            for policy in POLICIES:
+                if policy not in remark_dict:
+                    continue
+                for task_key, n_trials in remark_dict[policy]["trials"].items():
+                    if n_trials > 0 and n_trials != expected_n_trials:
+                        print(
+                            f"[{cls.__name__}] Warning: Inconsistent n_trials: "
+                            f"remark={remark}, policy={policy}, task={task_key}, "
+                            f"n_trials={n_trials} (expected={expected_n_trials})"
+                        )
 
     @classmethod
     def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
@@ -761,7 +781,8 @@ class AutoEval:
     def _get_task_keys_with_names(cls, metrics):
         new_raw_task_keys = {
             task_key
-            for policy_dict in metrics.values()
+            for remark_dict in metrics.values()
+            for policy_dict in remark_dict.values()
             for task_key in policy_dict["trials"].keys()
         }
         display_md_map = {t: cls.format_task_name(t) for t in new_raw_task_keys}
@@ -770,53 +791,52 @@ class AutoEval:
     @classmethod
     def _build_new_results(cls, metrics, new_raw_task_keys, expected_n_trials):
         new_raw_results_dict = {}
-        for policy in POLICIES:
-            cells = {}
-            numeric_values = []
-            missing_tasks = []
-            for task_key in new_raw_task_keys:
-                n_trials = metrics[policy]["trials"].get(task_key, None)
-                if not n_trials:
-                    missing_tasks.append((policy, task_key))
-                    cells[task_key] = "N/A"
+        for remark, remark_dict in metrics.items():
+            for policy in POLICIES:
+                if policy not in remark_dict:
                     continue
-                if n_trials > expected_n_trials:
-                    cells[task_key] = "!!"
-                    print(
-                        f"[{cls.__name__}] Warning: Excess trials detected for "
-                        + f"policy={policy}, task={task_key} - displaying '!!'"
+                row_dict = {}
+                numeric_values = []
+                for task_key in new_raw_task_keys:
+                    n_trials = remark_dict[policy]["trials"].get(task_key, None)
+                    n_trials_err = cls._check_n_trials(
+                        n_trials, expected_n_trials, remark, policy, task_key
                     )
+                    if n_trials_err is not None:
+                        row_dict[task_key] = n_trials_err
+                        continue
+                    try:
+                        succ_list = remark_dict[policy]["succ_lists"][task_key]
+                    except KeyError as e:
+                        raise KeyError(
+                            f"Missing task_key '{task_key}' in succ_lists for "
+                            f"remark={remark}, policy={policy}"
+                        ) from e
+                    pct_list = [sum(row) / len(row) * 100 for row in succ_list]
+                    mean_pct = round(mean(pct_list))
+                    stdev_pct = round(stdev(pct_list) if len(pct_list) > 1 else 0)
+                    row_dict[task_key] = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
+                    numeric_values.append(mean_pct)
+                if all(c == TAG_NA for c in row_dict.values()):
                     continue
-                if n_trials < expected_n_trials:
-                    cells[task_key] = "--"
-                    print(
-                        f"[{cls.__name__}] Warning: Insufficient trials for "
-                        + f"policy={policy}, task={task_key} - displaying '--'"
-                    )
-                    continue
-                try:
-                    succ_list = metrics[policy]["succ_lists"][task_key]
-                except KeyError as e:
-                    raise KeyError(
-                        f"Missing task_key '{task_key}' in succ_lists for policy '{policy}'"
-                    ) from e
-                pct_list = [sum(row) / len(row) * 100 for row in succ_list]
-                mean_pct = round(mean(pct_list))
-                stdev_pct = round(stdev(pct_list) if len(pct_list) > 1 else 0)
-                cells[task_key] = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
-                numeric_values.append(mean_pct)
-            if all(c == "N/A" for c in cells.values()):
-                continue
-            for _, task_key in missing_tasks:
-                print(
-                    f"[{cls.__name__}] Warning: No data available for "
-                    + f"policy={policy}, task={task_key} - displaying 'N/A'"
-                )
-            new_raw_results_dict[policy] = cells
-            new_raw_results_dict[policy]["__remark__"] = metrics[policy]["remarks"].get(
-                task_key, ""
-            )  # Keep remarks for each policy/task
+                new_raw_results_dict.setdefault(remark, {})[policy] = row_dict
         return new_raw_results_dict
+
+    @classmethod
+    def _check_n_trials(cls, n_trials, expected_n_trials, remark, policy, task_key):
+        if not n_trials:
+            trial_err, reason = TAG_NA, "No data available"
+        elif n_trials > expected_n_trials:
+            trial_err, reason = TAG_EXCESS, "Excess trials detected"
+        elif n_trials < expected_n_trials:
+            trial_err, reason = TAG_INSUFFICIENT, "Insufficient trials"
+        else:
+            return None
+        print(
+            f"[{cls.__name__}] Warning: {reason} for "
+            f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
+        )
+        return trial_err
 
     @classmethod
     def _read_existing_md(cls, result_data_dir):
@@ -830,18 +850,11 @@ class AutoEval:
             )
             with open(evaluation_result_path, "r", encoding="utf-8") as f:
                 lines = [line.rstrip("\n") for line in f]
-            # Parse header (line 0)
             header_cols = lines[0].split("|")[1:-1]
-            # The first cell is "Policy", followed by task headers, and ending with "Average"
             existing_header_display_tasks = [c.strip() for c in header_cols[1:-1]]
-            # Expected number of pipe characters: one at the start, one between each cell,
-            # and one at the end: head + tasks + average + both ends
             expected_pipe_count = 1 + len(existing_header_display_tasks) + 1 + 1
-            # Parse data rows
             for lineno, row in enumerate(lines[2:], start=3):
-                # Extract actual cells between pipes
                 parts = [p.strip() for p in row.split("|")[1:-1]]
-                # Count actual number of pipe characters in the line
                 actual_pipe_count = row.count("|")
                 if actual_pipe_count != expected_pipe_count:
                     raise ValueError(
@@ -849,7 +862,6 @@ class AutoEval:
                         f"  Expected pipes: {expected_pipe_count}, Actual pipes: {actual_pipe_count}\n"
                         f"  Row content: {row!r}"
                     )
-                # Validate number of parsed cells against expected number
                 expected_cells = (
                     1 + len(existing_header_display_tasks) + 1
                 )  # policy + tasks + average
@@ -898,49 +910,94 @@ class AutoEval:
             t for t in merged_display_tasks if t not in priority_display_tasks
         ]
         merged_display_task_order = priority_display_tasks + remaining_display_tasks
-        mixed_policies = set(existing_display_results_dict) | set(new_raw_results_dict)
+        existing_policies = set(existing_display_results_dict.keys())
+        new_policies = {
+            p
+            for remark_dict in new_raw_results_dict.values()
+            for p in remark_dict.keys()
+        }
+        mixed_policies = existing_policies | new_policies
         known_policies = [p for p in POLICIES if p in mixed_policies]
         unknown_policies = sorted([p for p in mixed_policies if p not in POLICIES])
         merged_policies = known_policies + unknown_policies
-        merged_rows = {policy: {} for policy in merged_policies}
-        for policy in merged_policies:
-            if policy in existing_display_results_dict:
-                for display_task, val in existing_display_results_dict[policy].items():
-                    if display_task != "Average":
-                        merged_rows[policy][display_task] = val
-            if policy in new_raw_results_dict:
-                for raw_task_key, val in new_raw_results_dict[policy].items():
-                    if val in ("--", "!!", "N/A"):
+        new_remarks = set(new_raw_results_dict.keys())
+        merged_remarks = set(new_remarks)
+        if existing_display_results_dict:
+            merged_remarks.add("")
+        remark_order = []
+        if "" in merged_remarks:
+            remark_order.append("")
+        remark_order.extend(sorted(r for r in merged_remarks if r != ""))
+        merged_rows = {}
+        for remark in remark_order:
+            for policy in merged_policies:
+                merged_rows[(remark, policy)] = {}
+        for policy, cells in existing_display_results_dict.items():
+            key = ("", policy)
+            for display_task, val in cells.items():
+                if display_task == "Average":
+                    merged_rows[key]["Average"] = val
+                else:
+                    merged_rows[key][display_task] = val
+            merged_rows[key]["__remark__"] = ""
+        for remark, remark_dict in new_raw_results_dict.items():
+            for policy, row_dict in remark_dict.items():
+                key = (remark, policy)
+                for raw_task_key, val in row_dict.items():
+                    if val in (
+                        TAG_INSUFFICIENT,
+                        TAG_EXCESS,
+                        TAG_NA,
+                    ):
+                        merged_display_task = display_md_map.get(
+                            raw_task_key, raw_task_key
+                        )
+                        merged_rows[key][merged_display_task] = val
                         continue
-                    display_task = display_md_map.get(raw_task_key, raw_task_key)
-                    merged_rows[policy][display_task] = val
-            numeric_values = []
-            for display_task in existing_header_display_tasks + sorted(
-                {t for t in display_md_map.values() if t in merged_rows[policy]}
-            ):
-                cell = merged_rows[policy].get(display_task)
-                if not cell or cell in ("--", "!!", "N/A"):
-                    continue
-                try:
-                    num = int(cell.split()[0])
-                    numeric_values.append(num)
-                except (ValueError, IndexError):
-                    pass
-            if numeric_values:
-                mean_val = round(mean(numeric_values))
-                stdev_val = round(
-                    stdev(numeric_values) if len(numeric_values) > 1 else 0
+                    merged_display_task = display_md_map.get(raw_task_key, raw_task_key)
+                    merged_rows[key][merged_display_task] = val
+                merged_rows[key]["__remark__"] = remark
+        for remark in remark_order:
+            for policy in merged_policies:
+                key = (remark, policy)
+                numeric_values = []
+                candidate_tasks = existing_header_display_tasks + sorted(
+                    [t for t in display_md_map.values() if t in merged_rows[key]]
                 )
-                merged_rows[policy]["Average"] = f"{mean_val:d} (&plusmn;{stdev_val:d})"
-            else:
-                merged_rows[policy]["Average"] = "N/A"
-        return merged_policies, merged_rows, merged_display_task_order
+                for display_task in candidate_tasks:
+                    cell = merged_rows[key].get(display_task)
+                    if not cell or cell in (
+                        TAG_INSUFFICIENT,
+                        TAG_EXCESS,
+                        TAG_NA,
+                    ):
+                        continue
+                    try:
+                        num = int(str(cell).split()[0])
+                        numeric_values.append(num)
+                    except (ValueError, IndexError):
+                        pass
+                if numeric_values:
+                    mean_val = round(mean(numeric_values))
+                    stdev_val = round(
+                        stdev(numeric_values) if len(numeric_values) > 1 else 0
+                    )
+                    merged_rows[key]["Average"] = (
+                        f"{mean_val:d} (&plusmn;{stdev_val:d})"
+                    )
+                else:
+                    merged_rows[key]["Average"] = TAG_NA
+        merged_row_keys = []
+        for policy in merged_policies:
+            for remark in remark_order:
+                merged_row_keys.append((remark, policy))
+        return merged_row_keys, merged_rows, merged_display_task_order
 
     @classmethod
     def _build_markdown_lines(
-        cls, merged_policies, merged_rows, merged_display_task_order
+        cls, merged_row_keys, merged_rows, merged_display_task_order
     ):
-        # Header line
+        """Build markdown lines from merged rows keyed by (remark, policy)."""
         lines = []
         header = (
             ["<nobr>Policy \\\\ Task</nobr>"]
@@ -949,13 +1006,13 @@ class AutoEval:
         )
         lines.append("| " + " | ".join(header) + " |\n")
         lines.append("|" + "|".join([" --- "] * len(header)) + "|\n")
-        # Lines per policy
-        for policy in merged_policies:
+        for remark, policy in merged_row_keys:
+            row = merged_rows.get((remark, policy), {})
             row_cells = (
                 [policy]
-                + [merged_rows[policy].get(h, "N/A") for h in merged_display_task_order]
-                + [merged_rows[policy].get("Average", "N/A")]
-                + [merged_rows[policy].get("__remark__", "")]
+                + [row.get(h, TAG_NA) for h in merged_display_task_order]
+                + [row.get("Average", TAG_NA)]
+                + [remark or ""]
             )
             lines.append("| " + " | ".join(row_cells) + " |\n")
         return lines

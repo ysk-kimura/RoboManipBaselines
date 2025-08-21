@@ -1043,7 +1043,7 @@ class AutoEval:
             print(f"[AutoEval] WARNING: not a valid git directory: {eval_commit_dir}")
             return
 
-        eval_commit_result_dir = os.path.join(eval_commit_dir, "result")
+        eval_commit_result_dir = os.path.join(eval_commit_dir, "doc")
         os.makedirs(eval_commit_result_dir, exist_ok=True)
 
         md_src = os.path.join(result_data_dir, "evaluation_results.md")

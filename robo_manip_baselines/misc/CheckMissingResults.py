@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import yaml
+from collections import Counter
 from pathlib import Path
 from typing import Any, List, Tuple, Set
 from AutoEval import AutoEval
@@ -256,12 +257,46 @@ def greedy_reduce_sets(
     show_progress: bool = False,
 ):
     """Greedy non-conflicting selection."""
+
+    # copy input lists
     all_p, all_s, all_e, all_r = (
         list(policies),
         list(seeds),
         list(env_names),
         list(remarks),
     )
+
+    p_cnt = Counter()
+    s_cnt = Counter()
+    e_cnt = Counter()
+    r_cnt = Counter()
+
+    set_p = set(all_p)
+    set_s = set(all_s)
+    set_e = set(all_e)
+    set_r = set(all_r)
+
+    for p, e, s, r in done_set:
+        if p in set_p and s in set_s and e in set_e and r in set_r:
+            p_cnt[p] += 1
+            s_cnt[s] += 1
+            e_cnt[e] += 1
+            r_cnt[r] += 1
+
+    def stable_sort_by_count(orig_list, counter):
+        return sorted(orig_list, key=lambda x: (counter.get(x, 0), orig_list.index(x)))
+
+    all_p = stable_sort_by_count(all_p, p_cnt)
+    all_s = stable_sort_by_count(all_s, s_cnt)
+    all_e = stable_sort_by_count(all_e, e_cnt)
+    all_r = stable_sort_by_count(all_r, r_cnt)
+
+    if show_progress:
+        print(f"[{greedy_reduce_sets.__name__}] Axis order after initial sorting:")
+        print(f"  policies(sorted by conflicts): {all_p}")
+        print(f"  seeds(sorted by conflicts): {all_s}")
+        print(f"  envs(sorted by conflicts): {all_e}")
+        print(f"  remarks(sorted by conflicts): {all_r}")
 
     def can_add(axis, value, cur_p, cur_s, cur_e, cur_r):
         if axis == "policy":
@@ -294,7 +329,7 @@ def greedy_reduce_sets(
             return True
         return False
 
-    # find initial non-conflicting quad
+    # find initial non-conflicting quad using the sorted lists
     initial_found = False
     cur_p: List[str] = []
     cur_s: List[str] = []

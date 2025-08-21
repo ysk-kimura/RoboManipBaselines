@@ -1014,6 +1014,9 @@ class AutoEval:
                 + [row.get("Average", TAG_NA)]
                 + [remark or ""]
             )
+            data_cells = row_cells[1:-1]  # exclude Policy and Remark
+            if all(c == TAG_NA for c in data_cells):
+                continue
             lines.append("| " + " | ".join(row_cells) + " |\n")
         return lines
 

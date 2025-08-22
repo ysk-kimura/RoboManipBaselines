@@ -412,8 +412,20 @@ class AutoEval:
             raise ValueError(f"Invalid: {input_dataset_location=}.")
 
     @classmethod
-    def extract_dataset_tag(cls, input_dataset_location):
-        return "_".join(camel_to_snake(input_dataset_location).split("_")[-2:])[:20]
+    def extract_dataset_tag(cls, input_dataset_location, maxlen=20):
+        parsed_url = urlparse(input_dataset_location)
+
+        if parsed_url.scheme:
+            # For URLs
+            base_name = os.path.basename(parsed_url.path)
+        else:
+            # For local paths
+            parts = camel_to_snake(input_dataset_location).split("_")
+            base_name = "_".join(parts[-2:])
+
+        tag = re.sub(r"[^a-zA-Z0-9_-]+", "_", base_name)
+        tag = re.sub(r"_+", "_", tag).strip("_")
+        return tag[:maxlen]
 
     def train(self, args_file_train, seed):
         """Execute the training process using the specified arguments file."""

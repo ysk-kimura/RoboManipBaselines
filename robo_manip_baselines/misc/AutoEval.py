@@ -714,10 +714,10 @@ class AutoEval:
             return []
         try:
             rel_path_to_base = tsk_suc_file_path.relative_to(base_dir_path)
-        except ValueError:
+        except ValueError as exc:
             raise AssertionError(
                 f"tsk_suc_file_path '{tsk_suc_file_path}' is not under base_dir_path '{base_dir_path}'"
-            )
+            ) from exc
         rel_dir_parts = rel_path_to_base.parts
         if policy not in rel_dir_parts:
             raise AssertionError(
@@ -1163,38 +1163,38 @@ class AutoEval:
                     f"[{cls.__name__}] Successfully pushed evaluation_results.md to {eval_commit_dir}"
                 )
                 return
-            else:
-                # Not fast-forward: do not attempt automatic merge. Log details and fail.
-                print(
-                    f"[{cls.__name__}] ERROR: Remote branch {upstream} is not a fast-forward of local HEAD. "
-                    "Automatic merge is skipped to avoid unsafe changes."
-                )
-                # Provide diagnostics: show status and branch heads
-                try:
-                    head = subprocess.run(
-                        ["git", "-C", eval_commit_result_dir, "rev-parse", "HEAD"],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        check=True,
-                    ).stdout.strip()
-                    upstream_head = subprocess.run(
-                        ["git", "-C", eval_commit_result_dir, "rev-parse", upstream],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        check=True,
-                    ).stdout.strip()
-                    print(f"[{cls.__name__}] Local HEAD: {head}")
-                    print(f"[{cls.__name__}] Upstream {upstream}: {upstream_head}")
-                except Exception:
-                    # ignore diagnostics errors
-                    pass
 
-                # Ensure we leave the repo clean (no partial changes). No merge performed, so nothing to abort.
-                raise RuntimeError(
-                    f"Non-fast-forward detected for {eval_commit_result_dir}; manual intervention required."
-                )
+            # Not fast-forward: do not attempt automatic merge. Log details and fail.
+            print(
+                f"[{cls.__name__}] ERROR: Remote branch {upstream} is not a fast-forward of local HEAD. "
+                "Automatic merge is skipped to avoid unsafe changes."
+            )
+            # Provide diagnostics: show status and branch heads
+            try:
+                head = subprocess.run(
+                    ["git", "-C", eval_commit_result_dir, "rev-parse", "HEAD"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                ).stdout.strip()
+                upstream_head = subprocess.run(
+                    ["git", "-C", eval_commit_result_dir, "rev-parse", upstream],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                ).stdout.strip()
+                print(f"[{cls.__name__}] Local HEAD: {head}")
+                print(f"[{cls.__name__}] Upstream {upstream}: {upstream_head}")
+            except Exception:
+                # ignore diagnostics errors
+                pass
+
+            # Ensure we leave the repo clean (no partial changes). No merge performed, so nothing to abort.
+            raise RuntimeError(
+                f"Non-fast-forward detected for {eval_commit_result_dir}; manual intervention required."
+            )
 
         except subprocess.CalledProcessError as e:
             # CalledProcessError from cls.exec_command or subprocess.run
@@ -1641,7 +1641,6 @@ def main():
             )
             return
         AutoEval.git_commit_result(args.result_data_dir, args.eval_commit_dir)
-        return
 
     def register_invocation():
         """Register a JSON file per policy in queue_dir and return a list of invocation IDs."""
@@ -1682,7 +1681,6 @@ def main():
         # Log registration status for each invocation
         for inv in created:
             print(f"[{AutoEval.__name__}] Job registered: {inv}")
-        return
 
     def handle_all_jobs():
         """

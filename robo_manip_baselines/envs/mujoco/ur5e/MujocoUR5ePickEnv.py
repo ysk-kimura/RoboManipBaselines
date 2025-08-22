@@ -62,8 +62,33 @@ class MujocoUR5ePickEnv(MujocoUR5eEnvBase):
             ]
         )  # [m]
 
-    # def _get_success(self):
-    #     pass
+        # Either None or "<obj_name>_<basket_name>"
+        # (where <obj_name> is "obj1"-"obj9" and <basket_name> is "basket1"-"basket2")
+        self.target_task = None
+
+    def _get_reward(self):
+        obj_pos_list = {
+            obj_name: self.data.body(obj_name).xpos.copy()
+            for obj_name in self.obj_name_list
+        }
+        basket_pos_list = {
+            basket_name: self.data.body(basket_name).xpos.copy()
+            for basket_name in self.basket_name_list
+        }
+        basket_half_extents = np.array([0.12, 0.24, 0.2])  # [m]
+
+        reward = 0.0
+        for obj_name, obj_pos in obj_pos_list.items():
+            for basket_name, basket_pos in basket_pos_list.items():
+                if (
+                    self.target_task is not None
+                    and self.target_task != f"{obj_name}_{basket_name}"
+                ):
+                    continue
+                if np.all(np.abs(obj_pos - basket_pos) <= basket_half_extents):
+                    reward += 1.0
+
+        return reward
 
     def modify_world(self, world_idx=None, cumulative_idx=None):
         if world_idx is None:

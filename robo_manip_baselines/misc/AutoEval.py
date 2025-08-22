@@ -71,6 +71,7 @@ JSON_INVOCATION_REGISTER_KEYS = JSON_STATIC_METADATA_KEYS + JOB_ALL_PARAM_KEYS
 TAG_NA = "."
 TAG_EXCESS = "!!"
 TAG_INSUFFICIENT = "--"
+TAG_PRIORITY = [TAG_EXCESS, TAG_INSUFFICIENT, TAG_NA]
 
 
 class AutoEval:
@@ -960,22 +961,34 @@ class AutoEval:
         for remark in remark_order:
             for policy in merged_policies:
                 key = (remark, policy)
-                numeric_values = []
+                # Build candidate task order for this row
                 candidate_tasks = existing_header_display_tasks + sorted(
                     [t for t in display_md_map.values() if t in merged_rows[key]]
                 )
-                for display_task in candidate_tasks:
-                    cell = merged_rows[key].get(display_task)
-                    if not cell or cell in (
-                        TAG_INSUFFICIENT,
-                        TAG_EXCESS,
-                        TAG_NA,
-                    ):
+                # Collect the raw cell values for candidate tasks
+                cells = [
+                    merged_rows[key].get(display_task)
+                    for display_task in candidate_tasks
+                ]
+                # If any tag exists in the row, select the highest-priority tag to display.
+                selected_tag = None
+                for tag in TAG_PRIORITY:
+                    if any(c == tag for c in cells):
+                        selected_tag = tag
+                        break
+                if selected_tag is not None:
+                    merged_rows[key]["Average"] = selected_tag
+                    continue
+                # No tags found: compute mean from numeric cells only (ignore non-parsable cells)
+                numeric_values = []
+                for cell in cells:
+                    if not cell:
                         continue
                     try:
                         num = int(str(cell).split()[0])
                         numeric_values.append(num)
-                    except (ValueError, IndexError):
+                    except (ValueError, IndexError, TypeError):
+                        # ignore non-numeric or unparsable cells
                         pass
                 if numeric_values:
                     mean_val = round(mean(numeric_values))

@@ -766,15 +766,21 @@ class AutoEval:
             existing_header_display_tasks,
             evaluation_result_path,
         ) = cls._read_existing_md(result_data_dir)
-        merged_policies, merged_rows, merged_display_task_order = cls._merge_results(
+        merged_row_keys, merged_rows, merged_display_task_order = cls._merge_results(
             existing_display_results_dict,
             existing_header_display_tasks,
             new_raw_results_dict,
             new_raw_task_keys,
             display_md_map,
         )
+        cls._compute_averages(
+            merged_row_keys,
+            merged_rows,
+            existing_header_display_tasks,
+            display_md_map,
+        )
         lines = cls._build_markdown_lines(
-            merged_policies, merged_rows, merged_display_task_order
+            merged_row_keys, merged_rows, merged_display_task_order
         )
         cls._write_md(lines, evaluation_result_path)
 
@@ -937,19 +943,15 @@ class AutoEval:
             key = ("", policy)
             for display_task, val in cells.items():
                 if display_task == "Average":
-                    merged_rows[key]["Average"] = val
-                else:
-                    merged_rows[key][display_task] = val
+                    # skip existing Average on purpose
+                    continue
+                merged_rows[key][display_task] = val
             merged_rows[key]["__remark__"] = ""
         for remark, remark_dict in new_raw_results_dict.items():
             for policy, row_dict in remark_dict.items():
                 key = (remark, policy)
                 for raw_task_key, val in row_dict.items():
-                    if val in (
-                        TAG_INSUFFICIENT,
-                        TAG_EXCESS,
-                        TAG_NA,
-                    ):
+                    if val in (TAG_INSUFFICIENT, TAG_EXCESS, TAG_NA):
                         merged_display_task = display_md_map.get(
                             raw_task_key, raw_task_key
                         )
@@ -958,53 +960,58 @@ class AutoEval:
                     merged_display_task = display_md_map.get(raw_task_key, raw_task_key)
                     merged_rows[key][merged_display_task] = val
                 merged_rows[key]["__remark__"] = remark
-        for remark in remark_order:
-            for policy in merged_policies:
-                key = (remark, policy)
-                # Build candidate task order for this row
-                candidate_tasks = existing_header_display_tasks + sorted(
-                    [t for t in display_md_map.values() if t in merged_rows[key]]
-                )
-                # Collect the raw cell values for candidate tasks
-                cells = [
-                    merged_rows[key].get(display_task)
-                    for display_task in candidate_tasks
-                ]
-                # If any tag exists in the row, select the highest-priority tag to display.
-                selected_tag = None
-                for tag in TAG_PRIORITY:
-                    if any(c == tag for c in cells):
-                        selected_tag = tag
-                        break
-                if selected_tag is not None:
-                    merged_rows[key]["Average"] = selected_tag
-                    continue
-                # No tags found: compute mean from numeric cells only (ignore non-parsable cells)
-                numeric_values = []
-                for cell in cells:
-                    if not cell:
-                        continue
-                    try:
-                        num = int(str(cell).split()[0])
-                        numeric_values.append(num)
-                    except (ValueError, IndexError, TypeError):
-                        # ignore non-numeric or unparsable cells
-                        pass
-                if numeric_values:
-                    mean_val = round(mean(numeric_values))
-                    stdev_val = round(
-                        stdev(numeric_values) if len(numeric_values) > 1 else 0
-                    )
-                    merged_rows[key]["Average"] = (
-                        f"{mean_val:d} (&plusmn;{stdev_val:d})"
-                    )
-                else:
-                    merged_rows[key]["Average"] = TAG_NA
         merged_row_keys = []
         for policy in merged_policies:
             for remark in remark_order:
                 merged_row_keys.append((remark, policy))
         return merged_row_keys, merged_rows, merged_display_task_order
+
+    @classmethod
+    def _compute_averages(
+        cls,
+        merged_row_keys,
+        merged_rows,
+        existing_header_display_tasks,
+        display_md_map,
+    ):
+        """Compute and set 'Average' for each row in merged_rows."""
+        for key in merged_row_keys:
+            # key is (remark, policy)
+            row = merged_rows.get(key, {})
+            # Build candidate task order (consistent with previous logic)
+            candidate_tasks = existing_header_display_tasks + sorted(
+                [t for t in display_md_map.values() if t in row]
+            )
+            # Collect raw cell values
+            cells = [row.get(display_task) for display_task in candidate_tasks]
+            # Tag-priority: if any tag present, choose highest-priority tag
+            selected_tag = None
+            for tag in TAG_PRIORITY:
+                if any(c == tag for c in cells):
+                    selected_tag = tag
+                    break
+            if selected_tag is not None:
+                merged_rows[key]["Average"] = selected_tag
+                continue
+            # No tags: compute mean from numeric cells only (ignore unparsable entries)
+            numeric_values = []
+            for cell in cells:
+                if not cell:
+                    continue
+                try:
+                    num = int(str(cell).split()[0])
+                    numeric_values.append(num)
+                except (ValueError, IndexError, TypeError):
+                    # ignore non-numeric or unparsable cells
+                    pass
+            if numeric_values:
+                mean_val = round(mean(numeric_values))
+                stdev_val = round(
+                    stdev(numeric_values) if len(numeric_values) > 1 else 0
+                )
+                merged_rows[key]["Average"] = f"{mean_val:d} (&plusmn;{stdev_val:d})"
+            else:
+                merged_rows[key]["Average"] = TAG_NA
 
     @classmethod
     def _build_markdown_lines(

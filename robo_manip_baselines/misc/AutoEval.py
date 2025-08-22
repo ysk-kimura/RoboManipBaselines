@@ -72,6 +72,9 @@ TAG_NA = "."
 TAG_EXCESS = "!!"
 TAG_INSUFFICIENT = "--"
 TAG_PRIORITY = [TAG_EXCESS, TAG_INSUFFICIENT, TAG_NA]
+HEADER_POLICY_TASK = "<nobr>Policy \\\\ Task</nobr>"
+HEADER_AVERAGE = "Average"
+HEADER_REMARK = "Remark"
 
 
 class AutoEval:
@@ -859,7 +862,7 @@ class AutoEval:
 
     @classmethod
     def _read_existing_md(cls, result_data_dir):
-        """Read existing file and merge its headers with new task order."""
+        """Read existing markdown file and merge its headers with new task order."""
         evaluation_result_path = os.path.join(result_data_dir, "evaluation_results.md")
         existing_display_results_dict = {}
         existing_header_display_tasks = []
@@ -869,11 +872,14 @@ class AutoEval:
             )
             with open(evaluation_result_path, "r", encoding="utf-8") as f:
                 lines = [line.rstrip("\n") for line in f]
-            header_cols = lines[0].split("|")[1:-1]
-            existing_header_display_tasks = [c.strip() for c in header_cols[1:-1]]
-            expected_pipe_count = 1 + len(existing_header_display_tasks) + 1 + 1
+            header_cols = [c.strip() for c in lines[0].strip().strip("|").split("|")]
+            meta_headers = {HEADER_POLICY_TASK, HEADER_AVERAGE, HEADER_REMARK}
+            existing_header_display_tasks = [
+                col.strip() for col in header_cols if col.strip() not in meta_headers
+            ]
+            expected_pipe_count = len(header_cols) + 1
             for lineno, row in enumerate(lines[2:], start=3):
-                parts = [p.strip() for p in row.split("|")[1:-1]]
+                parts = [p.strip() for p in row.strip().strip("|").split("|")]
                 actual_pipe_count = row.count("|")
                 if actual_pipe_count != expected_pipe_count:
                     raise ValueError(
@@ -881,22 +887,23 @@ class AutoEval:
                         f"  Expected pipes: {expected_pipe_count}, Actual pipes: {actual_pipe_count}\n"
                         f"  Row content: {row!r}"
                     )
-                expected_cells = (
-                    1 + len(existing_header_display_tasks) + 1
-                )  # policy + tasks + average
-                if len(parts) != expected_cells:
+                if len(parts) != len(header_cols):
                     raise ValueError(
                         f"[{cls.__name__}] Cell count mismatch on line {lineno}:\n"
-                        f"  Expected cells: {expected_cells}, Actual cells: {len(parts)}\n"
+                        f"  Expected cells: {len(header_cols)}, Actual cells: {len(parts)}\n"
                         f"  Parsed parts: {parts}"
                     )
-                policy = parts[0]
-                existing_display_results_dict.setdefault(policy, {})
-                for i, cell in enumerate(parts[1:-1]):
-                    existing_display_results_dict[policy][
-                        existing_header_display_tasks[i]
-                    ] = cell
-                existing_display_results_dict[policy]["Average"] = parts[-1]
+                remark = parts[header_cols.index(HEADER_REMARK)]
+                policy = parts[header_cols.index(HEADER_POLICY_TASK)]
+                existing_display_results_dict.setdefault(remark, {}).setdefault(
+                    policy, {}
+                )
+                for header, cell in zip(header_cols, parts):
+                    if header in existing_header_display_tasks:
+                        existing_display_results_dict[remark][policy][header] = cell
+                existing_display_results_dict[remark][policy][HEADER_AVERAGE] = parts[
+                    header_cols.index(HEADER_AVERAGE)
+                ]
         else:
             print(
                 f"[{cls.__name__}] No existing markdown results found at {evaluation_result_path}"
@@ -917,11 +924,11 @@ class AutoEval:
         display_md_map,
     ):
         """Merge existing and new results."""
+
         new_display_tasks = {display_md_map[t] for t in new_raw_task_keys}
-        merged_display_tasks = list(existing_header_display_tasks)
-        for display_task in sorted(new_display_tasks):
-            if display_task not in merged_display_tasks:
-                merged_display_tasks.append(display_task)
+        merged_display_tasks = list(
+            dict.fromkeys(existing_header_display_tasks + sorted(new_display_tasks))
+        )
         priority_display_tasks = [
             t for t in MD_DISPLAY_TASKS if t in merged_display_tasks
         ]
@@ -929,7 +936,12 @@ class AutoEval:
             t for t in merged_display_tasks if t not in priority_display_tasks
         ]
         merged_display_task_order = priority_display_tasks + remaining_display_tasks
-        existing_policies = set(existing_display_results_dict.keys())
+
+        existing_policies = {
+            p
+            for remark_dict in existing_display_results_dict.values()
+            for p in remark_dict.keys()
+        }
         new_policies = {
             p
             for remark_dict in new_raw_results_dict.values()
@@ -939,10 +951,11 @@ class AutoEval:
         known_policies = [p for p in POLICIES if p in mixed_policies]
         unknown_policies = sorted([p for p in mixed_policies if p not in POLICIES])
         merged_policies = known_policies + unknown_policies
+
+        existing_remarks = set(existing_display_results_dict.keys())
         new_remarks = set(new_raw_results_dict.keys())
-        merged_remarks = set(new_remarks)
-        if existing_display_results_dict:
-            merged_remarks.add("")
+        merged_remarks = new_remarks | existing_remarks
+
         remark_order = []
         if "" in merged_remarks:
             remark_order.append("")
@@ -951,14 +964,15 @@ class AutoEval:
         for remark in remark_order:
             for policy in merged_policies:
                 merged_rows[(remark, policy)] = {}
-        for policy, cells in existing_display_results_dict.items():
-            key = ("", policy)
-            for display_task, val in cells.items():
-                if display_task == "Average":
-                    # skip existing Average on purpose
-                    continue
-                merged_rows[key][display_task] = val
-            merged_rows[key]["__remark__"] = ""
+        for remark, remark_dict in existing_display_results_dict.items():
+            for policy, row_dict in remark_dict.items():
+                key = (remark, policy)
+                for display_task, val in row_dict.items():
+                    if display_task == HEADER_AVERAGE:
+                        # skip existing Average on purpose
+                        continue
+                    merged_rows[key][display_task] = val
+                merged_rows[key]["__remark__"] = remark
         for remark, remark_dict in new_raw_results_dict.items():
             for policy, row_dict in remark_dict.items():
                 key = (remark, policy)
@@ -1003,7 +1017,7 @@ class AutoEval:
                     selected_tag = tag
                     break
             if selected_tag is not None:
-                merged_rows[key]["Average"] = selected_tag
+                merged_rows[key][HEADER_AVERAGE] = selected_tag
                 continue
             # No tags: compute mean from numeric cells only (ignore unparsable entries)
             numeric_values = []
@@ -1021,9 +1035,11 @@ class AutoEval:
                 stdev_val = round(
                     stdev(numeric_values) if len(numeric_values) > 1 else 0
                 )
-                merged_rows[key]["Average"] = f"{mean_val:d} (&plusmn;{stdev_val:d})"
+                merged_rows[key][HEADER_AVERAGE] = (
+                    f"{mean_val:d} (&plusmn;{stdev_val:d})"
+                )
             else:
-                merged_rows[key]["Average"] = TAG_NA
+                merged_rows[key][HEADER_AVERAGE] = TAG_NA
 
     @classmethod
     def _build_markdown_lines(
@@ -1032,9 +1048,9 @@ class AutoEval:
         """Build markdown lines from merged rows keyed by (remark, policy)."""
         lines = []
         header = (
-            ["<nobr>Policy \\\\ Task</nobr>"]
+            [HEADER_POLICY_TASK]
             + merged_display_task_order
-            + ["Average", "Remark"]
+            + [HEADER_AVERAGE, HEADER_REMARK]
         )
         lines.append("| " + " | ".join(header) + " |\n")
         lines.append("|" + "|".join([" --- "] * len(header)) + "|\n")
@@ -1043,7 +1059,7 @@ class AutoEval:
             row_cells = (
                 [policy]
                 + [row.get(h, TAG_NA) for h in merged_display_task_order]
-                + [row.get("Average", TAG_NA)]
+                + [row.get(HEADER_AVERAGE, TAG_NA)]
                 + [remark or ""]
             )
             data_cells = row_cells[1:-1]  # exclude Policy and Remark

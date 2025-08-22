@@ -51,47 +51,47 @@
       <include file="../../robots/ur5e/ur5e_integrated_body.xml"/>
     </body>
 
-    <body pos="-0.15 -0.30 0.82" euler="0 0 0.785398">
-      <freejoint/>
+    <body name="obj1" pos="-0.15 -0.30 0.82" euler="0 0 0.785398">
+      <freejoint name="obj1_freejoint"/>
       <include file="../../mujoco_scanned_objects/Threshold_Porcelain_Spoon_Rest_White/model_body.xml" />
     </body>
-    <body pos="0.0 -0.30 0.82" euler="0 0 -0.785398">
-      <freejoint/>
+    <body name="obj2" pos="0.0 -0.30 0.82" euler="0 0 -0.785398">
+      <freejoint name="obj2_freejoint"/>
       <include file="../../../../../../third_party/YCB_sim/includes/body_003_cracker_box.xml" />
     </body>
-    <body pos="0.15 -0.30 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj3" pos="0.15 -0.30 0.82" euler="0 0 0">
+      <freejoint name="obj3_freejoint"/>
       <include file="../../mujoco_scanned_objects/Shurtape_Tape_Purple_CP28/model_body.xml" />
     </body>
-    <body pos="-0.15 -0.15 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj4" pos="-0.15 -0.15 0.82" euler="0 0 0">
+      <freejoint name="obj4_freejoint"/>
       <include file="../../mujoco_scanned_objects/Beta_Glucan/model_body.xml" />
     </body>
-    <body pos="0.0 -0.15 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj5" pos="0.0 -0.15 0.82" euler="0 0 0">
+      <freejoint name="obj5_freejoint"/>
       <include file="../../mujoco_scanned_objects/Twinlab_Nitric_Fuel/model_body.xml" />
     </body>
-    <body pos="0.15 -0.15 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj6" pos="0.15 -0.15 0.82" euler="0 0 0">
+      <freejoint name="obj6_freejoint"/>
       <include file="../../mujoco_scanned_objects/45oz_RAMEKIN_ASST_DEEP_COLORS/model_body.xml" />
     </body>
-    <body pos="-0.15 0.0 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj7" pos="-0.15 0.0 0.82" euler="0 0 1.5708">
+      <freejoint name="obj7_freejoint"/>
       <include file="../../../../../../third_party/YCB_sim/includes/body_008_pudding_box.xml" />
     </body>
-    <body pos="0.0 0.0 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj8" pos="0.0 0.0 0.82" euler="0 0 0">
+      <freejoint name="obj8_freejoint"/>
       <include file="../../mujoco_scanned_objects/ACE_Coffee_Mug_Kristen_16_oz_cup/model_body.xml" />
     </body>
-    <body pos="0.15 0.0 0.82" euler="0 0 0">
-      <freejoint/>
+    <body name="obj9" pos="0.15 0.0 0.82" euler="0 0 0">
+      <freejoint name="obj9_freejoint"/>
       <include file="../../../../../../third_party/YCB_sim/includes/body_010_potted_meat_can.xml" />
     </body>
 
-    <body pos="-0.13 0.3 0.81" euler="0 0 0">
+    <body name="basket1" pos="-0.13 0.3 0.815" euler="0 0 0">
       <include file="../../mujoco_scanned_objects/Target_Basket_Medium/model_body.xml" />
     </body>
-    <body pos="0.13 0.3 0.81" euler="0 0 1.5708">
+    <body name="basket2" pos="0.13 0.3 0.815" euler="0 0 1.5708">
       <include file="../../mujoco_scanned_objects/Curver_Storage_Bin_Black_Small/model_body.xml" />
     </body>
   </worldbody>

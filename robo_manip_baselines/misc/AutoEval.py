@@ -1,10 +1,12 @@
 import argparse
 import datetime
+import errno
 import fcntl
 import glob
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import sysconfig
@@ -15,6 +17,7 @@ import traceback
 import venv
 from collections import defaultdict
 from functools import lru_cache
+from os import O_CREAT, O_EXCL, O_WRONLY
 from pathlib import Path
 from statistics import mean, median, stdev
 from urllib.parse import urlparse
@@ -766,38 +769,47 @@ class AutoEval:
                         )
 
     @classmethod
-    def append_eval_lines_to_md(cls, result_data_dir, expected_n_trials=None):
-        """Generate or merge a Markdown table summarizing task success rates by policy."""
+    def append_eval_lines_to_md(
+        cls, result_data_dir, queue_dir, expected_n_trials=None
+    ):
+        """Generate or merge a Markdown summary table with lock to ensure safe writes."""
 
-        metrics, expected_n_trials = cls.load_rollout_results_from_txt(
-            result_data_dir, expected_n_trials
-        )
-        new_raw_task_keys, display_md_map = cls._get_task_keys_with_names(metrics)
-        new_raw_results_dict = cls._build_new_results(
-            metrics, new_raw_task_keys, expected_n_trials
-        )
-        (
-            existing_display_results_dict,
-            existing_header_display_tasks,
-            evaluation_result_path,
-        ) = cls._read_existing_md(result_data_dir)
-        merged_row_keys, merged_rows, merged_display_task_order = cls._merge_results(
-            existing_display_results_dict,
-            existing_header_display_tasks,
-            new_raw_results_dict,
-            new_raw_task_keys,
-            display_md_map,
-        )
-        cls._compute_averages(
-            merged_row_keys,
-            merged_rows,
-            existing_header_display_tasks,
-            display_md_map,
-        )
-        lines = cls._build_markdown_lines(
-            merged_row_keys, merged_rows, merged_display_task_order
-        )
-        cls._write_md(lines, evaluation_result_path)
+        lockpath = cls._lockfile_path_for_result(result_data_dir, queue_dir=queue_dir)
+        fd = cls._acquire_lockfile(lockpath, timeout=300, poll=0.5, stale_seconds=600)
+        try:
+            metrics, expected_n_trials = cls.load_rollout_results_from_txt(
+                result_data_dir, expected_n_trials
+            )
+            new_raw_task_keys, display_md_map = cls._get_task_keys_with_names(metrics)
+            new_raw_results_dict = cls._build_new_results(
+                metrics, new_raw_task_keys, expected_n_trials
+            )
+            (
+                existing_display_results_dict,
+                existing_header_display_tasks,
+                evaluation_result_path,
+            ) = cls._read_existing_md(result_data_dir)
+            merged_row_keys, merged_rows, merged_display_task_order = (
+                cls._merge_results(
+                    existing_display_results_dict,
+                    existing_header_display_tasks,
+                    new_raw_results_dict,
+                    new_raw_task_keys,
+                    display_md_map,
+                )
+            )
+            cls._compute_averages(
+                merged_row_keys,
+                merged_rows,
+                existing_header_display_tasks,
+                display_md_map,
+            )
+            lines = cls._build_markdown_lines(
+                merged_row_keys, merged_rows, merged_display_task_order
+            )
+            cls._write_md(lines, evaluation_result_path)
+        finally:
+            cls._release_lockfile(fd, lockpath)
 
     @classmethod
     def _get_task_keys_with_names(cls, metrics):
@@ -1077,6 +1089,78 @@ class AutoEval:
             f"[{cls.__name__}] Markdown result written to:\n"
             f"  {evaluation_result_path}  (Rows: {len(lines) - 2}, Cols: {lines[-1].count('|') - 1})"
         )
+
+    @classmethod
+    def _lockfile_path_for_result(cls, result_data_dir, queue_dir):
+        """Place the lock file under queue_dir if given, else under result_data_dir."""
+        if queue_dir:
+            return os.path.join(queue_dir, "evaluation_results.lock")
+        return os.path.join(os.path.dirname(result_data_dir), "evaluation_results.lock")
+
+    @classmethod
+    def _acquire_lockfile(cls, lockpath, timeout=300, poll=0.5, stale_seconds=600):
+        """Atomically create lockfile, return fd on success, wait or remove stale lock on failure."""
+        start = time.time()
+        host = socket.gethostname()
+        pid = os.getpid()
+        while True:
+            try:
+                fd = os.open(lockpath, O_CREAT | O_EXCL | O_WRONLY, 0o644)
+                # write metadata
+                meta = {"pid": pid, "host": host, "time": time.time()}
+                os.write(fd, (json.dumps(meta) + "\n").encode("utf-8"))
+                os.fsync(fd)
+                # keep fd open until release to avoid race on some FS
+                return fd
+            except OSError as e:
+                if e.errno not in (errno.EEXIST,):
+                    raise
+                # lock file already exists
+                try:
+                    statinfo = os.stat(lockpath)
+                except FileNotFoundError:
+                    # race condition - retry immediately
+                    continue
+                age = time.time() - statinfo.st_mtime
+                if age > stale_seconds:
+                    # Consider as stale lock and force delete (should log this event externally)
+                    try:
+                        # read content for debugging
+                        with open(
+                            lockpath, "r", encoding="utf-8", errors="ignore"
+                        ) as rf:
+                            content = rf.read()
+                        # Log the stale-lock owner info; replace with logger if available
+                        print(
+                            f"[{cls.__name__}] Removing stale lock {lockpath}, content: {content!r}"
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        os.remove(lockpath)
+                    except Exception:
+                        # deletion failed due to race, retry
+                        pass
+                    # loop and retry acquiring
+                    continue
+                # timeout check
+                if (time.time() - start) > timeout:
+                    raise TimeoutError(
+                        f"Timeout while waiting lock {lockpath} (age {age}s)"
+                    )
+                time.sleep(poll)
+
+    @classmethod
+    def _release_lockfile(cls, fd, lockpath):
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        try:
+            os.remove(lockpath)
+        except Exception:
+            # if failed, just log externally
+            pass
 
     @classmethod
     def git_commit_result(cls, result_data_dir, eval_commit_dir):
@@ -1648,7 +1732,9 @@ def main():
 
     if args.do_report_eval_md:
         AutoEval.append_eval_lines_to_md(
-            args.result_data_dir, expected_n_trials=args.n_eval_trials_expected
+            args.result_data_dir,
+            queue_dir=queue_dir,
+            expected_n_trials=args.n_eval_trials_expected,
         )
         if not args.eval_commit_dir:
             print(

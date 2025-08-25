@@ -98,6 +98,7 @@ class MlpPolicy(nn.Module):
         )  # (batch_size, num_images * n_obs_steps * image_feature_dim)
 
         # Apply linear layers
+        # FIXME: when state_dim is zero, all elements of state_feature are zero, so do not concatenate
         combined_feature = torch.cat(
             [state_feature, image_features], dim=1
         )  # (batch_size, combined_feature_dim)

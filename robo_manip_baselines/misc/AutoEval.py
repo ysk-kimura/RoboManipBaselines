@@ -905,7 +905,10 @@ class AutoEval:
                         f"  Expected cells: {len(header_cols)}, Actual cells: {len(parts)}\n"
                         f"  Parsed parts: {parts}"
                     )
-                remark = parts[header_cols.index(HEADER_REMARK)]
+                if HEADER_REMARK in header_cols:
+                    remark = parts[header_cols.index(HEADER_REMARK)]
+                else:
+                    remark = ""
                 policy = parts[header_cols.index(HEADER_POLICY_TASK)]
                 existing_display_results_dict.setdefault(remark, {}).setdefault(
                     policy, {}

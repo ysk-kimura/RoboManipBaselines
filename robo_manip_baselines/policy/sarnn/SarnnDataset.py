@@ -40,6 +40,15 @@ class SarnnDataset(DatasetBase):
                 for camera_name in self.model_meta_info["image"]["camera_names"]
             ]
 
+            # Try to load front_attention if it exists in the HDF5
+            try:
+                front_attention = rmb_data["front_attention"][::skip]
+                # Ensure it's a numpy array
+                front_attention = np.array(front_attention)
+            except Exception:
+                # If not present, create a placeholder array of zeros (will be padded later)
+                front_attention = None
+
         # Crop and resize images
         image_crop_size_list = self.model_meta_info["data"]["image_crop_size_list"]
         image_size_list = self.model_meta_info["data"]["image_size_list"]
@@ -53,6 +62,12 @@ class SarnnDataset(DatasetBase):
         # Add padding
         state = self.pad_last_element(state)
         image_list = [self.pad_last_element(image) for image in image_list]
+
+        # Pad or create front_attention to max_episode_len x 2
+        if front_attention is None:
+            # create zero array if missing
+            front_attention = np.zeros((1, 2), dtype=np.float32)
+        front_attention = self.pad_last_element(front_attention)
 
         # Setup mask
         mask = np.concatenate(
@@ -69,6 +84,8 @@ class SarnnDataset(DatasetBase):
         ]
         mask_tensor = torch.tensor(mask, dtype=torch.float32)
 
+        front_attention_tensor = torch.tensor(front_attention, dtype=torch.float32)
+
         # Since these data are used for both input and output when the policy reconstructs the data,
         # no data augmentation is performed here. Only data conversion is applied.
         image_tensor_list = [
@@ -76,10 +93,12 @@ class SarnnDataset(DatasetBase):
         ]
 
         # Sort in the order of policy inputs and outputs
+        # Return order extended to include front_attention_tensor
         return (
             state_tensor,  # (max_episode_len, state_dim)
             image_tensor_list,  # (num_images, max_episode_len, width, height, 3)
             mask_tensor,  # (max_episode_len)
+            front_attention_tensor,  # (max_episode_len, 2)
         )
 
     def setup_image_transforms(self):

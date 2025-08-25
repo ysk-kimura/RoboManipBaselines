@@ -63,7 +63,12 @@ class TrainSarnn(TrainBase):
             default=0.1,
             help="Scale of attention loss",
         )
-
+        parser.add_argument(
+            "--front_attention_loss_scale",
+            type=float,
+            default=0.0,
+            help="Scale of front_attention (0th attention) loss",
+        )
         parser.add_argument(
             "--image_crop_size_list",
             type=int,
@@ -257,10 +262,12 @@ class TrainSarnn(TrainBase):
         state_seq,  # (batch_size, episode_len, state_dim)
         image_seq_list,  # (num_images, batch_size, episode_len, 3, width, height)
         mask_seq,  # (batch_size, episode_len)
+        front_attention_seq,  # (batch_size, episode_len, 2)
     ):
         state_seq = state_seq.cuda()
         image_seq_list = [image_seq.cuda() for image_seq in image_seq_list]
         mask_seq = mask_seq.cuda()
+        front_attention_seq = front_attention_seq.cuda()
 
         # Augment data
         aug_image_seq_list = []
@@ -356,11 +363,22 @@ class TrainSarnn(TrainBase):
             )
             attention_loss_list.append(attention_loss)
 
+        # 0th attention
+        pred_att_0 = predicted_attention_seq_list[0][:, :-1, 0, :]
+        front_attention_aligned = front_attention_seq[:, 1 : pred_att_0.shape[1] + 1, :]
+        front_attention_loss = torch.mean(
+            criterion(pred_att_0, front_attention_aligned), dim=2
+        )
+        front_attention_loss = torch.sum(
+            front_attention_loss * mask_seq[:, 1:-1]
+        ) / torch.sum(mask_seq[:, 1:-1])
+
         loss = (
             state_loss
             + self.args.image_loss_scale * torch.sum(torch.stack(image_loss_list))
             + self.attention_loss_scheduler(self.args.attention_loss_scale)
             * torch.sum(torch.stack(attention_loss_list))
+            + self.args.front_attention_loss_scale * torch.sum(front_attention_loss)
         )
 
         return loss

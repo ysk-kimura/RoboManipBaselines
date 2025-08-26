@@ -45,15 +45,10 @@ def get_se3_from_rel_pose(rel_pose):
     """Get pinocchio SE3 from relative pose (tx, ty, tz, roll, pitch, yaw)."""
     return pin.SE3(pin.rpy.rpyToMatrix(rel_pose[3:6]), rel_pose[0:3])
 
+
 def euler_to_rotation_matrix(rpy_deg):
     r, p, y = np.deg2rad(rpy_deg)
-    Rx = np.array(
-        [[1, 0, 0], [0, np.cos(r), -np.sin(r)], [0, np.sin(r), np.cos(r)]]
-    )
-    Ry = np.array(
-        [[np.cos(p), 0, np.sin(p)], [0, 1, 0], [-np.sin(p), 0, np.cos(p)]]
-    )
-    Rz = np.array(
-        [[np.cos(y), -np.sin(y), 0], [np.sin(y), np.cos(y), 0], [0, 0, 1]]
-    )
+    Rx = np.array([[1, 0, 0], [0, np.cos(r), -np.sin(r)], [0, np.sin(r), np.cos(r)]])
+    Ry = np.array([[np.cos(p), 0, np.sin(p)], [0, 1, 0], [-np.sin(p), 0, np.cos(p)]])
+    Rz = np.array([[np.cos(y), -np.sin(y), 0], [np.sin(y), np.cos(y), 0], [0, 0, 1]])
     return Rz @ Ry @ Rx

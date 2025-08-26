@@ -8,6 +8,7 @@ from robo_manip_baselines.common import (
     DataKey,
     RmbData,
     convert_depth_image_to_pointcloud,
+    euler_to_rotation_matrix,
     find_rmb_files,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
@@ -15,7 +16,6 @@ from robo_manip_baselines.common.utils.Vision3dUtils import (
     downsample_pointcloud_fps,
     rotate_pointcloud,
 )
-from robo_manip_baselines.common.utils.MathUtils import euler_to_rotation_matrix
 
 
 def parse_argument():

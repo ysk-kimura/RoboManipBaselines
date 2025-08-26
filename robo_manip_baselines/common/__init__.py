@@ -26,6 +26,7 @@ from .utils.MathUtils import (
     get_se3_from_pose,
     get_rel_pose_from_se3,
     get_se3_from_rel_pose,
+    euler_to_rotation_matrix,
 )
 from .utils.VisionUtils import (
     crop_and_resize,

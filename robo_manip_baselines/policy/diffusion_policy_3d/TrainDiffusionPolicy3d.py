@@ -124,7 +124,7 @@ class TrainDiffusionPolicy3d(TrainBase):
                     raise ValueError(
                         f"[{self.__class__.__name__}] max_bound is inconsistent in dataset: {max_bound} != {max_bound_new}"
                     )
-                
+
                 rpy_angle_new = rmb_data.attrs[pc_key + "_rpy_angle"]
                 if rpy_angle is None:
                     rpy_angle = rpy_angle_new

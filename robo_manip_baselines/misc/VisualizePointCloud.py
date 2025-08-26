@@ -1,5 +1,6 @@
 import argparse
 import time
+
 import numpy as np
 import open3d as o3d
 import pyspacemouse
@@ -8,13 +9,13 @@ from robo_manip_baselines.common import (
     DataKey,
     RmbData,
     convert_depth_image_to_pointcloud,
+    euler_to_rotation_matrix,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
     crop_pointcloud_bb,
     downsample_pointcloud_fps,
     rotate_pointcloud,
 )
-from robo_manip_baselines.common.utils.MathUtils import euler_to_rotation_matrix
 
 
 class VisualizePointCloud:
@@ -33,14 +34,14 @@ class VisualizePointCloud:
             "--min_bound", type=float, nargs=3, default=[-0.4, -0.4, -0.4]
         )
         parser.add_argument("--max_bound", type=float, nargs=3, default=[1.0, 1.0, 1.0])
-        parser.add_argument("--num_points", type=int, default=512)
         parser.add_argument("--rpy_angle", type=float, nargs=3, default=[0, 0, 0])
+        parser.add_argument("--num_points", type=int, default=512)
         self.args = parser.parse_args()
 
     def setup_spacemouse(self):
         try:
             self.spacemouse = pyspacemouse.open()
-        except:
+        except Exception:
             self.spacemouse = None
 
     def run(self):
@@ -56,11 +57,11 @@ class VisualizePointCloud:
 
         self.min_bound = np.array(self.args.min_bound)
         self.max_bound = np.array(self.args.max_bound)
-        self.rpy = np.array(self.args.rpy_angle)
+        self.rpy_angle = np.array(self.args.rpy_angle)
         self.downsample_enabled = False
 
         print("[Keys] <-/->: time step | Esc: exit | O: toggle downsample")
-        print("P: print min_bound max_bound rotation")
+        print("P: print the bounding box parameters")
         print("E/D: min_x +/- | R/F: max_x +/-")
         print("T/G: min_y +/- | Y/H: max_y +/-")
         print("U/J: min_z +/- | I/K: max_z +/-")
@@ -110,9 +111,9 @@ class VisualizePointCloud:
         self.max_bound[1] += state.z * -0.02
         self.min_bound[2] += state.x * -0.02
         self.max_bound[2] += state.x * -0.02
-        self.rpy[0] += state.roll
-        self.rpy[1] += state.pitch
-        self.rpy[2] += state.yaw
+        self.rpy_angle[0] += state.roll
+        self.rpy_angle[1] += state.pitch
+        self.rpy_angle[2] += state.yaw
 
         self.update_pointcloud()
 
@@ -125,40 +126,52 @@ class VisualizePointCloud:
 
         # Bound control
         self.vis.register_key_action_callback(
-            ord("E"), lambda v, a, m: self.modify_bound_with_modifiers("min", 0, 0.05, a, m)
+            ord("E"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 0, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("D"), lambda v, a, m: self.modify_bound_with_modifiers("min", 0, -0.05, a, m)
+            ord("D"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 0, -0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("R"), lambda v, a, m: self.modify_bound_with_modifiers("max", 0, 0.05, a, m)
+            ord("R"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 0, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("F"), lambda v, a, m: self.modify_bound_with_modifiers("max", 0, -0.05, a, m)
+            ord("F"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 0, -0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("T"), lambda v, a, m: self.modify_bound_with_modifiers("min", 1, 0.05, a, m)
+            ord("T"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 1, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("G"), lambda v, a, m: self.modify_bound_with_modifiers("min", 1, -0.05, a, m)
+            ord("G"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 1, -0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("Y"), lambda v, a, m: self.modify_bound_with_modifiers("max", 1, 0.05, a, m)
+            ord("Y"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 1, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("H"), lambda v, a, m: self.modify_bound_with_modifiers("max", 1, -0.05, a, m)
+            ord("H"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 1, -0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("U"), lambda v, a, m: self.modify_bound_with_modifiers("min", 2, 0.05, a, m)
+            ord("U"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 2, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("J"), lambda v, a, m: self.modify_bound_with_modifiers("min", 2, -0.05, a, m)
+            ord("J"),
+            lambda v, a, m: self.modify_bound_with_modifiers("min", 2, -0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("I"), lambda v, a, m: self.modify_bound_with_modifiers("max", 2, 0.05, a, m)
+            ord("I"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 2, 0.05, a, m),
         )
         self.vis.register_key_action_callback(
-            ord("K"), lambda v, a, m: self.modify_bound_with_modifiers("max", 2, -0.05, a, m)
+            ord("K"),
+            lambda v, a, m: self.modify_bound_with_modifiers("max", 2, -0.05, a, m),
         )
 
         # Rotation control
@@ -207,7 +220,7 @@ class VisualizePointCloud:
         if action != 1:
             return False
         delta = self.get_modifier_step(base_delta_deg, action, mods)
-        self.rpy[axis] += delta
+        self.rpy_angle[axis] += delta
         self.update_pointcloud()
         return False
 
@@ -223,7 +236,7 @@ class VisualizePointCloud:
             return
         pointcloud = np.concatenate(result, axis=1)
 
-        rotmat = euler_to_rotation_matrix(self.rpy)
+        rotmat = euler_to_rotation_matrix(self.rpy_angle)
         pointcloud = rotate_pointcloud(pointcloud, rotmat)
         pointcloud = crop_pointcloud_bb(pointcloud, self.min_bound, self.max_bound)
         if self.downsample_enabled:
@@ -238,7 +251,11 @@ class VisualizePointCloud:
 
         self.pointcloud_geom = o3d.geometry.PointCloud()
         self.pointcloud_geom.points = o3d.utility.Vector3dVector(pointcloud[:, :3])
-        colors = pointcloud[:, 3:] if pointcloud.shape[1] >= 6 else np.zeros_like(pointcloud[:, :3])
+        colors = (
+            pointcloud[:, 3:]
+            if pointcloud.shape[1] >= 6
+            else np.zeros_like(pointcloud[:, :3])
+        )
         self.pointcloud_geom.colors = o3d.utility.Vector3dVector(colors)
         self.vis.add_geometry(self.pointcloud_geom)
 
@@ -284,19 +301,25 @@ class VisualizePointCloud:
     def esc_callback(self, vis, action, mods):
         if action != 1:
             return False
-        print("---bounding box parameter---")
-        print(f"--min_bound {self.min_bound[0]} {self.min_bound[1]} {self.min_bound[2]} --max_bound {self.max_bound[0]} {self.max_bound[1]} {self.max_bound[2]}", end=" ")
-        print(f"--rpy_angle {self.rpy[0]} {self.rpy[1]} {self.rpy[2]}")
+        self.print_bbox_params()
         self.quit_flag = True
         return False
-    
+
     def print_callback(self, vis, action, mods):
         if action != 1:
             return False
-        print("---bounding box parameter---")
-        print(f"--min_bound {self.min_bound[0]} {self.min_bound[1]} {self.min_bound[2]} --max_bound {self.max_bound[0]} {self.max_bound[1]} {self.max_bound[2]}", end=" ")
-        print(f"--rpy_angle {self.rpy[0]} {self.rpy[1]} {self.rpy[2]}")
+        self.print_bbox_params()
         return False
+
+    def print_bbox_params(self):
+        print("---bounding box parameter---")
+        print(
+            f"--min_bound {self.min_bound[0]} {self.min_bound[1]} {self.min_bound[2]} --max_bound {self.max_bound[0]} {self.max_bound[1]} {self.max_bound[2]}",
+            end=" ",
+        )
+        print(
+            f"--rpy_angle {self.rpy_angle[0]} {self.rpy_angle[1]} {self.rpy_angle[2]}"
+        )
 
 
 if __name__ == "__main__":

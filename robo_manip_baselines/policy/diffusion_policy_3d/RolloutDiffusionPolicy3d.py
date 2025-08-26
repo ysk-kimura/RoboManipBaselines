@@ -18,6 +18,7 @@ from robo_manip_baselines.common import (
     RolloutBase,
     convert_depth_image_to_pointcloud,
     denormalize_data,
+    euler_to_rotation_matrix,
     normalize_data,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
@@ -25,7 +26,6 @@ from robo_manip_baselines.common.utils.Vision3dUtils import (
     downsample_pointcloud_fps,
     rotate_pointcloud,
 )
-from robo_manip_baselines.common.utils.MathUtils import euler_to_rotation_matrix
 
 
 class RolloutDiffusionPolicy3d(RolloutBase):

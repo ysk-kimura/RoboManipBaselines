@@ -1234,70 +1234,45 @@ class AutoEval:
                 check=False,
             )
 
-            if ff_check.returncode == 0:
-                # fast-forward possible: safe to proceed
-                print(
-                    f"[{cls.__name__}] Fast-forward possible against {upstream}. Proceeding to update and push."
-                )
-                # Copy the generated md into the target repo doc directory
-                cls.exec_command(["cp", md_src, md_dst])
-                # Stage, commit, push
-                cls.exec_command(
-                    [
-                        "git",
-                        "-C",
-                        eval_commit_result_dir,
-                        "add",
-                        "evaluation_results.md",
-                    ]
-                )
-                cls.exec_command(
-                    [
-                        "git",
-                        "-C",
-                        eval_commit_result_dir,
-                        "commit",
-                        "-m",
-                        f"{cls.__name__}: Update evaluation_results.md.",
-                    ]
-                )
-                cls.exec_command(["git", "-C", eval_commit_result_dir, "push"])
-                print(
-                    f"[{cls.__name__}] Successfully pushed evaluation_results.md to {eval_commit_dir}"
-                )
-                return
+            if ff_check.returncode != 0:
+                # fast-forward is not possible -> merge pull
 
-            # Not fast-forward: do not attempt automatic merge. Log details and fail.
+                print(
+                    f"[{cls.__name__}] Non-fast-forward detected, performing 'git pull' (merge)."
+                )
+                try:
+                    cls.exec_command(["git", "-C", eval_commit_result_dir, "pull"])
+                except subprocess.CalledProcessError as e:
+                    print(f"[{cls.__name__}] ERROR: git pull failed: {e}")
+                    raise
+
+            # Copy evaluation_results.md
+            cls.exec_command(["cp", md_src, md_dst])
+            # Stage, commit, push
+            cls.exec_command(
+                [
+                    "git",
+                    "-C",
+                    eval_commit_result_dir,
+                    "add",
+                    "evaluation_results.md",
+                ]
+            )
+            cls.exec_command(
+                [
+                    "git",
+                    "-C",
+                    eval_commit_result_dir,
+                    "commit",
+                    "-m",
+                    f"{cls.__name__}: Update evaluation_results.md.",
+                ]
+            )
+            cls.exec_command(["git", "-C", eval_commit_result_dir, "push"])
             print(
-                f"[{cls.__name__}] ERROR: Remote branch {upstream} is not a fast-forward of local HEAD. "
-                "Automatic merge is skipped to avoid unsafe changes."
+                f"[{cls.__name__}] Successfully pushed evaluation_results.md to {eval_commit_dir}"
             )
-            # Provide diagnostics: show status and branch heads
-            try:
-                head = subprocess.run(
-                    ["git", "-C", eval_commit_result_dir, "rev-parse", "HEAD"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                ).stdout.strip()
-                upstream_head = subprocess.run(
-                    ["git", "-C", eval_commit_result_dir, "rev-parse", upstream],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                ).stdout.strip()
-                print(f"[{cls.__name__}] Local HEAD: {head}")
-                print(f"[{cls.__name__}] Upstream {upstream}: {upstream_head}")
-            except Exception:
-                # ignore diagnostics errors
-                pass
-
-            # Ensure we leave the repo clean (no partial changes). No merge performed, so nothing to abort.
-            raise RuntimeError(
-                f"Non-fast-forward detected for {eval_commit_result_dir}; manual intervention required."
-            )
+            return
 
         except subprocess.CalledProcessError as e:
             # CalledProcessError from cls.exec_command or subprocess.run

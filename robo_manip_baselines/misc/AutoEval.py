@@ -1167,7 +1167,7 @@ class AutoEval:
 
     @classmethod
     def git_commit_result(cls, result_data_dir, eval_commit_dir):
-        """Push evaluation_results.md safely using ff-only; abort if fast-forward not possible."""
+        """Push evaluation_results.md safely using fast-forward; ignore error if nothing to commit."""
         # Validate repo dir
         if not os.path.isdir(eval_commit_dir) or not os.path.isdir(
             os.path.join(eval_commit_dir, ".git")
@@ -1201,7 +1201,6 @@ class AutoEval:
                 check=False,
             )
             if proc.returncode != 0:
-                # No upstream configured or error -> abort safe
                 print(
                     f"[{cls.__name__}] ERROR: Cannot determine upstream for repository {eval_commit_result_dir}.\n"
                     f"git output: {proc.stdout}\n"
@@ -1211,7 +1210,7 @@ class AutoEval:
                     proc.returncode, proc.args, output=proc.stdout, stderr=proc.stderr
                 )
 
-            upstream = proc.stdout.strip()  # e.g. "origin/main"
+            upstream = proc.stdout.strip()
             print(f"[{cls.__name__}] Upstream for push/check: {upstream}")
 
             # Fetch remote changes
@@ -1243,12 +1242,13 @@ class AutoEval:
                 try:
                     cls.exec_command(["git", "-C", eval_commit_result_dir, "pull"])
                 except subprocess.CalledProcessError as e:
-                    print(f"[{cls.__name__}] ERROR: git pull failed: {e}")
-                    raise
+                    print(
+                        f"[{cls.__name__}] WARNING: git pull failed but ignored: {e}",
+                        file=sys.stderr,
+                    )
 
-            # Copy evaluation_results.md
+            # Copy evaluation_results.md and commit/push
             cls.exec_command(["cp", md_src, md_dst])
-            # Stage, commit, push
             cls.exec_command(
                 [
                     "git",
@@ -1258,35 +1258,39 @@ class AutoEval:
                     "evaluation_results.md",
                 ]
             )
-            cls.exec_command(
-                [
-                    "git",
-                    "-C",
-                    eval_commit_result_dir,
-                    "commit",
-                    "-m",
-                    f"{cls.__name__}: Update evaluation_results.md.",
+            try:
+                cls.exec_command(
+                    [
+                        "git",
+                        "-C",
+                        eval_commit_result_dir,
+                        "commit",
+                        "-m",
+                        f"{cls.__name__}: Update evaluation_results.md.",
+                    ]
+                )
+            except subprocess.CalledProcessError as e:
+                # Ignore "nothing to commit" errors
+                msg = e.output.lower() if e.output else ""
+                ignore_keywords = [
+                    "nothing to commit",
+                    "no changes added to commit",
+                    "nothing added to commit",
                 ]
-            )
+                if any(k in msg for k in ignore_keywords):
+                    print(
+                        f"[{cls.__name__}] INFO: No changes to commit, skipping commit."
+                    )
+                else:
+                    traceback.print_exc()
+                    raise
             cls.exec_command(["git", "-C", eval_commit_result_dir, "push"])
             print(
                 f"[{cls.__name__}] Successfully pushed evaluation_results.md to {eval_commit_dir}"
             )
-            return
-
-        except subprocess.CalledProcessError as e:
-            # CalledProcessError from cls.exec_command or subprocess.run
-            print(
-                f"[{cls.__name__}] WARNING: Git command failed with error: {e}\n"
-                f"stdout/stderr: {getattr(e, 'output', '')} {getattr(e, 'stderr', '')}",
-                file=sys.stderr,
-            )
-            traceback.print_exc()
-            # Re-raise to signal failure to caller (non-zero exit)
-            raise
         except Exception as e:
             print(
-                f"[{cls.__name__}] WARNING: Unexpected error during git commit/push workflow: {e}",
+                f"[{cls.__name__}] WARNING: Unexpected error during git workflow: {e}",
                 file=sys.stderr,
             )
             traceback.print_exc()

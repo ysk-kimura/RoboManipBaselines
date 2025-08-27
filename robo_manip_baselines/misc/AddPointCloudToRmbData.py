@@ -8,11 +8,13 @@ from robo_manip_baselines.common import (
     DataKey,
     RmbData,
     convert_depth_image_to_pointcloud,
+    euler_to_rotation_matrix,
     find_rmb_files,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
     crop_pointcloud_bb,
     downsample_pointcloud_fps,
+    rotate_pointcloud,
 )
 
 
@@ -54,6 +56,13 @@ def parse_argument():
         help="max bounds of the bounding box for cropping",
     )
     parser.add_argument(
+        "--rpy_angle",
+        type=float,
+        nargs=3,
+        default=[0, 0, 0],
+        help="rotation of the bounding box for cropping",
+    )
+    parser.add_argument(
         "--num_points",
         type=int,
         default=512,
@@ -76,6 +85,7 @@ class AddPointCloudToRmbData:
         image_size,
         min_bound=None,
         max_bound=None,
+        rpy_angle=None,
         num_points=512,
         overwrite=False,
     ):
@@ -84,6 +94,7 @@ class AddPointCloudToRmbData:
         self.image_size = image_size
         self.min_bound = min_bound
         self.max_bound = max_bound
+        self.rpy = rpy_angle
         self.num_points = num_points
         self.overwrite = overwrite
 
@@ -110,6 +121,7 @@ class AddPointCloudToRmbData:
                 rmb_data.attrs[pc_key + "_image_size"] = self.image_size
                 rmb_data.attrs[pc_key + "_min_bound"] = self.min_bound
                 rmb_data.attrs[pc_key + "_max_bound"] = self.max_bound
+                rmb_data.attrs[pc_key + "_rpy_angle"] = self.rpy
 
     def get_pointclouds(self, rmb_data):
         # Load images
@@ -135,6 +147,8 @@ class AddPointCloudToRmbData:
             )
 
             # Crop and downsample pointcloud
+            rotmat = euler_to_rotation_matrix(self.rpy)
+            pointcloud = rotate_pointcloud(pointcloud, rotmat)
             pointcloud = crop_pointcloud_bb(pointcloud, self.min_bound, self.max_bound)
             pointcloud = downsample_pointcloud_fps(pointcloud, self.num_points)
 

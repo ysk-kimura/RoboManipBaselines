@@ -1725,6 +1725,7 @@ def main():
             )
             return
         AutoEval.git_commit_result(args.result_data_dir, args.eval_commit_dir)
+        return
 
     def register_invocation():
         """Register a JSON file per policy in queue_dir and return a list of invocation IDs."""

@@ -18,11 +18,13 @@ from robo_manip_baselines.common import (
     RolloutBase,
     convert_depth_image_to_pointcloud,
     denormalize_data,
+    euler_to_rotation_matrix,
     normalize_data,
 )
 from robo_manip_baselines.common.utils.Vision3dUtils import (
     crop_pointcloud_bb,
     downsample_pointcloud_fps,
+    rotate_pointcloud,
 )
 
 
@@ -43,7 +45,7 @@ class RolloutDiffusionPolicy3d(RolloutBase):
         )
         data_info = self.model_meta_info["data"]
         print(
-            f"  - with color: {data_info['use_pc_color']}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}"
+            f"  - with color: {data_info['use_pc_color']}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
         )
 
         # Construct policy
@@ -142,6 +144,8 @@ class RolloutDiffusionPolicy3d(RolloutBase):
             axis=1,
         )
         # Crop and downsample pointcloud
+        rotmat = euler_to_rotation_matrix(self.model_meta_info["data"]["rpy_angle"])
+        pointcloud = rotate_pointcloud(pointcloud, rotmat)
         pointcloud = crop_pointcloud_bb(
             pointcloud,
             self.model_meta_info["data"]["min_bound"],

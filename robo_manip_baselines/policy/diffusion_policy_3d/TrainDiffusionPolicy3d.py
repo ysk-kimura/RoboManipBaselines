@@ -90,6 +90,7 @@ class TrainDiffusionPolicy3d(TrainBase):
         image_size = None
         min_bound = None
         max_bound = None
+        rpy_angle = None
         for filename in self.all_filenames:
             with RmbData(filename) as rmb_data:
                 num_points_new = rmb_data[pc_key].shape[1]
@@ -124,6 +125,14 @@ class TrainDiffusionPolicy3d(TrainBase):
                         f"[{self.__class__.__name__}] max_bound is inconsistent in dataset: {max_bound} != {max_bound_new}"
                     )
 
+                rpy_angle_new = rmb_data.attrs[pc_key + "_rpy_angle"]
+                if rpy_angle is None:
+                    rpy_angle = rpy_angle_new
+                elif not np.allclose(rpy_angle, rpy_angle_new):
+                    raise ValueError(
+                        f"[{self.__class__.__name__}] rpy_angle is inconsistent in dataset: {rpy_angle} != {rpy_angle_new}"
+                    )
+
         self.model_meta_info["data"]["horizon"] = self.args.horizon
         self.model_meta_info["data"]["n_obs_steps"] = self.args.n_obs_steps
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps
@@ -133,6 +142,7 @@ class TrainDiffusionPolicy3d(TrainBase):
         self.model_meta_info["data"]["image_size"] = image_size
         self.model_meta_info["data"]["min_bound"] = min_bound
         self.model_meta_info["data"]["max_bound"] = max_bound
+        self.model_meta_info["data"]["rpy_angle"] = rpy_angle
 
         self.model_meta_info["policy"]["use_ema"] = self.args.use_ema
 
@@ -266,7 +276,7 @@ class TrainDiffusionPolicy3d(TrainBase):
         )
         data_info = self.model_meta_info["data"]
         print(
-            f"  - with color: {self.args.use_pc_color}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}"
+            f"  - with color: {self.args.use_pc_color}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
         )
 
     def train_loop(self):

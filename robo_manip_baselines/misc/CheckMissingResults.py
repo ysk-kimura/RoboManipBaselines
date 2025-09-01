@@ -3,20 +3,23 @@
 """
 CheckMissingResults.py
 
-Scan ./result for completed runs, generate the full product from configured
-POLICIES/SEEDS/ENV_LIST/REMARK_LIST, and print unexecuted combinations.
+Scan result_root for completed runs, generate the full product from configured
+POLICIES/SEEDS/ENV_LIST/REMARK_LIST, and print/save unexecuted combinations.
 """
 
 from __future__ import annotations
+
 import argparse
+import csv
 import glob
 import os
 import re
 import sys
-import yaml
-from collections import Counter
+from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Tuple, Set
+from typing import Any, List, Set, Tuple
+
+import yaml
 from AutoEval import AutoEval
 
 
@@ -248,164 +251,30 @@ def filter_unexecuted(all_combos, done_set):
     return out
 
 
-def greedy_reduce_sets(
-    policies: List[str],
-    seeds: List[str],
-    env_names: List[str],
-    remarks: List[str],
-    done_set: Set[Tuple[str, str, str, str]],
-    show_progress: bool = False,
-):
-    """Greedy non-conflicting selection."""
+def write_missing_to_csv(missing, output_path: Path) -> None:
+    """Write the list of missing combinations to a CSV file."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    header = [
+        "policy",
+        "seed",
+        "env_name",
+        "env_tag",
+        "remark_val",
+        "remark_argfile",
+    ]
+    with output_path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(header)
+        for row in missing:
+            writer.writerow(row)
 
-    # copy input lists
-    all_p, all_s, all_e, all_r = (
-        list(policies),
-        list(seeds),
-        list(env_names),
-        list(remarks),
+
+def format_missing_row(row: Tuple[str, str, str, str, str, str]) -> str:
+    policy, seed, env_name, env_tag, remark_val, remark_argfile = row
+    return (
+        f"policy={policy} seed={seed} env={env_name} (tag={env_tag}) "
+        f"remark='{remark_val}' argfile='{remark_argfile}'"
     )
-
-    p_cnt = Counter()
-    s_cnt = Counter()
-    e_cnt = Counter()
-    r_cnt = Counter()
-
-    set_p = set(all_p)
-    set_s = set(all_s)
-    set_e = set(all_e)
-    set_r = set(all_r)
-
-    for p, e, s, r in done_set:
-        if p in set_p and s in set_s and e in set_e and r in set_r:
-            p_cnt[p] += 1
-            s_cnt[s] += 1
-            e_cnt[e] += 1
-            r_cnt[r] += 1
-
-    def stable_sort_by_count(orig_list, counter):
-        return sorted(orig_list, key=lambda x: (counter.get(x, 0), orig_list.index(x)))
-
-    all_p = stable_sort_by_count(all_p, p_cnt)
-    all_s = stable_sort_by_count(all_s, s_cnt)
-    all_e = stable_sort_by_count(all_e, e_cnt)
-    all_r = stable_sort_by_count(all_r, r_cnt)
-
-    if show_progress:
-        print(f"[{greedy_reduce_sets.__name__}] Axis order after initial sorting:")
-        print(f"  policies(sorted by conflicts): {all_p}")
-        print(f"  seeds(sorted by conflicts): {all_s}")
-        print(f"  envs(sorted by conflicts): {all_e}")
-        print(f"  remarks(sorted by conflicts): {all_r}")
-
-    def can_add(axis, value, cur_p, cur_s, cur_e, cur_r):
-        if axis == "policy":
-            for s in cur_s:
-                for e in cur_e:
-                    for r in cur_r:
-                        if (value, e, s, r) in done_set:
-                            return False
-            return True
-        if axis == "seed":
-            for p in cur_p:
-                for e in cur_e:
-                    for r in cur_r:
-                        if (p, e, value, r) in done_set:
-                            return False
-            return True
-        if axis == "env":
-            for p in cur_p:
-                for s in cur_s:
-                    for r in cur_r:
-                        if (p, value, s, r) in done_set:
-                            return False
-            return True
-        if axis == "remark":
-            for p in cur_p:
-                for s in cur_s:
-                    for e in cur_e:
-                        if (p, e, s, value) in done_set:
-                            return False
-            return True
-        return False
-
-    # find initial non-conflicting quad using the sorted lists
-    initial_found = False
-    cur_p: List[str] = []
-    cur_s: List[str] = []
-    cur_e: List[str] = []
-    cur_r: List[str] = []
-    for p in all_p:
-        for s in all_s:
-            for e in all_e:
-                for r in all_r:
-                    if (p, e, s, r) not in done_set:
-                        cur_p = [p]
-                        cur_s = [s]
-                        cur_e = [e]
-                        cur_r = [r]
-                        initial_found = True
-                        break
-                if initial_found:
-                    break
-            if initial_found:
-                break
-        if initial_found:
-            break
-
-    if not initial_found:
-        if show_progress:
-            print(
-                f"[{greedy_reduce_sets.__name__}] No initial non-conflicting combination found; returning empty lists"
-            )
-        return [], [], [], []
-
-    if show_progress:
-        print(
-            f"[{greedy_reduce_sets.__name__}] Initial seed: p={cur_p[0]}, s={cur_s[0]}, e={cur_e[0]}, r={cur_r[0]}"
-        )
-
-    # iteratively add best non-conflicting candidates
-    added = True
-    while added:
-        added = False
-        best_gain = 0
-        best_choice = None
-        remaining = {
-            "policy": [x for x in all_p if x not in cur_p],
-            "seed": [x for x in all_s if x not in cur_s],
-            "env": [x for x in all_e if x not in cur_e],
-            "remark": [x for x in all_r if x not in cur_r],
-        }
-        for axis, values in remaining.items():
-            for v in values:
-                if can_add(axis, v, cur_p, cur_s, cur_e, cur_r):
-                    gain = {
-                        "policy": len(cur_s) * len(cur_e) * len(cur_r),
-                        "seed": len(cur_p) * len(cur_e) * len(cur_r),
-                        "env": len(cur_p) * len(cur_s) * len(cur_r),
-                        "remark": len(cur_p) * len(cur_s) * len(cur_e),
-                    }[axis]
-                    if gain > best_gain:
-                        best_gain = gain
-                        best_choice = (axis, v)
-        if best_choice:
-            axis, value = best_choice
-            if axis == "policy":
-                cur_p.append(value)
-            elif axis == "seed":
-                cur_s.append(value)
-            elif axis == "env":
-                cur_e.append(value)
-            elif axis == "remark":
-                cur_r.append(value)
-            added = True
-            if show_progress:
-                print(
-                    f"[{greedy_reduce_sets.__name__}] Added {axis}='{value}', new sizes: p={len(cur_p)} s={len(cur_s)} e={len(cur_e)} r={len(cur_r)} (gain={best_gain})"
-                )
-
-    return cur_p, cur_s, cur_e, cur_r
 
 
 def main(argv=None) -> int:
@@ -424,10 +293,21 @@ def main(argv=None) -> int:
         default="./result",
         help="root directory where results are stored",
     )
+    p.add_argument(
+        "--output_file",
+        default=None,
+        type=Path,
+        help="Path to save missing combinations as CSV (default: result_root/missing_combinations_<timestamp>.csv)",
+    )
+    p.add_argument(
+        "--n_show_first",
+        default=10,
+        type=int,
+        help="Number of first missing combinations to print to stdout",
+    )
     args = p.parse_args(argv)
-    config_path: Path = args.config
     try:
-        policies, seeds, env_pairs, remark_pairs = load_config_from_yaml(config_path)
+        policies, seeds, env_pairs, remark_pairs = load_config_from_yaml(args.config)
     except Exception as e:
         print(f"[ERROR] Failed to load config: {e}", file=sys.stderr)
         return 2
@@ -442,46 +322,33 @@ def main(argv=None) -> int:
     all_combos = generate_all_combinations(policies, seeds, env_pairs, remark_pairs)
     missing = filter_unexecuted(all_combos, done_set)
 
-    print("# Summary")
-    print(f"# config file: {config_path}")
-    print(f"# configured policies: {len(policies)} -> {policies}")
-    print(f"# configured seeds: {len(seeds)} -> {seeds}")
-    print(f"# configured envs: {len(env_pairs)} -> {env_names}")
-    print(f"# configured remarks: {len(remark_pairs)} -> {remark_values}")
-    print(f"# discovered executed combinations: {len(done_set)}")
-    print(f"# full product size: {len(all_combos)}")
-    print(f"# missing combinations: {len(missing)}")
-    print()
+    if args.output_file:
+        out_path = args.output_file
+    else:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = Path(args.result_root) / f"missing_combinations_{ts}.csv"
 
-    reduced_p, reduced_s, reduced_e, reduced_r = greedy_reduce_sets(
-        policies, seeds, env_names, remark_values, done_set
-    )
-    print("# Greedy reduction result:")
-    print('  POLICIES_NEW="' + " ".join(reduced_p) + '"')
-    print('  SEEDS_NEW="' + " ".join(reduced_s) + '"')
+    write_missing_to_csv(missing, out_path)
+
+    print("# Summary")
+    print(f"# Config file: {args.config}")
+    print(f"# Configured policies: {len(policies)} -> {policies}")
+    print(f"# Configured seeds: {len(seeds)} -> {seeds}")
+    print(f"# Configured envs: {len(env_pairs)} -> {env_names}")
+    print(f"# Configured remarks: {len(remark_pairs)} -> {remark_values}")
+
     print()
-    print("  ## ENV_LIST_NEW (each line: ENV_NAME DATA_TAG)")
-    for en in reduced_e:
-        dt = next((dt for (n, dt) in env_pairs if n == en), "")
-        print(f"  {en} {dt}")
+    num_show = max(0, args.n_show_first)
+    print(f"# Showing first {num_show} missing combinations:")
+    for idx, row in enumerate(missing[:num_show], start=1):
+        print(f"{idx:3d}. {format_missing_row(row)}")
+    if len(missing) == 0:
+        print("  (none)")
+
     print()
-    print("  ## REMARK_LIST_NEW (each line: ARGFILE REMARK)")
-    for rv in reduced_r:
-        argfile = next((af for (af, rm) in remark_pairs if rm == rv), "")
-        print(f"  {(argfile, rv)}")
-    print()
-    reduced_size = len(reduced_p) * len(reduced_s) * len(reduced_e) * len(reduced_r)
-    print(f"  ## reduced product size: {reduced_size}")
-    reduced_all = generate_all_combinations(
-        reduced_p,
-        reduced_s,
-        [(e, next(dt for (n, dt) in env_pairs if n == e)) for e in reduced_e],
-        [(next(af for (af, rm) in remark_pairs if rm == r), r) for r in reduced_r],
-    )
-    reduced_missing = filter_unexecuted(reduced_all, done_set)
-    print(
-        f"  ## missing in reduced product: {len(reduced_missing)} (should equal reduced product size)\n"
-    )
+    print(f"# Executed combinations: {len(done_set)}")
+    print(f"# Full product size: {len(all_combos)}")
+    print(f"# Missing combinations (saved to {out_path}): {len(missing)}")
 
     return 0
 

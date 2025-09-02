@@ -15,7 +15,6 @@ import glob
 import os
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Set, Tuple
 
@@ -31,7 +30,8 @@ def _ensure_list_of_str(xs: Any) -> List[str]:
     return [str(xs)]
 
 
-def _parse_pair_list(items: Any, kind: str) -> List[Tuple[str, str]]:
+def parse_yaml_pair_list(items: Any, kind: str) -> List[Tuple[str, str]]:
+    """Parse a YAML sequence of items into standardized pairs of first and second values."""
     out: List[Tuple[str, str]] = []
     if items is None:
         return out
@@ -106,8 +106,8 @@ def load_config_from_yaml(
 
     policies = _ensure_list_of_str(policies_raw)
     seeds = _ensure_list_of_str(seeds_raw)
-    env_pairs = _parse_pair_list(env_list_raw, "env_list")
-    remark_pairs = _parse_pair_list(remark_list_raw, "remark_list")
+    env_pairs = parse_yaml_pair_list(env_list_raw, "env_list")
+    remark_pairs = parse_yaml_pair_list(remark_list_raw, "remark_list")
 
     return policies, seeds, env_pairs, remark_pairs
 
@@ -234,20 +234,20 @@ def generate_all_combinations(
     allc: List[Tuple[str, str, str, str, str, str]] = []
     for policy in policies:
         for seed in seeds:
-            for env_name, env_tag in env_pairs:
+            for env_name, data_tag in env_pairs:
                 for remark_argfile, remark_val in remark_pairs:
                     allc.append(
-                        (policy, seed, env_name, env_tag, remark_val, remark_argfile)
+                        (policy, seed, env_name, data_tag, remark_val, remark_argfile)
                     )
     return allc
 
 
 def filter_unexecuted(all_combos, done_set):
     out = []
-    for policy, seed, env_name, env_tag, remark_val, remark_argfile in all_combos:
+    for policy, seed, env_name, data_tag, remark_val, remark_argfile in all_combos:
         key = (policy, env_name, seed, remark_val)
         if key not in done_set:
-            out.append((policy, seed, env_name, env_tag, remark_val, remark_argfile))
+            out.append((policy, seed, env_name, data_tag, remark_val, remark_argfile))
     return out
 
 
@@ -258,7 +258,7 @@ def write_missing_to_csv(missing, output_path: Path) -> None:
         "policy",
         "seed",
         "env_name",
-        "env_tag",
+        "data_tag",
         "remark_val",
         "remark_argfile",
     ]
@@ -270,9 +270,9 @@ def write_missing_to_csv(missing, output_path: Path) -> None:
 
 
 def format_missing_row(row: Tuple[str, str, str, str, str, str]) -> str:
-    policy, seed, env_name, env_tag, remark_val, remark_argfile = row
+    policy, seed, env_name, data_tag, remark_val, remark_argfile = row
     return (
-        f"policy={policy} seed={seed} env={env_name} (tag={env_tag}) "
+        f"policy={policy} seed={seed} env={env_name} (tag={data_tag}) "
         f"remark='{remark_val}' argfile='{remark_argfile}'"
     )
 
@@ -297,7 +297,7 @@ def main(argv=None) -> int:
         "--output_file",
         default=None,
         type=Path,
-        help="Path to save missing combinations as CSV (default: result_root/missing_combinations_<timestamp>.csv)",
+        help="Path to save missing combinations as CSV",
     )
     p.add_argument(
         "--n_show_first",
@@ -306,6 +306,7 @@ def main(argv=None) -> int:
         help="Number of first missing combinations to print to stdout",
     )
     args = p.parse_args(argv)
+
     try:
         policies, seeds, env_pairs, remark_pairs = load_config_from_yaml(args.config)
     except Exception as e:
@@ -325,8 +326,7 @@ def main(argv=None) -> int:
     if args.output_file:
         out_path = args.output_file
     else:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = Path(args.result_root) / f"missing_combinations_{ts}.csv"
+        out_path = Path(args.result_root) / "auto_eval_jobs.csv"
 
     write_missing_to_csv(missing, out_path)
 

@@ -856,6 +856,10 @@ class AutoEval:
                 new_raw_results_dict.setdefault(remark, {})[policy] = row_dict
         return new_raw_results_dict
 
+    # Class variables to track printed warnings
+    _printed_trial_warnings = set()
+    _suppression_announced = set()
+
     @classmethod
     def _check_n_trials(cls, n_trials, expected_n_trials, remark, policy, task_key):
         if not n_trials:
@@ -866,10 +870,30 @@ class AutoEval:
             trial_err, reason = TAG_INSUFFICIENT, "Insufficient trials"
         else:
             return None
-        print(
-            f"[{cls.__name__}] Warning: {reason} for "
-            f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
-        )
+
+        # TAG_EXCESS is printed every time
+        if trial_err == TAG_EXCESS:
+            print(
+                f"[{cls.__name__}] Warning: {reason} for "
+                f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
+            )
+        else:
+            # TAG_NA or TAG_INSUFFICIENT: print only on first occurrence
+            key = (trial_err, reason)
+            if key not in cls._printed_trial_warnings:
+                print(
+                    f"[{cls.__name__}] Warning: {reason} for "
+                    f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
+                )
+                cls._printed_trial_warnings.add(key)
+            else:
+                # Only print suppression notice once per reason
+                if key not in cls._suppression_announced:
+                    print(
+                        f"[{cls.__name__}] Further occurrences of '{reason}' will not be printed."
+                    )
+                    cls._suppression_announced.add(key)
+
         return trial_err
 
     @classmethod

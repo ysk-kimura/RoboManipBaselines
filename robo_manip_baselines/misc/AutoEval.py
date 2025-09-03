@@ -931,11 +931,9 @@ class AutoEval:
                 key = (trial_err, reason)
                 if key not in cls._printed_trial_warnings:
                     print(f"  - {reason} - displaying '{trial_err}'")
+                    print(f"  - '{reason}' will not be printed again")
                     cls._printed_trial_warnings.add(key)
-                else:
-                    if key not in cls._suppression_announced:
-                        print(f"  - '{reason}' will not be printed again")
-                        cls._suppression_announced.add(key)
+                    cls._suppression_announced.add(key)
 
         # --- Seed duplication check ---
         if trial_paths and result_data_dir:

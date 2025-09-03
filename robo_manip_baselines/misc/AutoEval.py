@@ -613,13 +613,13 @@ class AutoEval:
 
     @classmethod
     def load_rollout_results_from_txt(cls, result_data_dir, expected_n_trials=None):
-        """Read task success list files and return metrics grouped by remark."""
-        # metrics = { remark: { policy: { succ_lists, trials } } }
+        """Scan task_success_list.txt files, build metrics dict, and collect paths for seed checks."""
         metrics = defaultdict(
             lambda: defaultdict(
                 lambda: {
                     "succ_lists": defaultdict(list),
                     "trials": defaultdict(int),
+                    "trial_paths": defaultdict(list),
                 }
             )
         )
@@ -640,9 +640,10 @@ class AutoEval:
             )
             if remark is None:
                 remark = ""
-            # Add to metrics
+            # Collect metrics
             metrics[remark][policy]["succ_lists"][raw_task_key].append(succ_values)
             metrics[remark][policy]["trials"][raw_task_key] += n_trials
+            metrics[remark][policy]["trial_paths"][raw_task_key].append(tsk_suc_file)
 
         # Calculate the expected number of trials and perform consistency check
         expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)
@@ -777,18 +778,24 @@ class AutoEval:
         lockpath = cls._lockfile_path_for_result(result_data_dir, queue_dir=queue_dir)
         fd = cls._acquire_lockfile(lockpath, timeout=300, poll=0.5, stale_seconds=600)
         try:
+            # --- Load rollout results ---
             metrics, expected_n_trials = cls.load_rollout_results_from_txt(
                 result_data_dir, expected_n_trials
             )
+
             new_raw_task_keys, display_md_map = cls._get_task_keys_with_names(metrics)
             new_raw_results_dict = cls._build_new_results(
-                metrics, new_raw_task_keys, expected_n_trials
+                metrics, new_raw_task_keys, expected_n_trials, result_data_dir
             )
+
+            # --- Read existing Markdown ---
             (
                 existing_display_results_dict,
                 existing_header_display_tasks,
                 evaluation_result_path,
             ) = cls._read_existing_md(result_data_dir)
+
+            # --- Merge new results with existing ---
             merged_row_keys, merged_rows, merged_display_task_order = (
                 cls._merge_results(
                     existing_display_results_dict,
@@ -798,12 +805,16 @@ class AutoEval:
                     display_md_map,
                 )
             )
+
+            # --- Compute averages ---
             cls._compute_averages(
                 merged_row_keys,
                 merged_rows,
                 existing_header_display_tasks,
                 display_md_map,
             )
+
+            # --- Write Markdown ---
             lines = cls._build_markdown_lines(
                 merged_row_keys, merged_rows, merged_display_task_order
             )
@@ -823,18 +834,26 @@ class AutoEval:
         return new_raw_task_keys, display_md_map
 
     @classmethod
-    def _build_new_results(cls, metrics, new_raw_task_keys, expected_n_trials):
+    def _build_new_results(
+        cls, metrics, new_raw_task_keys, expected_n_trials, result_data_dir
+    ):
         new_raw_results_dict = {}
         for remark, remark_dict in metrics.items():
             for policy in POLICIES:
                 if policy not in remark_dict:
                     continue
                 row_dict = {}
-                numeric_values = []
                 for task_key in new_raw_task_keys:
                     n_trials = remark_dict[policy]["trials"].get(task_key, None)
+                    trial_paths = remark_dict[policy]["trial_paths"].get(task_key, [])
                     n_trials_err = cls._check_n_trials(
-                        n_trials, expected_n_trials, remark, policy, task_key
+                        n_trials,
+                        expected_n_trials,
+                        remark,
+                        policy,
+                        task_key,
+                        trial_paths,
+                        result_data_dir,
                     )
                     if n_trials_err is not None:
                         row_dict[task_key] = n_trials_err
@@ -850,7 +869,6 @@ class AutoEval:
                     mean_pct = round(mean(pct_list))
                     stdev_pct = round(stdev(pct_list) if len(pct_list) > 1 else 0)
                     row_dict[task_key] = f"{mean_pct:d} (&plusmn;{stdev_pct:d})"
-                    numeric_values.append(mean_pct)
                 if all(c == TAG_NA for c in row_dict.values()):
                     continue
                 new_raw_results_dict.setdefault(remark, {})[policy] = row_dict
@@ -861,7 +879,22 @@ class AutoEval:
     _suppression_announced = set()
 
     @classmethod
-    def _check_n_trials(cls, n_trials, expected_n_trials, remark, policy, task_key):
+    def _check_n_trials(
+        cls,
+        n_trials,
+        expected_n_trials,
+        remark,
+        policy,
+        task_key,
+        trial_paths,
+        result_data_dir,
+    ):
+        """Check trial count and seed duplication for a given task."""
+
+        context_str = f"remark={remark}, policy={policy}, task={task_key}"
+        context_printed = False
+
+        # --- Trial count check ---
         if not n_trials:
             trial_err, reason = TAG_NA, "No data available"
         elif n_trials > expected_n_trials:
@@ -869,30 +902,57 @@ class AutoEval:
         elif n_trials < expected_n_trials:
             trial_err, reason = TAG_INSUFFICIENT, "Insufficient trials"
         else:
-            return None
+            trial_err = None
 
-        # TAG_EXCESS is printed every time
-        if trial_err == TAG_EXCESS:
-            print(
-                f"[{cls.__name__}] Warning: {reason} for "
-                f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
-            )
-        else:
-            # TAG_NA or TAG_INSUFFICIENT: print only on first occurrence
-            key = (trial_err, reason)
-            if key not in cls._printed_trial_warnings:
+        # --- Print trial warnings ---
+        if trial_err is not None:
+            if not context_printed:
+                print(f"[{cls.__name__}] Warnings for {context_str}:")
+                context_printed = True
+
+            if trial_err == TAG_EXCESS:
                 print(
-                    f"[{cls.__name__}] Warning: {reason} for "
-                    f"remark={remark}, policy={policy}, task={task_key} - displaying '{trial_err}'"
+                    f"  - {reason} - displaying '{trial_err}' "
+                    f"(got {n_trials}, expected {expected_n_trials})"
                 )
-                cls._printed_trial_warnings.add(key)
             else:
-                # Only print suppression notice once per reason
-                if key not in cls._suppression_announced:
-                    print(
-                        f"[{cls.__name__}] Further occurrences of '{reason}' will not be printed."
-                    )
-                    cls._suppression_announced.add(key)
+                key = (trial_err, reason)
+                if key not in cls._printed_trial_warnings:
+                    print(f"  - {reason} - displaying '{trial_err}'")
+                    cls._printed_trial_warnings.add(key)
+                else:
+                    if key not in cls._suppression_announced:
+                        print(f"  - '{reason}' will not be printed again")
+                        cls._suppression_announced.add(key)
+
+        # --- Seed duplication check ---
+        if trial_paths and result_data_dir:
+            seed_to_paths = defaultdict(list)
+            for path in trial_paths:
+                m = re.search(r"/s(\d+)(?:/|$)", path)
+                if m:
+                    seed = int(m.group(1))
+                    seed_to_paths[seed].append(path)
+
+            for seed, paths in seed_to_paths.items():
+                if len(paths) > 1:
+                    if not context_printed:
+                        print(f"[{cls.__name__}] Warnings for {context_str}:")
+                        context_printed = True
+                    print(f"  - Duplicate seed detected: seed={seed}")
+                    path_objs = [Path(p) for p in paths]
+                    for p_obj in sorted(
+                        path_objs,
+                        key=lambda p_obj: (
+                            p_obj.parent.stat().st_mtime if p_obj.parent.exists() else 0
+                        ),
+                    ):
+                        try:
+                            relative_dir = p_obj.parent.relative_to(result_data_dir)
+                            display_path = Path(result_data_dir) / relative_dir
+                        except ValueError:
+                            display_path = p_obj.parent
+                        print(f"      {display_path}")
 
         return trial_err
 

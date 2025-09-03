@@ -348,7 +348,8 @@ def main(argv=None) -> int:
     print()
     print(f"# Executed combinations: {len(done_set)}")
     print(f"# Full product size: {len(all_combos)}")
-    print(f"# Missing combinations (saved to {out_path}): {len(missing)}")
+    print(f"# Missing combinations: {len(missing)}")
+    print(f"# Saved to: {out_path}")
 
     return 0
 

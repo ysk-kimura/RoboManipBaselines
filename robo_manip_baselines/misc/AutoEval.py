@@ -837,7 +837,9 @@ class AutoEval:
     def _build_new_results(
         cls, metrics, new_raw_task_keys, expected_n_trials, result_data_dir
     ):
+        """Build new results dict and check for trial count / seed duplication."""
         new_raw_results_dict = {}
+        all_excess_dirs = []
         for remark, remark_dict in metrics.items():
             for policy in POLICIES:
                 if policy not in remark_dict:
@@ -846,7 +848,7 @@ class AutoEval:
                 for task_key in new_raw_task_keys:
                     n_trials = remark_dict[policy]["trials"].get(task_key, None)
                     trial_paths = remark_dict[policy]["trial_paths"].get(task_key, [])
-                    n_trials_err = cls._check_n_trials(
+                    n_trials_err, excess_dirs = cls._check_n_trials(
                         n_trials,
                         expected_n_trials,
                         remark,
@@ -855,6 +857,7 @@ class AutoEval:
                         trial_paths,
                         result_data_dir,
                     )
+                    all_excess_dirs.extend(excess_dirs)
                     if n_trials_err is not None:
                         row_dict[task_key] = n_trials_err
                         continue
@@ -872,6 +875,14 @@ class AutoEval:
                 if all(c == TAG_NA for c in row_dict.values()):
                     continue
                 new_raw_results_dict.setdefault(remark, {})[policy] = row_dict
+
+        if all_excess_dirs:
+            print(
+                f"[{cls.__name__}] Recommended deletion of duplicate seed directories:"
+            )
+            for d in all_excess_dirs:
+                print(f"rm -rf '{d}'")
+
         return new_raw_results_dict
 
     # Class variables to track printed warnings
@@ -893,6 +904,7 @@ class AutoEval:
 
         context_str = f"remark={remark}, policy={policy}, task={task_key}"
         context_printed = False
+        excess_dirs = []
 
         # --- Trial count check ---
         if not n_trials:
@@ -941,20 +953,27 @@ class AutoEval:
                         context_printed = True
                     print(f"  - Duplicate seed detected: seed={seed}")
                     path_objs = [Path(p) for p in paths]
-                    for p_obj in sorted(
+                    sorted_objs = sorted(
                         path_objs,
                         key=lambda p_obj: (
                             p_obj.parent.stat().st_mtime if p_obj.parent.exists() else 0
                         ),
-                    ):
+                    )
+                    for p_obj in sorted_objs:
                         try:
                             relative_dir = p_obj.parent.relative_to(result_data_dir)
                             display_path = Path(result_data_dir) / relative_dir
                         except ValueError:
                             display_path = p_obj.parent
                         print(f"      {display_path}")
+                    for p_obj in sorted_objs[1:]:
+                        try:
+                            relative_dir = p_obj.parent.relative_to(result_data_dir)
+                            excess_dirs.append(Path(result_data_dir) / relative_dir)
+                        except ValueError:
+                            excess_dirs.append(p_obj.parent)
 
-        return trial_err
+        return trial_err, excess_dirs
 
     @classmethod
     def _read_existing_md(cls, result_data_dir):

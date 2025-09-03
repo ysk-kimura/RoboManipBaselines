@@ -647,7 +647,6 @@ class AutoEval:
 
         # Calculate the expected number of trials and perform consistency check
         expected_n_trials = cls._compute_expected_trials(metrics, expected_n_trials)
-        cls._warn_inconsistent_trials(metrics, expected_n_trials)
         return metrics, expected_n_trials
 
     @classmethod
@@ -754,20 +753,6 @@ class AutoEval:
                 f"[{cls.__name__}] Estimated expected_n_trials as median: {expected_n_trials}"
             )
         return expected_n_trials
-
-    @classmethod
-    def _warn_inconsistent_trials(cls, metrics, expected_n_trials):
-        for remark, remark_dict in metrics.items():
-            for policy in POLICIES:
-                if policy not in remark_dict:
-                    continue
-                for task_key, n_trials in remark_dict[policy]["trials"].items():
-                    if n_trials > 0 and n_trials != expected_n_trials:
-                        print(
-                            f"[{cls.__name__}] Warning: Inconsistent n_trials: "
-                            f"remark={remark}, policy={policy}, task={task_key}, "
-                            f"n_trials={n_trials} (expected={expected_n_trials})"
-                        )
 
     @classmethod
     def append_eval_lines_to_md(
@@ -903,7 +888,6 @@ class AutoEval:
         """Check trial count and seed duplication for a given task."""
 
         context_str = f"remark={remark}, policy={policy}, task={task_key}"
-        context_printed = False
         excess_dirs = []
 
         # --- Trial count check ---
@@ -917,12 +901,12 @@ class AutoEval:
             trial_err = None
 
         # --- Print trial warnings ---
+        is_context_printed = False
         if trial_err is not None:
-            if not context_printed:
-                print(f"[{cls.__name__}] Warnings for {context_str}:")
-                context_printed = True
-
-            if trial_err == TAG_EXCESS:
+            if trial_err in [TAG_EXCESS, TAG_INSUFFICIENT]:
+                if not is_context_printed:
+                    print(f"[{cls.__name__}] Warnings for {context_str}:")
+                    is_context_printed = True
                 print(
                     f"  - {reason} - displaying '{trial_err}' "
                     f"(got {n_trials}, expected {expected_n_trials})"
@@ -930,6 +914,9 @@ class AutoEval:
             else:
                 key = (trial_err, reason)
                 if key not in cls._printed_trial_warnings:
+                    if not is_context_printed:
+                        print(f"[{cls.__name__}] Warnings for {context_str}:")
+                        is_context_printed = True
                     print(f"  - {reason} - displaying '{trial_err}'")
                     print(f"  - '{reason}' will not be printed again")
                     cls._printed_trial_warnings.add(key)
@@ -946,9 +933,9 @@ class AutoEval:
 
             for seed, paths in seed_to_paths.items():
                 if len(paths) > 1:
-                    if not context_printed:
+                    if not is_context_printed:
                         print(f"[{cls.__name__}] Warnings for {context_str}:")
-                        context_printed = True
+                        is_context_printed = True
                     print(f"  - Duplicate seed detected: seed={seed}")
                     path_objs = [Path(p) for p in paths]
                     sorted_objs = sorted(

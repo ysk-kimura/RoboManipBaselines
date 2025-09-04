@@ -293,14 +293,14 @@ def format_missing_row(row: Tuple[str, str, str, str, str, str]) -> str:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    default_config_path = (
-        Path(__file__).resolve().parent / "configs" / "CheckMissingResults.yaml"
-    )
+    default_config_dir = Path(__file__).resolve().parent / "configs"
+    default_config_paths = list(default_config_dir.glob("*.yaml"))
     p.add_argument(
         "--config",
-        default=default_config_path,
+        default=default_config_paths,
         type=Path,
-        help="optional path to YAML config file",
+        nargs="+",
+        help="paths to YAML config files (can specify multiple)",
     )
     p.add_argument(
         "--result_root",
@@ -321,48 +321,77 @@ def main(argv=None) -> int:
     )
     args = p.parse_args(argv)
 
-    try:
-        policies, seeds, env_pairs, remark_pairs = load_config_from_yaml(args.config)
-    except Exception as e:
-        print(f"[ERROR] Failed to load config: {e}", file=sys.stderr)
-        return 2
+    merged_missing = []
+    merged_done_set: Set[Tuple[str, str, str, str, str]] = set()
+    merged_all_combos: List[Tuple[str, str, str, str, str, str]] = []
+    for config_path in args.config:
+        try:
+            policies, seeds, env_pairs, remark_pairs = load_config_from_yaml(
+                config_path
+            )
+        except Exception as e:
+            print(f"[ERROR] Failed to load config {config_path}: {e}", file=sys.stderr)
+            continue  # Continue with the next YAML file
 
-    # ensure seeds are strings
-    seeds = [str(s) for s in seeds]
+        seeds = [str(s) for s in seeds]
+        env_names = [e for e, _ in env_pairs]
+        remark_values = [r for _, r in remark_pairs]
 
-    env_names = [e for e, _ in env_pairs]
-    remark_values = [r for _, r in remark_pairs]
+        done_set = collect_done_set(str(args.result_root), env_names)
+        merged_done_set.update(done_set)
 
-    done_set = collect_done_set(str(args.result_root), env_names)
-    all_combos = generate_all_combinations(policies, seeds, env_pairs, remark_pairs)
-    missing = filter_unexecuted(all_combos, done_set)
+        all_combos = generate_all_combinations(policies, seeds, env_pairs, remark_pairs)
+        merged_all_combos.extend(all_combos)
 
+        missing = filter_unexecuted(all_combos, done_set)
+        merged_missing.extend(missing)
+
+        print("# Summary")
+        print(f"# Config file: {args.config}")
+        print(f"# Configured policies: {len(policies)} -> {policies}")
+        print(f"# Configured seeds: {len(seeds)} -> {seeds}")
+        print(f"# Configured envs: {len(env_pairs)} -> {env_names}")
+        print(f"# Configured remarks: {len(remark_pairs)} -> {remark_values}")
+
+        print()
+
+    # Remove duplicates in merged_missing
+    merged_missing = list({tuple(row) for row in merged_missing})
+
+    # Determine output path
     if args.output_file:
         out_path = args.output_file
     else:
-        out_path = Path(args.result_root) / "auto_eval_jobs.csv"
+        out_path = Path(__file__).resolve().parent / "auto_eval_jobs.csv"
 
-    write_missing_to_csv(missing, out_path)
+    # Ensure parent directory exists
+    if not out_path.parent.exists():
+        out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("# Summary")
-    print(f"# Config file: {args.config}")
-    print(f"# Configured policies: {len(policies)} -> {policies}")
-    print(f"# Configured seeds: {len(seeds)} -> {seeds}")
-    print(f"# Configured envs: {len(env_pairs)} -> {env_names}")
-    print(f"# Configured remarks: {len(remark_pairs)} -> {remark_values}")
+    # Backup existing file if needed
+    if out_path.exists():
+        base, ext = os.path.splitext(out_path.name)
+        backup_path = out_path.parent / f"{base}_old{ext}"
+        counter = 1
+        while backup_path.exists():
+            backup_path = out_path.parent / f"{base}_old_{counter}{ext}"
+            counter += 1
+        out_path.rename(backup_path)
+        print(f"Existing file moved: {out_path} -> {backup_path}")
 
-    print()
+    write_missing_to_csv(merged_missing, out_path)
+
     num_show = max(0, args.n_show_first)
     print(f"# Showing first {num_show} missing combinations:")
-    for idx, row in enumerate(missing[:num_show], start=1):
+    for idx, row in enumerate(merged_missing[:num_show], start=1):
         print(f"{idx:3d}. {format_missing_row(row)}")
-    if len(missing) == 0:
+    if len(merged_missing) == 0:
         print("  (none)")
 
     print()
-    print(f"# Executed combinations: {len(done_set)}")
-    print(f"# Full product size: {len(all_combos)}")
-    print(f"# Missing combinations: {len(missing)}")
+    print(f"# Executed combinations: {len(merged_done_set)}")
+    print(f"# Full product size: {len(merged_all_combos)}")
+    print(f"# Missing combinations: {len(merged_missing)}")
     print(f"# Saved to: {out_path}")
 
     return 0

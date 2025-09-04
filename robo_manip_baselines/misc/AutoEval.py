@@ -865,8 +865,14 @@ class AutoEval:
             print(
                 f"[{cls.__name__}] Recommended deletion of duplicate seed directories:"
             )
-            for d in all_excess_dirs:
-                print(f"rm -rf '{d}'")
+            prefix = "rm -rf "
+            for i, d in enumerate(all_excess_dirs):
+                if i == 0:
+                    print(f"{prefix}{d} \\")
+                elif i < len(all_excess_dirs) - 1:
+                    print(f"{' ' * len(prefix)}{d} \\")
+                else:
+                    print(f"{' ' * len(prefix)}{d}")
 
         return new_raw_results_dict
 
@@ -945,12 +951,52 @@ class AutoEval:
                         ),
                     )
                     for p_obj in sorted_objs:
+                        # compute display path for the directory
                         try:
                             relative_dir = p_obj.parent.relative_to(result_data_dir)
-                            display_path = Path(result_data_dir) / relative_dir
+                            display_path = Path(result_data_dir).name / relative_dir
                         except ValueError:
                             display_path = p_obj.parent
-                        print(f"      {display_path}")
+                        print(" " * 6 + f"{display_path}")
+                        if remark:
+                            found_file = None
+                            remark_text = None
+                            for depth in range(0, 3):
+                                candidate = (
+                                    p_obj.parent.parents[depth] / "setting_remark.txt"
+                                )
+                                if candidate.exists():
+                                    found_file = candidate
+                                    with open(candidate, "r", encoding="utf-8") as f:
+                                        remark_text = f.read().strip()
+                                    break
+                            if found_file:
+                                try:
+                                    with open(found_file, "r", encoding="utf-8") as f:
+                                        remark_text = f.read().strip()
+                                except Exception:
+                                    remark_text = "<unreadable>"
+                                remark_display_path = Path(
+                                    result_data_dir
+                                ).name / found_file.relative_to(result_data_dir)
+                                if remark_text == remark:
+                                    print(
+                                        " " * 10
+                                        + f"{remark_display_path}: verified as '{remark}'"
+                                    )
+                                else:
+                                    print(
+                                        " " * 10
+                                        + f"{remark_display_path}: mismatch (expected '{remark}', found '{remark_text}')"
+                                    )
+                            else:
+                                remark_display_path = (
+                                    display_path / "setting_remark.txt"
+                                )
+                                print(
+                                    " " * 10
+                                    + f"{remark_display_path}: no setting_remark.txt found (expected '{remark}')"
+                                )
                     for p_obj in sorted_objs[1:]:
                         try:
                             relative_dir = p_obj.parent.relative_to(result_data_dir)

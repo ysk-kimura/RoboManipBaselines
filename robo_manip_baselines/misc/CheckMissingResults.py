@@ -378,6 +378,7 @@ def main(argv=None) -> int:
             counter += 1
         out_path.rename(backup_path)
         print(f"Existing file moved: {out_path} -> {backup_path}")
+        print()
 
     write_missing_to_csv(merged_missing, out_path)
 

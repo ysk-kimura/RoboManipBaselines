@@ -279,7 +279,7 @@ def write_missing_to_csv(missing, output_path: Path) -> None:
     with output_path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(header)
-        for row in missing:
+        for row in sorted(missing):
             writer.writerow(row)
 
 

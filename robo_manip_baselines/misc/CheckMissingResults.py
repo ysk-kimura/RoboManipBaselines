@@ -208,9 +208,9 @@ def extract_fields_from_path(
 
 def collect_done_set(
     result_root: str, env_names: List[str]
-) -> Set[Tuple[str, str, str, str]]:
+) -> Set[Tuple[str, str, str, str, str]]:
     """Collect executed combinations by scanning task_success_list files."""
-    done: Set[Tuple[str, str, str, str]] = set()
+    done: Set[Tuple[str, str, str, str, str]] = set()
     env_set = set(env_names)
     files = find_task_success_files(result_root)
     for f in files:
@@ -218,8 +218,20 @@ def collect_done_set(
             policy, env, seed, remark = extract_fields_from_path(
                 result_root, f, env_set
             )
+            # derive data_tag from path: the component immediately after env
+            data_tag = ""
+            try:
+                rel = os.path.relpath(f, result_root)
+                parts = rel.split(os.sep)
+                if env in parts:
+                    idx = parts.index(env)
+                    if idx + 1 < len(parts):
+                        data_tag = parts[idx + 1]
+            except Exception:
+                # fallback: leave data_tag empty
+                data_tag = ""
             if policy and env and seed:
-                done.add((policy, env, seed, remark))
+                done.add((policy, env, data_tag, seed, remark))
         except Exception:
             continue
     return done
@@ -243,11 +255,13 @@ def generate_all_combinations(
 
 
 def filter_unexecuted(all_combos, done_set):
+    """Return items from all_combos not in done_set, comparing policy, env, data_tag, seed, remark."""
     out = []
-    for policy, seed, env_name, data_tag, remark_val, remark_argfile in all_combos:
-        key = (policy, env_name, seed, remark_val)
+    for policy, seed, env_name, data_loc, remark_val, remark_argfile in all_combos:
+        data_tag = AutoEval.extract_dataset_tag(data_loc)
+        key = (policy, env_name, data_tag, seed, remark_val)
         if key not in done_set:
-            out.append((policy, seed, env_name, data_tag, remark_val, remark_argfile))
+            out.append((policy, seed, env_name, data_loc, remark_val, remark_argfile))
     return out
 
 

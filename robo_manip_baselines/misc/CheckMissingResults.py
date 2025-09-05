@@ -354,11 +354,11 @@ class CheckMissingResults:
             out_path = Path(__file__).resolve().parent / "auto_eval_jobs.csv"
 
         if out_path.exists():
-            base, ext = os.path.splitext(out_path.name)
-            backup_path = out_path.parent / f"{base}_old{ext}"
+            base, _ = os.path.splitext(out_path.name)
+            backup_path = out_path.parent / f"{base}_old.bak"
             counter = 1
             while backup_path.exists():
-                backup_path = out_path.parent / f"{base}_old_{counter}{ext}"
+                backup_path = out_path.parent / f"{base}_old_{counter}.bak"
                 counter += 1
             out_path.rename(backup_path)
             print(

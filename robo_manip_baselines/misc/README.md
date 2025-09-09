@@ -58,19 +58,3 @@ By default, the video separation times are automatically determined by detecting
 ```console
 --task_period_list 00:00.00-00:11.00 00:14.00-00:27.50 00:30.20-00:42.50 00:45.70-00:58.50 01:01.70-01:13.50 01:16.70-01:28.00
 ```
-
-## Execution utilities
-A tool that manages jobs which automatically perform training, rollout, and evaluation.
-
-### Run batched evaluations
-Execute a batch of evaluation jobs with automated environment setup and mutual exclusion control via job queues. This is suitable for running multiple experiments efficiently in parallel.
-```console
-$ python -u AutoEval.py <policy> <env> \
-    --upgrade_pip_setuptools \
-    --world_idx_list 0 1 2 3 4 5 \
-    --target_dir "${TARGET_DIR}" \
-    --seeds ${SEEDS} \
-    --job_queue "${JQUEUE}" \
-    --dataset_location "${DATA_LOC}"
-```
-The `--upgrade_pip_setuptools` option ensures that the virtual environment uses the latest versions of Python packaging tools. The `--target_dir` specifies the base working directory for repository cloning, environment setup, and result storage. With `--job_queue`, you can assign a queue name to coordinate execution and prevent simultaneous runs from interfering with one another in shared environments. The `--dataset_location` option defines the path to the input dataset, which can be a local directory or a URL.

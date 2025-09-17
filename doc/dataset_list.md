@@ -30,6 +30,11 @@ See [here](./rmb_data_format.md) for the format of the dataset file.
 | **MujocoUR5eCabinetHinge_Dataset100** | [MujocoUR5eCabinet](./environment_catalog.md#MujocoUR5eCabinet) | SpaceMouse | 100 | 08/22/2025 | [Download](https://www.dropbox.com/scl/fo/dl4v4v3oe9mbgio0oejmo/AH2LyUxpDqKucik3RB-_1Z0?rlkey=cefx6km59j88qczmfq0cpnu6k&dl=1) |
 | **MujocoUR5eInsert_Dataset100** | [MujocoUR5eInsert](./environment_catalog.md#MujocoUR5eInsert) | SpaceMouse | 100 | 08/22/2025 | [Download](https://www.dropbox.com/scl/fo/2kmxa1061e2xn0u94vb3u/ALXRKinkgq-mTUfTtL7NXkw?rlkey=53fc19m0avdh8y2pp3biohmfp&dl=1) |
 
+### UR5e (Multi-object task)
+This is a multi-object task dataset consisting of 540 demonstrations in total, with 30 for each of 18 conditions (9 object types × 2 basket types).
+
+| **MujocoUR5ePick_Dataset540** | [MujocoUR5ePick](./environment_catalog.md#MujocoUR5ePick) | SpaceMouse | 540 | 09/17/2025 | [Download](https://www.dropbox.com/scl/fo/qdx7yt43rhidt4z4cu36d/AAMLgjM_9bvG2q84GTnxTQE?rlkey=lmwam9zl5bt7dcz27cae35mhr&dl=1) |
+
 ### ALOHA
 | Dataset | Environment | Operation method | # Demo | Date | Link |
 | --- | --- | --- | --- | --- | --- |

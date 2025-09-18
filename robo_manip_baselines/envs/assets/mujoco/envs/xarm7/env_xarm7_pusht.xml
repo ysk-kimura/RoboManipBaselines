@@ -1,0 +1,50 @@
+<!-- TODO: In this environment, the xArm gripper cannot grasp the cable stably. This may be improved by tuning the parameters of the simulation. -->
+<mujoco model="xarm7_pusht">
+  <include file="./env_xarm7_common.xml"/>
+
+  <asset>
+    <texture name="pole" file="general/metal2.png" type="cube"/>
+    <material name="pole" texture="pole" rgba="0.8 0 0 1" specular="1.0" shininess="1.0"/>
+  </asset>
+
+  <include file="../../robots/xarm7/xarm7_config.xml"/>
+
+  <include file="../../objects/cable/cable_config.xml"/>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true" diffuse="0.3 0.3 0.3"/>
+
+    <camera name="front" mode="fixed" pos="0.65 0.0 1.5" euler="0.0 0.785398 1.5708"/>
+    <camera name="side" mode="fixed" pos="0.0 -0.85 0.95" euler="1.5708 0.0 0.0"/>
+
+    <geom name="floor" size="0 0 0.05" type="plane" material="floor"/>
+
+    <geom name="wall1" type="box" size="10 10 0.01" pos="10 0 10" zaxis="1 0 0" material="wall"/>
+    <geom name="wall2" type="box" size="10 10 0.01" pos="-10 0 10" zaxis="1 0 0" material="wall"/>
+    <geom name="wall3" type="box" size="10 10 0.01" pos="0 10 10" zaxis="0 1 0" material="wall"/>
+    <geom name="wall4" type="box" size="10 10 0.01" pos="0 -10 10" zaxis="0 1 0" material="wall"/>
+
+    <body name="table">
+      <geom type="box" size="0.3 0.45 0.019" pos="0 0 0.721" material="table"/>
+      <geom type="box" size="0.025 0.025 0.351" pos="0.23 0.34 0.351" material="table"/>
+      <geom type="box" size="0.025 0.025 0.351" pos="-0.23 0.34 0.351" material="table"/>
+      <geom type="box" size="0.025 0.025 0.351" pos="0.23 -0.34 0.351" material="table"/>
+      <geom type="box" size="0.025 0.025 0.351" pos="-0.23 -0.34 0.351" material="table"/>
+    </body>
+
+    <body name="xarm7_root_frame" pos="-0.22 0.0 0.74">
+      <include file="../../robots/xarm7/xarm7_body.xml"/>
+    </body>
+
+    <body name="t_block" pos="0.15 0.0 0.755" euler="0 0 1.4">
+      <freejoint/>
+      <geom name="t_block1" type="box" size="0.1 0.02 0.02" pos="0.0 0.0 0.0" rgba="1.0 0.0 0.0 1"/>
+      <geom name="t_block2" type="box" size="0.02 0.08 0.02" pos="0.0 0.1 0.0" rgba="1.0 0.0 0.0 1"/>
+    </body>
+
+    <body name="target_region" pos="0.0 0.1 0.74" euler="0 0 -1">
+      <geom name="region1" type="box" size="0.1 0.02 0.001" pos="0.0 0.0 0.0" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0"/>
+      <geom name="region2" type="box" size="0.02 0.08 0.001" pos="0.0 0.1 0.0" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco>

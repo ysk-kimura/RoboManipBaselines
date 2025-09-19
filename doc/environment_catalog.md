@@ -71,6 +71,11 @@ Task to pick a ring and put it around the pole.
 
 https://github.com/user-attachments/assets/da83db94-7fcb-4690-9b73-41af0c1394a8
 
+#### MujocoXarm7Pusht
+Task to push the T-shaped block to align the pose.
+
+https://github.com/user-attachments/assets/000ae494-8ed5-423a-a26e-652b7817c372
+
 ### ALOHA
 #### MujocoAlohaCable
 Task to manipulate a cable with two grippers.

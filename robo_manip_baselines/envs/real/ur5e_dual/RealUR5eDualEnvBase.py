@@ -28,14 +28,8 @@ class RealUR5eDualEnvBase(RealEnvBase):
                 -2 * np.pi,
                 -2 * np.pi,
                 0.0,
-                -2 * np.pi,
-                -2 * np.pi,
-                -1 * np.pi,
-                -2 * np.pi,
-                -2 * np.pi,
-                -2 * np.pi,
-                0.0,
-            ],
+            ]
+            * 2,
             dtype=np.float32,
         ),
         high=np.array(
@@ -47,14 +41,8 @@ class RealUR5eDualEnvBase(RealEnvBase):
                 2 * np.pi,
                 2 * np.pi,
                 255.0,
-                2 * np.pi,
-                2 * np.pi,
-                1 * np.pi,
-                2 * np.pi,
-                2 * np.pi,
-                2 * np.pi,
-                255.0,
-            ],
+            ]
+            * 2,
             dtype=np.float32,
         ),
         dtype=np.float32,
@@ -69,8 +57,8 @@ class RealUR5eDualEnvBase(RealEnvBase):
 
     def __init__(
         self,
-        robot_ip_left,
-        robot_ip_right,
+        robot_ip_left,  # left arm from workspace side
+        robot_ip_right,  # right arm from workspace side
         camera_ids,
         gelsight_ids,
         init_qpos,

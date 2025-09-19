@@ -126,7 +126,14 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         pass
 
     def overwrite_command_for_safety(self, action, duration, joint_vel_limit_scale):
-        arm_joint_pos_command = action[self.body_config_list[0].arm_joint_idxes]
+        arm_joint_idxes = np.concatenate(
+            [
+                body_config.arm_joint_idxes
+                for body_config in self.body_config_list
+                if isinstance(body_config, ArmConfig)
+            ]
+        )
+        arm_joint_pos_command = action[arm_joint_idxes]
         scaled_joint_vel_limit = (
             np.clip(joint_vel_limit_scale, 0.01, 10.0) * self.joint_vel_limit
         )
@@ -162,9 +169,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             )
             # if np.linalg.norm(arm_joint_pos_command_overwritten - arm_joint_pos_command) > 1e-10:
             #     print(f"[{self.__class__.__name__}] Overwrite joint command for safety.")
-            action[self.body_config_list[0].arm_joint_idxes] = (
-                arm_joint_pos_command_overwritten
-            )
+            action[arm_joint_idxes] = arm_joint_pos_command_overwritten
 
         return action, duration
 

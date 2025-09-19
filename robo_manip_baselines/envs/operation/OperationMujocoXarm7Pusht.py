@@ -5,7 +5,7 @@ from robo_manip_baselines.common import GraspPhaseBase
 
 class GraspPhase(GraspPhaseBase):
     def set_target(self):
-        self.set_target_open()
+        self.set_target_close()
 
 
 class OperationMujocoXarm7Pusht:

@@ -1,15 +1,12 @@
-<!-- TODO: In this environment, the xArm gripper cannot grasp the cable stably. This may be improved by tuning the parameters of the simulation. -->
 <mujoco model="xarm7_pusht">
   <include file="./env_xarm7_common.xml"/>
 
   <asset>
-    <texture name="pole" file="general/metal2.png" type="cube"/>
-    <material name="pole" texture="pole" rgba="0.8 0 0 1" specular="1.0" shininess="1.0"/>
+    <texture name="tblock" file="general/metal2.png" type="cube"/>
+    <material name="tblock" texture="tblock" rgba="1.0 0.0 0.0 1" specular="1.0" shininess="1.0"/>
   </asset>
 
   <include file="../../robots/xarm7/xarm7_config.xml"/>
-
-  <include file="../../objects/cable/cable_config.xml"/>
 
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" diffuse="0.3 0.3 0.3"/>
@@ -36,15 +33,17 @@
       <include file="../../robots/xarm7/xarm7_body.xml"/>
     </body>
 
-    <body name="t_block" pos="0.15 0.0 0.755" euler="0 0 1.4">
-      <freejoint/>
-      <geom name="t_block1" type="box" size="0.1 0.02 0.02" pos="0.0 0.0 0.0" rgba="1.0 0.0 0.0 1"/>
-      <geom name="t_block2" type="box" size="0.02 0.08 0.02" pos="0.0 0.1 0.0" rgba="1.0 0.0 0.0 1"/>
+    <body name="tblock" pos="0.15 0.0 0.76" euler="0 0 1.4">
+      <freejoint name="tblock_freejoint"/>
+      <geom name="tblock1" type="box" size="0.1 0.02 0.02" pos="0.0 0.0 0.0" material="tblock"/>
+      <geom name="tblock2" type="box" size="0.02 0.08 0.02" pos="0.0 0.1 0.0" material="tblock"/>
     </body>
 
     <body name="target_region" pos="0.0 0.1 0.74" euler="0 0 -1">
-      <geom name="region1" type="box" size="0.1 0.02 0.001" pos="0.0 0.0 0.0" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0"/>
-      <geom name="region2" type="box" size="0.02 0.08 0.001" pos="0.0 0.1 0.0" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0"/>
+      <geom name="target_region1" type="box" size="0.1 0.02 0.001" pos="0.0 0.0 0.0" rgba="0.5 0.5 0.5 1"
+            contype="0" conaffinity="0"/>
+      <geom name="target_region2" type="box" size="0.02 0.08 0.001" pos="0.0 0.1 0.0" rgba="0.5 0.5 0.5 1"
+            contype="0" conaffinity="0"/>
     </body>
   </worldbody>
 </mujoco>

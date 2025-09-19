@@ -56,6 +56,11 @@ register(
     entry_point="robo_manip_baselines.envs.mujoco:MujocoXarm7RingEnv",
 )
 
+register(
+    id="robo_manip_baselines/MujocoXarm7PushtEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoXarm7PushtEnv",
+)
+
 ## ViperX 300S
 register(
     id="robo_manip_baselines/MujocoVx300sPickEnv-v0",

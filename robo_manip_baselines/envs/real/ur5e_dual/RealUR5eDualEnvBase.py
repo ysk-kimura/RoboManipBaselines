@@ -101,8 +101,8 @@ class RealUR5eDualEnvBase(RealEnvBase):
                 ),
                 arm_root_pose=None,
                 ik_eef_joint_id=6,
-                arm_joint_idxes=np.arange(6),
-                gripper_joint_idxes=np.array([7, 13]),
+                arm_joint_idxes=np.arange(7, 13),
+                gripper_joint_idxes=np.array([13]),
                 gripper_joint_idxes_in_gripper_joint_pos=np.array([1]),
                 eef_idx=1,
                 init_arm_joint_pos=self.init_qpos[7:13],
@@ -253,6 +253,53 @@ class RealUR5eDualEnvBase(RealEnvBase):
         elapsed_duration = time.time() - start_time
         if wait and elapsed_duration < duration:
             time.sleep(duration - elapsed_duration)
+
+    def overwrite_command_for_safety(self, action, duration, joint_vel_limit_scale):
+        arm_joint_idxes = np.concatenate(
+            (
+                self.body_config_list[0].arm_joint_idxes,
+                self.body_config_list[1].arm_joint_idxes,
+            )
+        )
+        arm_joint_pos_command = action[arm_joint_idxes]
+        scaled_joint_vel_limit = (
+            np.clip(joint_vel_limit_scale, 0.01, 10.0) * self.joint_vel_limit
+        )
+
+        if duration is None:
+            duration_min, duration_max = 0.1, 10.0  # [s]
+            duration = np.clip(
+                np.max(
+                    np.abs(arm_joint_pos_command - self.arm_joint_pos_actual)
+                    / scaled_joint_vel_limit
+                ),
+                duration_min,
+                duration_max,
+            )
+        else:
+            arm_joint_pos_error_max = np.max(
+                np.abs(arm_joint_pos_command - self.arm_joint_pos_actual)
+            )
+            arm_joint_pos_error_thre = np.deg2rad(90)
+            duration_thre = 0.1  # [s]
+            if (
+                arm_joint_pos_error_max > arm_joint_pos_error_thre
+                and duration < duration_thre
+            ):
+                raise RuntimeError(
+                    f"[{self.__class__.__name__}] Large joint movements are commanded in short duration ({duration} s).\n  command: {arm_joint_pos_command}\n  actual: {self.arm_joint_pos_actual}"
+                )
+
+            arm_joint_pos_command_overwritten = self.arm_joint_pos_actual + np.clip(
+                arm_joint_pos_command - self.arm_joint_pos_actual,
+                -1 * scaled_joint_vel_limit * duration,
+                scaled_joint_vel_limit * duration,
+            )
+            # if np.linalg.norm(arm_joint_pos_command_overwritten - arm_joint_pos_command) > 1e-10:
+            #     print(f"[{self.__class__.__name__}] Overwrite joint command for safety.")
+            action[arm_joint_idxes] = arm_joint_pos_command_overwritten
+
+        return action, duration
 
     def _get_obs(self):
         # Get state from UR5eDual

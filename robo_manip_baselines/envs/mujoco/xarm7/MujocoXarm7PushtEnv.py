@@ -33,6 +33,25 @@ class MujocoXarm7PushtEnv(MujocoXarm7EnvBase):
             ]
         )  # [m]
 
+    def _get_reward(self):
+        tblock_pos = self.data.body("tblock").xpos.copy()
+        tblock_angle = self.data.body("tblock").xquat.copy()
+        target_pos = self.data.body("target_region").xpos.copy()
+        target_angle = self.data.body("target_region").xquat.copy()
+
+        xy_thre = 0.03  # [m]
+        if np.max(np.abs(tblock_pos[:2] - target_pos[:2])) < xy_thre:
+            xy_success = True
+        else:
+            xy_success = False
+        rot_thre = 0.02
+        if np.abs(tblock_angle[0] - target_angle[0]) < rot_thre:
+            rot_success = True
+        else:
+            rot_success = False
+
+        return 1.0 if xy_success and rot_success else 0.0
+
     def modify_world(self, world_idx=None, cumulative_idx=None):
         if world_idx is None:
             world_idx = cumulative_idx % len(self.tblock_pos_offsets)

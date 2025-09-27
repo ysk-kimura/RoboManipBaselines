@@ -112,13 +112,11 @@ Please check individual files or directories (especially `third_party` and `asse
 If you use RoboManipBaselines in your work, please cite us:
 
 ```bibtex
-@software{RoboManipBaselines_GitHub2024,
-  author = {Murooka, Masaki and Motoda, Tomohiro and Nakajo, Ryoichi},
-  title = {{RoboManipBaselines}},
-  url = {https://github.com/isri-aist/RoboManipBaselines},
-  version = {1.0.0},
-  year = {2024},
-  month = dec,
+@article{RoboManipBaselines_Murooka_2025,
+  title={RoboManipBaselines: A Unified Framework for Imitation Learning in Robotic Manipulation across Real and Simulated Environments},
+  author={Murooka, Masaki and Motoda, Tomohiro and Nakajo, Ryoichi and Oh, Hanbit and Makihara, Koshi and Shirai, Keisuke and Domae, Yukiyasu},
+  journal={arXiv preprint arXiv:2509.17057},
+  year={2025}
 }
 ```
 

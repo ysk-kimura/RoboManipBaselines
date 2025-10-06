@@ -37,6 +37,11 @@ This is a multi-object task dataset consisting of 540 demonstrations in total, w
 | --- | --- | --- | --- | --- | --- |
 | **MujocoUR5ePick_Dataset540** | [MujocoUR5ePick](./environment_catalog.md#MujocoUR5ePick) | SpaceMouse | 540 | 09/25/2025 | [Download](https://www.dropbox.com/scl/fo/az0cpxc8ar7p3i022door/ADB3r9mvSycMhGLiTXroSd4?rlkey=nxgkawcsm8ti7zcg8tf9npnot&dl=1) |
 
+### xArm7 (# Demo 100)
+| Dataset | Environment | Operation method | # Demo | Date | Link |
+| --- | --- | --- | --- | --- | --- |
+| **MujocoXarm7Pusht_Dataset100** | [MujocoXarm7Pusht](./environment_catalog.md#MujocoXarm7Pusht) | SpaceMouse | 100 | 09/22/2025 | [Download](https://www.dropbox.com/scl/fo/fwvqe7cwwrc4ea7uz6rm0/AJ29RCMcbrluAimUlMRnoqU?rlkey=39w7sf6jwt7d5d8qfjjtkr13p&dl=1) |
+
 ### ALOHA
 | Dataset | Environment | Operation method | # Demo | Date | Link |
 | --- | --- | --- | --- | --- | --- |

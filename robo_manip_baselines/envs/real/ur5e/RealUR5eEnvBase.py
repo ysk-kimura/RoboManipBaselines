@@ -58,6 +58,7 @@ class RealUR5eEnvBase(RealEnvBase):
         robot_ip,
         camera_ids,
         gelsight_ids,
+        pointcloud_camera_ids,
         init_qpos,
         **kwargs,
     ):
@@ -102,6 +103,7 @@ class RealUR5eEnvBase(RealEnvBase):
         # Connect to RealSense
         self.setup_realsense(camera_ids)
         self.setup_gelsight(gelsight_ids)
+        self.setup_femtobolt(pointcloud_camera_ids)
 
     def setup_input_device(self, input_device_name, motion_manager, overwrite_kwargs):
         if input_device_name == "spacemouse":

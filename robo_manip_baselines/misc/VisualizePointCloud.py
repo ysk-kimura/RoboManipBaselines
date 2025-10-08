@@ -69,16 +69,28 @@ class VisualizePointCloud:
         print("3D mouse: parallel movement and rotation")
 
         with RmbData(self.args.rmb_path) as rmb_data:
-            self.rgb_image_seq = rmb_data[
-                DataKey.get_rgb_image_key(self.args.camera_name)
-            ][:]
-            self.depth_image_seq = rmb_data[
-                DataKey.get_depth_image_key(self.args.camera_name)
-            ][:]
-            self.fov = rmb_data.attrs[
-                DataKey.get_depth_image_key(self.args.camera_name) + "_fovy"
-            ]
-            self.max_time_idx = len(self.rgb_image_seq) - 1
+            pc_key = DataKey.get_pointcloud_key(self.args.camera_name)
+            if pc_key + "_raw" in rmb_data.keys():
+                self.raw_pointcloud_exist = True
+            else:
+                self.raw_pointcloud_exist = False
+
+            if self.raw_pointcloud_exist:
+                self.raw_pointcloud_seq = rmb_data[
+                    self.args.camera_name + "_pointcloud_raw"
+                ][:]
+                self.max_time_idx = len(self.raw_pointcloud_seq) - 1
+            else:
+                self.rgb_image_seq = rmb_data[
+                    DataKey.get_rgb_image_key(self.args.camera_name)
+                ][:]
+                self.depth_image_seq = rmb_data[
+                    DataKey.get_depth_image_key(self.args.camera_name)
+                ][:]
+                self.fov = rmb_data.attrs[
+                    DataKey.get_depth_image_key(self.args.camera_name) + "_fovy"
+                ]
+                self.max_time_idx = len(self.rgb_image_seq) - 1
 
             self.register_keys()
 
@@ -228,13 +240,20 @@ class VisualizePointCloud:
         if not (0 <= self.time_idx <= self.max_time_idx):
             return
 
-        rgb_image = self.rgb_image_seq[self.time_idx]
-        depth_image = self.depth_image_seq[self.time_idx]
-        result = convert_depth_image_to_pointcloud(depth_image, self.fov, rgb_image)
-        if result is None or not isinstance(result, (tuple, list)) or len(result) != 2:
-            print(f"[Warning] Invalid pointcloud at time index {self.time_idx}")
-            return
-        pointcloud = np.concatenate(result, axis=1)
+        if self.raw_pointcloud_exist:
+            pointcloud = self.raw_pointcloud_seq[self.time_idx]
+        else:
+            rgb_image = self.rgb_image_seq[self.time_idx]
+            depth_image = self.depth_image_seq[self.time_idx]
+            result = convert_depth_image_to_pointcloud(depth_image, self.fov, rgb_image)
+            if (
+                result is None
+                or not isinstance(result, (tuple, list))
+                or len(result) != 2
+            ):
+                print(f"[Warning] Invalid pointcloud at time index {self.time_idx}")
+                return
+            pointcloud = np.concatenate(result, axis=1)
 
         rotmat = euler_to_rotation_matrix(self.rpy_angle)
         pointcloud = rotate_pointcloud(pointcloud, rotmat)
@@ -320,6 +339,7 @@ class VisualizePointCloud:
         print(
             f"--rpy_angle {self.rpy_angle[0]} {self.rpy_angle[1]} {self.rpy_angle[2]}"
         )
+        return False
 
 
 if __name__ == "__main__":

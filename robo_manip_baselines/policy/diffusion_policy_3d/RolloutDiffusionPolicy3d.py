@@ -129,20 +129,23 @@ class RolloutDiffusionPolicy3d(RolloutBase):
     def get_pointcloud(self):
         # Get latest value
         camera_name = self.camera_names[0]
-        rgb_image = self.info["rgb_images"][camera_name]
-        depth_image = self.info["depth_images"][camera_name]
-        fovy = self.env.unwrapped.get_camera_fovy(camera_name)
+        if camera_name in self.env.unwrapped.pointcloud_camera_names:
+            pointcloud = self.info["pointclouds"][camera_name]
+        else:
+            rgb_image = self.info["rgb_images"][camera_name]
+            depth_image = self.info["depth_images"][camera_name]
+            fovy = self.env.unwrapped.get_camera_fovy(camera_name)
 
-        # Resize images
-        image_size = self.model_meta_info["data"]["image_size"]
-        rgb_image = cv2.resize(rgb_image, image_size)
-        depth_image = cv2.resize(depth_image, image_size)
+            # Resize images
+            image_size = self.model_meta_info["data"]["image_size"]
+            rgb_image = cv2.resize(rgb_image, image_size)
+            depth_image = cv2.resize(depth_image, image_size)
 
-        # Convert to pointcloud
-        pointcloud = np.concat(
-            convert_depth_image_to_pointcloud(depth_image, fovy, rgb_image),
-            axis=1,
-        )
+            # Convert to pointcloud
+            pointcloud = np.concat(
+                convert_depth_image_to_pointcloud(depth_image, fovy, rgb_image),
+                axis=1,
+            )
         # Crop and downsample pointcloud
         rotmat = euler_to_rotation_matrix(self.model_meta_info["data"]["rpy_angle"])
         pointcloud = rotate_pointcloud(pointcloud, rotmat)

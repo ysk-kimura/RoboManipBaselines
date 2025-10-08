@@ -11,10 +11,13 @@ class GraspPhase(GraspPhaseBase):
 
 
 class OperationRealUR5eDemo:
-    def __init__(self, robot_ip, camera_ids, gelsight_ids=None):
+    def __init__(
+        self, robot_ip, camera_ids=None, gelsight_ids=None, pointcloud_camera_ids=None
+    ):
         self.robot_ip = robot_ip
         self.camera_ids = camera_ids
         self.gelsight_ids = gelsight_ids
+        self.pointcloud_camera_ids = pointcloud_camera_ids
         super().__init__()
 
     def setup_env(self, render_mode="human"):
@@ -23,6 +26,7 @@ class OperationRealUR5eDemo:
             robot_ip=self.robot_ip,
             camera_ids=self.camera_ids,
             gelsight_ids=self.gelsight_ids,
+            pointcloud_camera_ids=self.pointcloud_camera_ids,
         )
 
     def get_pre_motion_phases(self):

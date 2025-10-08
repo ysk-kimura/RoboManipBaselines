@@ -584,7 +584,9 @@ class TeleopBase(OperationDataMixin, ABC):
         rgb_images = []
         depth_images = []
         for camera_name in (
-            self.env.unwrapped.camera_names + self.env.unwrapped.rgb_tactile_names
+            self.env.unwrapped.camera_names
+            + self.env.unwrapped.rgb_tactile_names
+            + self.env.unwrapped.pointcloud_camera_names
         ):
             rgb_image = self.info["rgb_images"][camera_name]
             image_ratio = rgb_image.shape[1] / rgb_image.shape[0]

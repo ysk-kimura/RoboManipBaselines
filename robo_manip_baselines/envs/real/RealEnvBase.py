@@ -107,15 +107,11 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             AlignFilter,
             Config,
             Context,
-            OBFormat,
             OBSensorType,
             OBStreamType,
             Pipeline,
             PointCloudFilter,
         )
-
-        self.ob_rgb_point = OBFormat.RGB_POINT
-        self.ob_point = OBFormat.POINT
 
         ctx = Context()
         device_list = ctx.query_devices()
@@ -143,12 +139,13 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             depth_profile = depth_profile_list.get_default_video_stream_profile()
             config.enable_stream(depth_profile)
             has_color_sensor = False
-            profile_list = pipeline.get_stream_profile_list(OBSensorType.COLOR_SENSOR)
-            if profile_list is not None:
-                color_profile = profile_list.get_default_video_stream_profile()
-                config.enable_stream(color_profile)
+            color_profile_list = pipeline.get_stream_profile_list(
+                OBSensorType.COLOR_SENSOR
+            )
+            if color_profile_list is not None:
                 has_color_sensor = True
-            pointcloud_camera["has_color_sensor"] = has_color_sensor
+                color_profile = color_profile_list.get_default_video_stream_profile()
+                config.enable_stream(color_profile)
             pipeline.enable_frame_sync()
             pipeline.start(
                 config,
@@ -161,7 +158,9 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             align_filter = AlignFilter(align_to_stream=OBStreamType.COLOR_STREAM)
             point_cloud_filter = PointCloudFilter()
             point_cloud_filter.set_camera_param(camera_param)
+
             pointcloud_camera["queue"] = queue
+            pointcloud_camera["has_color_sensor"] = has_color_sensor
             pointcloud_camera["pipeline"] = pipeline
             pointcloud_camera["align_filter"] = align_filter
             pointcloud_camera["point_cloud_filter"] = point_cloud_filter
@@ -345,7 +344,6 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         rgb_height = rgb_frame.get_height()
         rgb_format = rgb_frame.get_format()
         rgb_data = np.asanyarray(rgb_frame.get_data())
-        rgb_image = np.zeros((rgb_height, rgb_width, 3), dtype=np.uint8)
         if rgb_format == OBFormat.RGB:
             rgb_image = np.resize(rgb_data, (rgb_height, rgb_width, 3))
             rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
@@ -377,10 +375,12 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         frame = pointcloud_camera["align_filter"].process(frames)
         pointcloud_camera["point_cloud_filter"].set_position_data_scaled(depth_scale)
+        if pointcloud_camera["has_color_sensor"] and rgb_frame is not None:
+            pointcloud_format = OBFormat.RGB_POINT
+        else:
+            pointcloud_format = OBFormat.POINT
         pointcloud_camera["point_cloud_filter"].set_create_point_format(
-            self.ob_rgb_point
-            if pointcloud_camera["has_color_sensor"] and rgb_frame is not None
-            else self.ob_point
+            pointcloud_format
         )
         point_cloud_frame = pointcloud_camera["point_cloud_filter"].process(frame)
         pointcloud = np.array(

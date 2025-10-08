@@ -5,3 +5,5 @@ camera_ids:
 # gelsight_ids:
 #   tactile_left: "GelSight Mini R0B 2BNK-CE0U: Ge"
 #   tactile_right: "GelSight Mini R0B 2BG8-0H3X: Ge"
+# pointcloud_camera_ids:
+#   femtobolt: 0

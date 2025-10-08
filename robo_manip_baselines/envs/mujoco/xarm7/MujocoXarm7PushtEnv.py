@@ -32,10 +32,10 @@ class MujocoXarm7PushtEnv(MujocoXarm7EnvBase):
                 [0.0, 0.09, 0.0],
             ]
         )  # [m]
-    
+
     def quat_to_yaw(self, q):
-        siny = 2 * (q[0]*q[3] + q[1]*q[2])
-        cosy = 1 - 2 * (q[2]**2 + q[3]**2)
+        siny = 2 * (q[0] * q[3] + q[1] * q[2])
+        cosy = 1 - 2 * (q[2] ** 2 + q[3] ** 2)
 
         return np.arctan2(siny, cosy)
 
@@ -50,7 +50,9 @@ class MujocoXarm7PushtEnv(MujocoXarm7EnvBase):
 
         yaw_tblock = self.quat_to_yaw(tblock_quat)
         yaw_target = self.quat_to_yaw(target_quat)
-        yaw_diff = np.arctan2(np.sin(yaw_tblock - yaw_target), np.cos(yaw_tblock - yaw_target))
+        yaw_diff = np.arctan2(
+            np.sin(yaw_tblock - yaw_target), np.cos(yaw_tblock - yaw_target)
+        )
         rot_thre = np.deg2rad(5)
         rot_success = np.abs(yaw_diff) < rot_thre
 

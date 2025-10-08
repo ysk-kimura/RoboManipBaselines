@@ -336,10 +336,6 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
     def get_pointcloud_camera_data(self, pointcloud_camera_name, pointcloud_camera):
         from pyorbbecsdk import OBFormat
 
-        rgb_image = None
-        depth_image = None
-        pointcloud = None
-
         frames = pointcloud_camera["queue"][pointcloud_camera_name].get()
 
         rgb_frame = frames.get_color_frame()

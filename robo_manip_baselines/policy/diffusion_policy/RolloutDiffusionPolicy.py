@@ -82,6 +82,11 @@ class RolloutDiffusionPolicy(RolloutBase):
         self.policy_action_buf = None
 
     def infer_policy(self):
+        # Update observation buffer
+        if len(self.state_keys) > 0:
+            self.update_state_buf()
+        self.update_images_buf()
+
         # Infer
         if self.policy_action_buf is None or len(self.policy_action_buf) == 0:
             input_data = {}
@@ -102,8 +107,7 @@ class RolloutDiffusionPolicy(RolloutBase):
             [self.policy_action_list, self.policy_action[np.newaxis]]
         )
 
-    def get_state(self):
-        # Get latest value
+    def update_state_buf(self):
         state = np.concatenate(
             [
                 self.motion_manager.get_data(state_key, self.obs)
@@ -113,7 +117,6 @@ class RolloutDiffusionPolicy(RolloutBase):
         state = normalize_data(state, self.model_meta_info["state"])
         state = torch.tensor(state, dtype=torch.float32)
 
-        # Store and return
         if self.state_buf is None:
             self.state_buf = [
                 state for _ in range(self.model_meta_info["data"]["n_obs_steps"])
@@ -122,12 +125,10 @@ class RolloutDiffusionPolicy(RolloutBase):
             self.state_buf.pop(0)
             self.state_buf.append(state)
 
-        state = torch.stack(self.state_buf, dim=0)[torch.newaxis].to(self.device)
+    def get_state(self):
+        return torch.stack(self.state_buf, dim=0)[torch.newaxis].to(self.device)
 
-        return state
-
-    def get_images(self):
-        # Get latest value
+    def update_images_buf(self):
         images = []
         for camera_name in self.camera_names:
             image = self.info["rgb_images"][camera_name]
@@ -142,7 +143,6 @@ class RolloutDiffusionPolicy(RolloutBase):
 
             images.append(image)
 
-        # Store and return
         if self.images_buf is None:
             self.images_buf = [
                 [image for _ in range(self.model_meta_info["data"]["n_obs_steps"])]
@@ -153,12 +153,11 @@ class RolloutDiffusionPolicy(RolloutBase):
                 single_images_buf.pop(0)
                 single_images_buf.append(image)
 
-        images = [
+    def get_images(self):
+        return [
             torch.stack(single_images_buf, dim=0)[torch.newaxis].to(self.device)
             for single_images_buf in self.images_buf
         ]
-
-        return images
 
     def draw_plot(self):
         # Clear plot

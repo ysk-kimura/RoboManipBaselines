@@ -137,7 +137,6 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             vis_list[i].create_window()
         try:
             while True:
-                # get rgb image
                 info = dummy_real_env._get_info()
                 for i, camera_name in enumerate(dummy_real_env.pointcloud_camera_names):
                     points = info["pointclouds"][camera_name]
@@ -243,6 +242,10 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         dummy_real_env = DummyRealEnv(
             camera_ids={}, gelsight_ids={}, pointcloud_camera_ids={"femtobolt": 0}
         )
+        while True:
+            info = dummy_real_env._get_info()
+            if info["pointclouds"]:
+                break
         self.assert_env_info_valid(dummy_real_env)
         self.show_pointcloud_loop(dummy_real_env)
 

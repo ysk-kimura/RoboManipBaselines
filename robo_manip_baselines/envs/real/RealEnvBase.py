@@ -173,9 +173,9 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         pointcloud_camera = self.pointcloud_cameras[pointcloud_camera_name]
         queue = pointcloud_camera["queue"]
-        if queue[pointcloud_camera_name].qsize() >= 5:
-            queue[pointcloud_camera_name].get()
-        queue[pointcloud_camera_name].put(frames)
+        if queue.qsize() >= 5:
+            queue.get()
+        queue.put(frames)
 
     def get_input_device_kwargs(self, input_device_name):
         return {}
@@ -335,7 +335,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
     def get_pointcloud_camera_data(self, pointcloud_camera_name, pointcloud_camera):
         from pyorbbecsdk import OBFormat
 
-        frames = pointcloud_camera["queue"][pointcloud_camera_name].get()
+        frames = pointcloud_camera["queue"].get()
 
         rgb_frame = frames.get_color_frame()
         if rgb_frame is None:
@@ -388,6 +388,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         )
         pointcloud = pointcloud[::100]
         pointcloud[:, 3:6] = pointcloud[:, 3:6] / 255.0
+        pointcloud[:, :3] = pointcloud[:, :3] / 1e3
 
         return pointcloud_camera_name, rgb_image, depth_image, pointcloud
 

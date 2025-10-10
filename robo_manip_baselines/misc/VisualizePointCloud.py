@@ -117,15 +117,17 @@ class VisualizePointCloud:
         for i in range(10):
             state = self.spacemouse.read()
 
-        self.min_bound[0] += state.y * 0.02
-        self.max_bound[0] += state.y * 0.02
-        self.min_bound[1] += state.z * -0.02
-        self.max_bound[1] += state.z * -0.02
-        self.min_bound[2] += state.x * -0.02
-        self.max_bound[2] += state.x * -0.02
-        self.rpy_angle[0] += state.roll
-        self.rpy_angle[1] += state.pitch
-        self.rpy_angle[2] += state.yaw
+        if state.buttons[0] > 0 or state.buttons[-1] > 0:
+            self.rpy_angle[0] += state.roll
+            self.rpy_angle[1] += state.pitch
+            self.rpy_angle[2] += state.yaw
+        else:
+            self.min_bound[0] += state.y * 0.02
+            self.max_bound[0] += state.y * 0.02
+            self.min_bound[1] += state.z * -0.02
+            self.max_bound[1] += state.z * -0.02
+            self.min_bound[2] += state.x * -0.02
+            self.max_bound[2] += state.x * -0.02
 
         self.update_pointcloud()
 

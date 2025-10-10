@@ -23,6 +23,9 @@ $ python ./misc/AddPointCloudToRmbData.py ./dataset/<dataset_name> --min_bound <
 ```
 For parameters of the bounding box such as `min_bound`, you can use the results adjusted in `VisualizePointCloud.py`.
 
+> [!TIP]
+> You can download the dataset with point cloud added to [MujocoUR5eCable_Dataset30](https://github.com/isri-aist/RoboManipBaselines/blob/master/doc/dataset_list.md#ur5e--demo-30) from [here](https://www.dropbox.com/scl/fo/kkj0nj1guc95j24fb8zux/AC7hJOTcLPcu7bG668d-TKQ?rlkey=p14dattkal9upafsezssymslk&dl=1).
+
 ## Model training
 Train a model:
 ```console

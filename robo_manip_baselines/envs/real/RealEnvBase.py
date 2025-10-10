@@ -28,9 +28,12 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         self.dt = 0.02  # [s]
         self.world_random_scale = None
 
-    def setup_realsense(self, camera_ids):
+        # Setup device variables
         self.cameras = {}
+        self.rgb_tactiles = {}
+        self.pointcloud_cameras = {}
 
+    def setup_realsense(self, camera_ids):
         if camera_ids is None:
             return
 
@@ -59,8 +62,6 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             self.cameras[camera_name] = camera
 
     def setup_gelsight(self, gelsight_ids):
-        self.rgb_tactiles = {}
-
         if gelsight_ids is None:
             return
 
@@ -95,8 +96,6 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                 )
 
     def setup_femtobolt(self, pointcloud_camera_ids):
-        self.pointcloud_cameras = {}
-
         if pointcloud_camera_ids is None:
             return
 

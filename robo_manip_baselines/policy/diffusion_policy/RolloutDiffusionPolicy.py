@@ -9,9 +9,6 @@ import torch
 sys.path.append(
     os.path.join(os.path.dirname(__file__), "../../../third_party/diffusion_policy")
 )
-from diffusion_policy.policy.diffusion_unet_hybrid_image_policy import (
-    DiffusionUnetHybridImagePolicy,
-)
 from robo_manip_baselines.common import (
     DataKey,
     RolloutBase,
@@ -23,13 +20,15 @@ from robo_manip_baselines.common import (
 class RolloutDiffusionPolicy(RolloutBase):
     def setup_policy(self):
         # For backward compatibility
+        if "backbone" not in self.model_meta_info["policy"]:
+            self.model_meta_info["policy"]["backbone"] = "cnn"
         if "scheduler" not in self.model_meta_info["policy"]:
             self.model_meta_info["policy"]["scheduler"] = "ddpm"
 
         # Print policy information
         self.print_policy_info()
         print(
-            f"  - use ema: {self.model_meta_info['policy']['use_ema']}, scheduler: {self.model_meta_info['policy']['scheduler']}"
+            f"  - use ema: {self.model_meta_info['policy']['use_ema']}, backbone: {self.model_meta_info['policy']['backbone']}, scheduler: {self.model_meta_info['policy']['scheduler']}"
         )
         print(
             f"  - horizon: {self.model_meta_info['data']['horizon']}, obs steps: {self.model_meta_info['data']['n_obs_steps']}, action steps: {self.model_meta_info['data']['n_action_steps']}"
@@ -38,7 +37,7 @@ class RolloutDiffusionPolicy(RolloutBase):
             f"  - image size: {self.model_meta_info['data']['image_size']}, image crop size: {self.model_meta_info['data']['image_crop_size']}"
         )
 
-        # Construct policy
+        # Construct scheduler
         if self.model_meta_info["policy"]["scheduler"] == "ddpm":
             from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
@@ -55,7 +54,25 @@ class RolloutDiffusionPolicy(RolloutBase):
             raise ValueError(
                 f"[{self.__class__.__name__}] Invalid scheduler: {self.model_meta_info['policy']['scheduler']}"
             )
-        self.policy = DiffusionUnetHybridImagePolicy(
+
+        # Construct policy
+        if self.model_meta_info["policy"]["backbone"] == "cnn":
+            from diffusion_policy.policy.diffusion_unet_hybrid_image_policy import (
+                DiffusionUnetHybridImagePolicy,
+            )
+
+            PolicyClass = DiffusionUnetHybridImagePolicy
+        elif self.model_meta_info["policy"]["backbone"] == "transformer":
+            from diffusion_policy.policy.diffusion_transformer_hybrid_image_policy import (
+                DiffusionTransformerHybridImagePolicy,
+            )
+
+            PolicyClass = DiffusionTransformerHybridImagePolicy
+        else:
+            raise ValueError(
+                f"[{self.__class__.__name__}] Invalid backbone: {self.model_meta_info['policy']['backbone']}"
+            )
+        self.policy = PolicyClass(
             noise_scheduler=noise_scheduler,
             **self.model_meta_info["policy"]["args"],
         )

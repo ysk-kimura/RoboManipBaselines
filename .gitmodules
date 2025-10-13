@@ -30,3 +30,7 @@
 	path = third_party/pyorbbecsdk
 	url = https://github.com/orbbec/pyorbbecsdk.git
         ignore = untracked
+[submodule "third_party/FlowPolicy"]
+	path = third_party/FlowPolicy
+	url = https://github.com/mmurooka/FlowPolicy.git
+        ignore = untracked

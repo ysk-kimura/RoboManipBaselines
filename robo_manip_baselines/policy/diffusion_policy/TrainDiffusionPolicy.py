@@ -114,6 +114,7 @@ class TrainDiffusionPolicy(TrainBase):
 
         self.model_meta_info["data"]["image_size"] = self.args.image_size
         self.model_meta_info["data"]["image_crop_size"] = self.args.image_crop_size
+
         self.model_meta_info["data"]["horizon"] = self.args.horizon
         self.model_meta_info["data"]["n_obs_steps"] = self.args.n_obs_steps
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps

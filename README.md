@@ -45,11 +45,12 @@ Follow our step-by-step [Installation Guide](./doc/install.md) to get set up smo
 We provide several powerful policy architectures for manipulation tasks:
 
 - 🔹 **[MLP](./robo_manip_baselines/policy/mlp)**: Simple feedforward policy
-- 🔹 **[SARNN](./robo_manip_baselines/policy/sarnn)**: Sequence-aware RNN-based policy
-- 🔹 **[ACT](./robo_manip_baselines/policy/act)**: Transformer-based imitation policy
+- 🔹 **[SARNN](./robo_manip_baselines/policy/sarnn)**: Recurrent policy for sequential data
+- 🔹 **[ACT](./robo_manip_baselines/policy/act)**: Transformer-based action chunking policy
 - 🔹 **[MT-ACT](./robo_manip_baselines/policy/mt_act)**: Multi-task Transformer-based imitation policy
-- 🔹 **[Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy)**: Diffusion-based behavior cloning policy
-- 🔹 **[3D DiffusionPolicy](./robo_manip_baselines/policy/diffusion_policy_3d)**: Diffusion-based policy using 3D point cloud observations
+- 🔹 **[Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy)**: Diffusion-based imitation policy
+- 🔹 **[3D Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy_3d)**: Diffusion-based policy with 3D point cloud input
+- 🔹 **[Flow Policy](./robo_manip_baselines/policy/flow_policy)**: Flow-matching-based policy with 3D point cloud input
 
 ---
 

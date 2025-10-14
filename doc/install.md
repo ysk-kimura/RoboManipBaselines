@@ -95,6 +95,25 @@ $ pip install -e .
 > $ PYTORCH3D_FORCE_NO_CUDA=1 pip install -e .
 > ```
 
+### [Flow policy](../robo_manip_baselines/policy/flow_policy)
+Install dependent libraries including [FlowPolicy](https://github.com/zql-kk/FlowPolicy):
+```console
+# Go to the top directory of this repository
+$ pip install -e .[flow-policy]
+
+# Go to the top directory of this repository
+$ cd third_party/FlowPolicy/FlowPolicy
+$ pip install -e .
+$ cd ../third_party/pytorch3d_simplified
+$ pip install -e .
+```
+
+> [!NOTE]
+> If you encounter a CUDA-related error during the final `pip install -e .` step, please run the command with the following environment variable:
+> ```
+> $ PYTORCH3D_FORCE_NO_CUDA=1 pip install -e .
+> ```
+
 ## Installation of each teleoperation interface
 Complete [the common installation](#common-installation) first.
 

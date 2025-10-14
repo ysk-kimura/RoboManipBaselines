@@ -97,7 +97,6 @@ class AddPointCloudToRmbData:
         self.rpy_angle = rpy_angle
         self.num_points = num_points
         self.overwrite = overwrite
-        self.raw_pointcloud_exist = False
 
     def run(self):
         pc_key = DataKey.get_pointcloud_key(self.camera_name)
@@ -118,6 +117,9 @@ class AddPointCloudToRmbData:
 
                 if pc_key + "_raw" in rmb_data.keys():
                     self.raw_pointcloud_exist = True
+                    self.image_size = [-1, -1]
+                else:
+                    self.raw_pointcloud_exist = False
 
                 pointclouds = self.get_pointclouds(rmb_data)
 

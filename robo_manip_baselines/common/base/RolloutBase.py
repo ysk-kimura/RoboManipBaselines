@@ -392,7 +392,7 @@ class RolloutBase(OperationDataMixin, ABC):
             self.action_plot_scale = np.zeros(0)
 
     def setup_variables(self):
-        self.image_transforms = v2.ToDtype(torch.float32, scale=True)
+        self.image_transforms = v2.Compose([v2.ToDtype(torch.float32, scale=True)])
 
     def reset_variables(self):
         self.policy_action_list = np.empty((0, self.action_dim))

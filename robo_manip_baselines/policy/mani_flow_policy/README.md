@@ -31,14 +31,14 @@ Train a model with camera images:
 ```console
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python ./bin/Train.py ManiFlowPolicy Image --dataset_dir ./dataset/<dataset_name> --checkpoint_dir ./checkpoint/ManiFlowPolicy/<checkpoint_name>
+$ python ./bin/Train.py ManiFlowPolicy image --dataset_dir ./dataset/<dataset_name> --checkpoint_dir ./checkpoint/ManiFlowPolicy/<checkpoint_name>
 ```
 
 Train a model with pointcloud:
 ```console
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python ./bin/Train.py ManiFlowPolicy Pointcloud --dataset_dir ./dataset/<dataset_name> --checkpoint_dir ./checkpoint/ManiFlowPolicy/<checkpoint_name>
+$ python ./bin/Train.py ManiFlowPolicy pointcloud --dataset_dir ./dataset/<dataset_name> --checkpoint_dir ./checkpoint/ManiFlowPolicy/<checkpoint_name>
 ```
 
 > [!NOTE]

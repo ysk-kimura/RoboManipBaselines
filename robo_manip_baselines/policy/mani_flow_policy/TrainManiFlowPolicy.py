@@ -57,7 +57,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         )
 
         parser.add_argument(
-            "--weight_decay", type=float, default=1e-6, help="weight decay"
+            "--weight_decay", type=float, default=1e-3, help="weight decay"
         )
 
         parser.add_argument(

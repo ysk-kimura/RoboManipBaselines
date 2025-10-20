@@ -269,7 +269,7 @@ class RolloutManiFlowPolicy(RolloutBase):
             # Plot pointclouds
             self.ax[0, 0] = self.plot_pointcloud(self.ax[0, 0])
         else:
-            self.plot_images(self.ax[0, 0])
+            self.plot_images(self.ax[0, 0 : len(self.camera_names)])
 
         # Plot action
         self.plot_action(self.ax[1, 0])

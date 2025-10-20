@@ -43,7 +43,9 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         parser.set_defaults(norm_type="limits")
 
         parser.set_defaults(batch_size=128)
-        parser.set_defaults(num_epochs=1010)
+        parser.set_defaults(
+            num_epochs=None
+        )  # default num_epochs depends on policy_type
         parser.set_defaults(lr=1e-4)
         parser.set_defaults(train_ratio=0.98)
 
@@ -117,6 +119,12 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         )
 
     def setup_model_meta_info(self):
+        # Set default value of num_epochs
+        if self.args.policy_type == "Image" and self.args.num_epochs is None:
+            self.args.num_epochs = 501
+        elif self.args.policy_type == "Pointcloud" and self.args.num_epochs is None:
+            self.args.num_epochs = 1010
+
         super().setup_model_meta_info()
 
         self.model_meta_info["data"]["horizon"] = self.args.horizon

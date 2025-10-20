@@ -52,7 +52,7 @@ class RolloutManiFlowPolicy(RolloutBase):
             f"  - horizon: {self.model_meta_info['data']['horizon']}, obs steps: {self.model_meta_info['data']['n_obs_steps']}, action steps: {self.model_meta_info['data']['n_action_steps']}"
         )
         data_info = self.model_meta_info["data"]
-        if self.model_meta_info["policy"]["policy_type"] == "Pointcloud":
+        if self.model_meta_info["policy"]["policy_type"] == "pointcloud":
             print(
                 f"  - with color: {data_info['use_pc_color']}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
             )
@@ -61,7 +61,7 @@ class RolloutManiFlowPolicy(RolloutBase):
 
         # Construct policy
         self.policy_type = self.model_meta_info["policy"]["policy_type"]
-        if self.policy_type == "Pointcloud":
+        if self.policy_type == "pointcloud":
             PolicyClass = ManiFlowTransformerPointcloudPolicy
         else:
             PolicyClass = ManiFlowTransformerImagePolicy
@@ -101,7 +101,7 @@ class RolloutManiFlowPolicy(RolloutBase):
         # Update observation buffer
         if len(self.state_keys) > 0:
             self.update_state_buf()
-        if self.policy_type == "Pointcloud":
+        if self.policy_type == "pointcloud":
             self.update_pointcloud_buf()
         else:
             self.update_images_buf()
@@ -111,7 +111,7 @@ class RolloutManiFlowPolicy(RolloutBase):
             input_data = {}
             if len(self.state_keys) > 0:
                 input_data["state"] = self.get_state()
-            if self.policy_type == "Pointcloud":
+            if self.policy_type == "pointcloud":
                 input_data["point_cloud"] = self.get_pointcloud()
             else:
                 for camera_name, image in zip(self.camera_names, self.get_images()):
@@ -265,7 +265,7 @@ class RolloutManiFlowPolicy(RolloutBase):
             _ax.cla()
             _ax.axis("off")
 
-        if self.policy_type == "Pointcloud":
+        if self.policy_type == "pointcloud":
             # Plot pointclouds
             self.ax[0, 0] = self.plot_pointcloud(self.ax[0, 0])
         else:

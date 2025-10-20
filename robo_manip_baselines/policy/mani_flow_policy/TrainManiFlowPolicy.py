@@ -52,7 +52,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         parser.add_argument(
             "policy_type",
             type=str,
-            choices=["Image", "Pointcloud"],
+            choices=["image", "pointcloud"],
             help="Select whether policy to use (required)",
         )
 
@@ -120,9 +120,9 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
 
     def setup_model_meta_info(self):
         # Set default value of num_epochs
-        if self.args.policy_type == "Image" and self.args.num_epochs is None:
+        if self.args.policy_type == "image" and self.args.num_epochs is None:
             self.args.num_epochs = 501
-        elif self.args.policy_type == "Pointcloud" and self.args.num_epochs is None:
+        elif self.args.policy_type == "pointcloud" and self.args.num_epochs is None:
             self.args.num_epochs = 1010
 
         super().setup_model_meta_info()
@@ -131,7 +131,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         self.model_meta_info["data"]["n_obs_steps"] = self.args.n_obs_steps
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps
 
-        if self.args.policy_type == "Pointcloud":
+        if self.args.policy_type == "pointcloud":
             self.model_meta_info["data"]["use_pc_color"] = self.args.use_pc_color
             num_points, image_size, min_bound, max_bound, rpy_angle = (
                 self.setup_pointcloud_info()
@@ -148,13 +148,13 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         self.model_meta_info["policy"]["policy_type"] = self.args.policy_type
 
     def setup_dataset(self):
-        if self.args.policy_type == "Pointcloud":
+        if self.args.policy_type == "pointcloud":
             self.DatasetClass = ManiFlowPointcloudDataset
         return super().setup_dataset()
 
     def set_data_stats(self):
         super().set_data_stats()
-        if self.args.policy_type == "Pointcloud":
+        if self.args.policy_type == "pointcloud":
             self.set_pointcloud_stats()
 
     def get_extra_norm_config(self):
@@ -197,7 +197,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             "consistency_batch_ratio": 1.0 - self.args.flow_batch_ratio,
             "max_lang_cond_len": 1024,
         }
-        if self.args.policy_type == "Pointcloud":
+        if self.args.policy_type == "pointcloud":
             point_dim = 6 if self.args.use_pc_color else 3
             pointcloud_shape = (
                 self.model_meta_info["data"]["num_points"],
@@ -230,7 +230,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
                     "pointcloud_encoder_cfg": pointcloud_encoder_conf,
                 }
             )
-        elif self.args.policy_type == "Image":
+        elif self.args.policy_type == "image":
             for camera_name in self.model_meta_info["image"]["camera_names"]:
                 shape_meta["obs"][DataKey.get_rgb_image_key(camera_name)] = {
                     "shape": [3] + self.args.image_size,
@@ -316,7 +316,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             f"  - horizon: {self.args.horizon}, obs steps: {self.args.n_obs_steps}, action steps: {self.args.n_action_steps}"
         )
         data_info = self.model_meta_info["data"]
-        if self.args.policy_type == "Pointcloud":
+        if self.args.policy_type == "pointcloud":
             print(
                 f"  - with color: {self.args.use_pc_color}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
             )

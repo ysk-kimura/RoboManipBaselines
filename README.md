@@ -51,6 +51,7 @@ We provide several powerful policy architectures for manipulation tasks:
 - 🔹 **[Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy)**: Diffusion-based imitation policy
 - 🔹 **[3D Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy_3d)**: Diffusion-based policy with 3D point cloud input
 - 🔹 **[Flow Policy](./robo_manip_baselines/policy/flow_policy)**: Flow-matching-based policy with 3D point cloud input
+- 🔹 **[ManiFlow Policy](./robo_manip_baselines/policy/mani_flow_policy)**: Flow-matching-and-consistency-based robot manipulation policy
 
 ---
 

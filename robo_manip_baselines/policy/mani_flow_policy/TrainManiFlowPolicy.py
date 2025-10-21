@@ -19,10 +19,6 @@ from maniflow.common.pytorch_util import dict_apply, optimizer_to
 from maniflow.model.common.lr_scheduler import get_scheduler
 from maniflow.model.diffusion.ema_model import EMAModel
 from maniflow.model.vision_2d.timm_obs_encoder import TimmObsEncoder
-from maniflow.policy.maniflow_image_policy import ManiFlowTransformerImagePolicy
-from maniflow.policy.maniflow_pointcloud_policy import (
-    ManiFlowTransformerPointcloudPolicy,
-)
 
 from robo_manip_baselines.common import (
     DataKey,
@@ -35,25 +31,38 @@ from .ManiFlowPointcloudDataset import ManiFlowPointcloudDataset
 
 
 class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
-    DatasetClass = ManiFlowImageDataset
+    DatasetClass = None
+
+    def setup_args(self):
+        super().setup_args()
+
+        # Set default value depending on policy_type
+        if self.args.batch_size is None:
+            if self.args.policy_type == "image":
+                self.args.batch_size = 128
+            else:  # if self.args.policy_type == "pointcloud":
+                self.args.batch_size = 256
+
+        if self.args.num_epochs is None:
+            if self.args.policy_type == "image":
+                self.args.num_epochs = 500
+            else:  # if self.args.policy_type == "pointcloud":
+                self.args.num_epochs = 1000
 
     def set_additional_args(self, parser):
         parser.set_defaults(enable_rmb_cache=True)
 
         parser.set_defaults(norm_type="limits")
 
-        parser.set_defaults(batch_size=128)
-        parser.set_defaults(
-            num_epochs=None
-        )  # default num_epochs depends on policy_type
+        parser.set_defaults(batch_size=None)  # depends on policy_type
+        parser.set_defaults(num_epochs=None)  # depends on policy_type
         parser.set_defaults(lr=1e-4)
-        parser.set_defaults(train_ratio=0.98)
 
         parser.add_argument(
             "policy_type",
             type=str,
             choices=["image", "pointcloud"],
-            help="Select whether policy to use (required)",
+            help="Input format for vision data (2D/3D)",
         )
 
         parser.add_argument(
@@ -84,13 +93,6 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         )
 
         parser.add_argument(
-            "--encoder_output_dim",
-            type=int,
-            default=128,
-            help="output dimensions of encoder in policy",
-        )
-
-        parser.add_argument(
             "--flow_batch_ratio",
             type=float,
             default=0.75,
@@ -100,14 +102,7 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
         parser.add_argument(
             "--use_pc_color",
             action="store_true",
-            help="Whether to use color information in pointcloud-policy",
-        )
-
-        parser.add_argument(
-            "--visual_condition_length",
-            type=int,
-            default=128,
-            help="length of visual tokens (for pointcloud-policy)",
+            help="Whether to use color information (for pointcloud policy)",
         )
 
         parser.add_argument(
@@ -115,23 +110,19 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             type=int,
             nargs=2,
             default=[224, 224],
-            help="image size in image-policy",
+            help="image size (for image policy)",
         )
 
     def setup_model_meta_info(self):
-        # Set default value of num_epochs
-        if self.args.policy_type == "image" and self.args.num_epochs is None:
-            self.args.num_epochs = 501
-        elif self.args.policy_type == "pointcloud" and self.args.num_epochs is None:
-            self.args.num_epochs = 1010
-
         super().setup_model_meta_info()
 
         self.model_meta_info["data"]["horizon"] = self.args.horizon
         self.model_meta_info["data"]["n_obs_steps"] = self.args.n_obs_steps
         self.model_meta_info["data"]["n_action_steps"] = self.args.n_action_steps
 
-        if self.args.policy_type == "pointcloud":
+        if self.args.policy_type == "image":
+            self.model_meta_info["data"]["image_size"] = self.args.image_size
+        else:  # if self.args.policy_type == "pointcloud":
             self.model_meta_info["data"]["use_pc_color"] = self.args.use_pc_color
             num_points, image_size, min_bound, max_bound, rpy_angle = (
                 self.setup_pointcloud_info()
@@ -141,14 +132,14 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             self.model_meta_info["data"]["min_bound"] = min_bound
             self.model_meta_info["data"]["max_bound"] = max_bound
             self.model_meta_info["data"]["rpy_angle"] = rpy_angle
-        else:
-            self.model_meta_info["data"]["image_size"] = self.args.image_size
 
         self.model_meta_info["policy"]["use_ema"] = self.args.use_ema
         self.model_meta_info["policy"]["policy_type"] = self.args.policy_type
 
     def setup_dataset(self):
-        if self.args.policy_type == "pointcloud":
+        if self.args.policy_type == "image":
+            self.DatasetClass = ManiFlowImageDataset
+        else:  # if self.args.policy_type == "pointcloud":
             self.DatasetClass = ManiFlowPointcloudDataset
         return super().setup_dataset()
 
@@ -167,37 +158,30 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             return super().get_extra_norm_config()
 
     def setup_policy(self):
-        # Set policy args
+        # Set meta shape
         shape_meta = OmegaConf.create(
             {
                 "obs": {},
-                "action": {"shape": [len(self.model_meta_info["action"]["example"])]},
+                "action": {
+                    "shape": [len(self.model_meta_info["action"]["example"])],
+                    "horizon": self.args.horizon,
+                },
             }
         )
         if len(self.args.state_keys) > 0:
             shape_meta["obs"]["state"] = {
                 "shape": [len(self.model_meta_info["state"]["example"])],
                 "type": "low_dim",
+                "horizon": self.args.n_obs_steps,
             }
-        policy_args = {
-            "horizon": self.args.horizon,
-            "n_action_steps": self.args.n_action_steps,
-            "n_obs_steps": self.args.n_obs_steps,
-            "num_inference_steps": 10,
-            "obs_as_global_cond": True,
-            "diffusion_timestep_embed_dim": 128,
-            "diffusion_target_t_embed_dim": 128,
-            "visual_cond_len": self.args.visual_condition_length,
-            "n_layer": 12,
-            "n_head": 8,
-            "n_emb": 768,
-            "qkv_bias": True,
-            "qk_norm": True,
-            "flow_batch_ratio": self.args.flow_batch_ratio,
-            "consistency_batch_ratio": 1.0 - self.args.flow_batch_ratio,
-            "max_lang_cond_len": 1024,
-        }
-        if self.args.policy_type == "pointcloud":
+        if self.args.policy_type == "image":
+            for camera_name in self.model_meta_info["image"]["camera_names"]:
+                shape_meta["obs"][DataKey.get_rgb_image_key(camera_name)] = {
+                    "shape": [3, self.args.image_size[1], self.args.image_size[0]],
+                    "type": "rgb",
+                    "horizon": self.args.n_obs_steps,
+                }
+        else:  # if self.args.policy_type == "pointcloud":
             point_dim = 6 if self.args.use_pc_color else 3
             pointcloud_shape = (
                 self.model_meta_info["data"]["num_points"],
@@ -207,40 +191,42 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
                 "shape": pointcloud_shape,
                 "type": "point_cloud",
             }
-            pointcloud_encoder_conf = OmegaConf.create(
-                {
-                    "in_channels": point_dim,
-                    "out_channels": self.args.encoder_output_dim,
-                    "use_layernorm": True,
-                    "final_norm": "layernorm",
-                    "normal_channel": False,
-                    "num_points": self.args.visual_condition_length,
-                    "pointwise": True,
-                }
+
+        # Set policy args
+        policy_args = {
+            "shape_meta": shape_meta,
+            "horizon": self.args.horizon,
+            "n_action_steps": self.args.n_action_steps,
+            "n_obs_steps": self.args.n_obs_steps,
+            "num_inference_steps": 10,
+            "obs_as_global_cond": True,
+            "block_type": "DiTX",
+            "n_layer": 12,
+            "n_head": 8,
+            "n_emb": 768,
+            "max_lang_cond_len": 1024,
+            "qkv_bias": True,
+            "qk_norm": True,
+            "language_conditioned": False,
+            "pre_norm_modality": False,
+            "flow_batch_ratio": self.args.flow_batch_ratio,
+            "consistency_batch_ratio": 1.0 - self.args.flow_batch_ratio,
+            "sample_t_mode_flow": "beta",
+            "sample_t_mode_consistency": "discrete",
+            "sample_dt_mode_consistency": "uniform",
+            "sample_target_t_mode": "relative",  # "absolute", "relative"
+            "denoise_timesteps": 10,
+            "diffusion_timestep_embed_dim": 128,
+            "diffusion_target_t_embed_dim": 128,
+        }
+        if self.args.policy_type == "image":
+            from maniflow.policy.maniflow_image_policy import (
+                ManiFlowTransformerImagePolicy,
             )
-            PolicyClass = ManiFlowTransformerPointcloudPolicy
-            policy_args.update(
-                {
-                    "shape_meta": shape_meta,
-                    "encoder_output_dim": self.args.encoder_output_dim,
-                    "use_pc_color": self.args.use_pc_color,
-                    "crop_shape": [80, 80],
-                    "pointnet_type": "pointnet",
-                    "downsample_points": True,
-                    "pointcloud_encoder_cfg": pointcloud_encoder_conf,
-                }
-            )
-        elif self.args.policy_type == "image":
-            for camera_name in self.model_meta_info["image"]["camera_names"]:
-                shape_meta["obs"][DataKey.get_rgb_image_key(camera_name)] = {
-                    "shape": [3] + self.args.image_size,
-                    "horizon": self.args.n_obs_steps,
-                    "type": "rgb",
-                }
-            shape_meta["obs"]["state"]["horizon"] = self.args.n_obs_steps
-            shape_meta["action"]["horizon"] = self.args.horizon
-            image_transforms = [
+
+            obs_encoder_transforms = [
                 v2.RandomCrop(size=int(0.95 * self.args.image_size[0])),
+                v2.Resize(size=self.args.image_size[0], antialias=True),
                 v2.RandomRotation(degrees=[-5.0, 5.0]),
                 v2.ColorJitter(brightness=0.3, contrast=0.4, saturation=0.5, hue=0.08),
             ]
@@ -250,23 +236,54 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
                 "pretrained": False,
                 "frozen": False,
                 "global_pool": "",
-                "transforms": image_transforms,
                 "feature_aggregation": None,
                 "position_encording": "sinusoidal",
                 "downsample_ratio": 32,
                 "use_group_norm": True,
                 "share_rgb_model": False,
                 "imagenet_norm": True,
+                "transforms": obs_encoder_transforms,
             }
             obs_encoder = TimmObsEncoder(**obs_encoder_conf)
-            PolicyClass = ManiFlowTransformerImagePolicy
             policy_args.update(
                 {
-                    "shape_meta": shape_meta,
                     "visual_cond_len": 1024,
                     "obs_encoder": obs_encoder,
                 }
             )
+            PolicyClass = ManiFlowTransformerImagePolicy
+        else:  # if self.args.policy_type == "pointcloud":
+            from maniflow.policy.maniflow_pointcloud_policy import (
+                ManiFlowTransformerPointcloudPolicy,
+            )
+
+            encoder_output_dim = 128
+            visual_cond_len = 128
+            pointcloud_encoder_conf = OmegaConf.create(
+                {
+                    "in_channels": point_dim,
+                    "out_channels": encoder_output_dim,
+                    "use_layernorm": True,
+                    "final_norm": "layernorm",
+                    "normal_channel": False,
+                    "num_points": visual_cond_len,
+                    "pointwise": True,
+                }
+            )
+            policy_args.update(
+                {
+                    "visual_cond_len": visual_cond_len,
+                    "use_point_crop": True,
+                    "crop_shape": [80, 80],
+                    "encoder_type": "DP3Encoder",
+                    "encoder_output_dim": encoder_output_dim,
+                    "use_pc_color": self.args.use_pc_color,
+                    "pointnet_type": "pointnet",
+                    "downsample_points": True,
+                    "pointcloud_encoder_cfg": pointcloud_encoder_conf,
+                }
+            )
+            PolicyClass = ManiFlowTransformerPointcloudPolicy
 
         self.model_meta_info["policy"]["args"] = policy_args
 
@@ -316,12 +333,12 @@ class TrainManiFlowPolicy(TrainBase, TrainPointCloudMixin):
             f"  - horizon: {self.args.horizon}, obs steps: {self.args.n_obs_steps}, action steps: {self.args.n_action_steps}"
         )
         data_info = self.model_meta_info["data"]
-        if self.args.policy_type == "pointcloud":
+        if self.args.policy_type == "image":
+            print(f"  - image size: {data_info['image_size']}")
+        else:  # if self.args.policy_type == "pointcloud":
             print(
                 f"  - with color: {self.args.use_pc_color}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
             )
-        else:
-            print(f"  - image size: {data_info['image_size']}")
 
     def train_loop(self):
         ema_model = self.ema_policy if self.args.use_ema else None

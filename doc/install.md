@@ -115,7 +115,7 @@ $ pip install -e .
 > ```
 
 ### [ManiFlow policy](../robo_manip_baselines/policy/mani_flow_policy)
-Install dependent libraries including [ManiFlowPolicy](https://github.com/geyan21/ManiFlow_Policy):
+Install dependent libraries including [ManiFlow Policy](https://github.com/geyan21/ManiFlow_Policy):
 ```console
 # Go to the top directory of this repository
 $ pip install -e .[maniflow-policy]
@@ -124,6 +124,8 @@ $ pip install -e .[maniflow-policy]
 $ cd third_party/ManiFlow_Policy/ManiFlow
 $ pip install -e .
 $ cd ../third_party/pytorch3d
+$ pip install -e .
+$ cd ../r3m
 $ pip install -e .
 ```
 

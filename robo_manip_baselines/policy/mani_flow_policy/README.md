@@ -6,7 +6,7 @@ See [here](../../../doc/install.md#maniflow-policy) for installation.
 ## Dataset preparation
 Collect demonstration data by [teleoperation](../../teleop).
 
-## Data preprocessing (for Pointcloud policy)
+## Data preprocessing (for pointcloud policy)
 Decide the parameters of the bounding box for cropping point clouds:
 ```console
 # Go to the top directory of this repository
@@ -62,10 +62,10 @@ $ python ./bin/Rollout.py ManiFlowPolicy MujocoUR5eCable --checkpoint ./checkpoi
 ## Technical Details
 For more information on the technical details, please see the following paper:
 ```bib
-@inproceedings{yan2025maniflow,
-  title={{ManiFlow}: A General Robot Manipulation Policy via Consistency Flow Training},
+@inproceedings{ManiFlowPolicy_CoRL2025,
   author={Yan, Ge and Zhu, Jiyue and Deng, Yuquan and Yang, Shiqi and Qiu, Ri-Zhao and Cheng, Xuxin and Memmel, Marius and Krishna, Ranjay and Goyal, Ankit and Wang, Xiaolong and Fox, Dieter},
-  booktitle={Conference on Robot Learning (CoRL)},
+  title={{ManiFlow}: A General Robot Manipulation Policy via Consistency Flow Training},
+  booktitle={Conference on Robot Learning},
   year={2025}
 }
 ```

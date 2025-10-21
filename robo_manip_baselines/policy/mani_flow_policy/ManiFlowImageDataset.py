@@ -74,7 +74,7 @@ class ManiFlowImageDataset(DatasetBase, DpStyleDatasetMixin):
         # Convert to tensor
         state_tensor = torch.tensor(state, dtype=torch.float32)
         action_tensor = torch.tensor(action, dtype=torch.float32)
-        images_tensor = torch.tensor(images, dtype=torch.float32)
+        images_tensor = torch.tensor(images, dtype=torch.uint8)
 
         # Augment data
         state_tensor, action_tensor, images_tensor = self.augment_data(
@@ -90,7 +90,8 @@ class ManiFlowImageDataset(DatasetBase, DpStyleDatasetMixin):
         ):
             data["obs"][DataKey.get_rgb_image_key(camera_name)] = images_tensor[
                 camera_idx
-            ].reshape(T, C, *image_size[::-1])
+            ]
+
         return data
 
     def augment_data(self, state, action, images):

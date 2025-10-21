@@ -12,10 +12,6 @@ sys.path.append(
         "../../../third_party/ManiFlow_Policy/ManiFlow",
     )
 )
-from maniflow.policy.maniflow_image_policy import ManiFlowTransformerImagePolicy
-from maniflow.policy.maniflow_pointcloud_policy import (
-    ManiFlowTransformerPointcloudPolicy,
-)
 
 from robo_manip_baselines.common import (
     DataKey,
@@ -40,10 +36,9 @@ class RolloutManiFlowPolicy(RolloutBase):
             help="Whether to force plotting of colored point clouds",
         )
 
-    def setup_variables(self):
-        return super().setup_variables()
-
     def setup_policy(self):
+        self.policy_type = self.model_meta_info["policy"]["policy_type"]
+
         # Print policy information
         self.print_policy_info()
         print(f"  - policy type: {self.model_meta_info['policy']['policy_type']}")
@@ -52,19 +47,26 @@ class RolloutManiFlowPolicy(RolloutBase):
             f"  - horizon: {self.model_meta_info['data']['horizon']}, obs steps: {self.model_meta_info['data']['n_obs_steps']}, action steps: {self.model_meta_info['data']['n_action_steps']}"
         )
         data_info = self.model_meta_info["data"]
-        if self.model_meta_info["policy"]["policy_type"] == "pointcloud":
+        if self.policy_type == "image":
+            print(f"  - image size: {data_info['image_size']}")
+        else:  # if self.policy_type == "pointcloud":
             print(
                 f"  - with color: {data_info['use_pc_color']}, num points: {data_info['num_points']}, image size: {data_info['image_size']}, min bound: {data_info['min_bound']}, max bound: {data_info['max_bound']}, rpy_angle: {data_info['rpy_angle']}"
             )
-        else:
-            print(f"  - image size: {data_info['image_size']}")
 
         # Construct policy
-        self.policy_type = self.model_meta_info["policy"]["policy_type"]
-        if self.policy_type == "pointcloud":
-            PolicyClass = ManiFlowTransformerPointcloudPolicy
-        else:
+        if self.policy_type == "image":
+            from maniflow.policy.maniflow_image_policy import (
+                ManiFlowTransformerImagePolicy,
+            )
+
             PolicyClass = ManiFlowTransformerImagePolicy
+        else:  # if self.policy_type == "pointcloud":
+            from maniflow.policy.maniflow_pointcloud_policy import (
+                ManiFlowTransformerPointcloudPolicy,
+            )
+
+            PolicyClass = ManiFlowTransformerPointcloudPolicy
         self.policy = PolicyClass(
             **self.model_meta_info["policy"]["args"],
         )
@@ -90,32 +92,32 @@ class RolloutManiFlowPolicy(RolloutBase):
         self.state_buf = None
         self.policy_action_buf = None
 
-        if self.policy_type == "Pointcloud":
+        if self.policy_type == "image":
+            self.images_buf = None
+        else:  # if self.policy_type == "pointcloud":
             self.pointcloud_buf = None
             self.pointcloud_plot = None
             self.pointcloud_scatter = None
-        else:
-            self.images_buf = None
 
     def infer_policy(self):
         # Update observation buffer
         if len(self.state_keys) > 0:
             self.update_state_buf()
-        if self.policy_type == "pointcloud":
-            self.update_pointcloud_buf()
-        else:
+        if self.policy_type == "image":
             self.update_images_buf()
+        else:  # if self.policy_type == "pointcloud":
+            self.update_pointcloud_buf()
 
         # Infer
         if self.policy_action_buf is None or len(self.policy_action_buf) == 0:
             input_data = {}
             if len(self.state_keys) > 0:
                 input_data["state"] = self.get_state()
-            if self.policy_type == "pointcloud":
-                input_data["point_cloud"] = self.get_pointcloud()
-            else:
+            if self.policy_type == "image":
                 for camera_name, image in zip(self.camera_names, self.get_images()):
                     input_data[DataKey.get_rgb_image_key(camera_name)] = image
+            else:  # if self.policy_type == "pointcloud":
+                input_data["point_cloud"] = self.get_pointcloud()
             action = self.policy.predict_action(input_data)["action"][0]
             self.policy_action_buf = list(
                 action.cpu().detach().numpy().astype(np.float64)
@@ -265,11 +267,10 @@ class RolloutManiFlowPolicy(RolloutBase):
             _ax.cla()
             _ax.axis("off")
 
-        if self.policy_type == "pointcloud":
-            # Plot pointclouds
-            self.ax[0, 0] = self.plot_pointcloud(self.ax[0, 0])
-        else:
+        if self.policy_type == "image":
             self.plot_images(self.ax[0, 0 : len(self.camera_names)])
+        else:  # if self.policy_type == "pointcloud":
+            self.ax[0, 0] = self.plot_pointcloud(self.ax[0, 0])
 
         # Plot action
         self.plot_action(self.ax[1, 0])

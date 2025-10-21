@@ -13,6 +13,7 @@ class TrainMain:
         "DiffusionPolicy",
         "DiffusionPolicy3d",
         "FlowPolicy",
+        "ManiFlowPolicy",
     ]
 
     def __init__(self):

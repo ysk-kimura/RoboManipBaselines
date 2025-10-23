@@ -393,7 +393,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         ]
         if len(key_binaries) == 0:
             return intensity_tactile_name, None, None, None, previous_intensity_tactile
-        for key_binary in key_binaries[2:]:
+        for key_binary in key_binaries[3:]:
             if key_binaries and key_binary in key_map:
                 key_name = key_map[key_binary]
                 idx = key_idx_map[key_name]

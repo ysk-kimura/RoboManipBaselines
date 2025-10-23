@@ -123,7 +123,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
 
     def assert_intensity_tactile_valid(self, dummy_real_env, info):
         for intensity_tactile_name in dummy_real_env.intensity_tactile_names:
-            intensity_tactile = info["intensities"][intensity_tactile_name]
+            intensity_tactile = info["intensity_tactile"][intensity_tactile_name]
             self.assertIsInstance(intensity_tactile, np.ndarray)
             self.assertEqual(intensity_tactile.dtype, np.uint8)
             self.assertEqual(len(intensity_tactile.shape), 1)
@@ -157,7 +157,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             while True:
                 info = dummy_real_env._get_info()
                 for tactile_name in dummy_real_env.intensity_tactile_names:
-                    intensity_tactile = info["intensities"][tactile_name]
+                    intensity_tactile = info["intensity_tactile"][tactile_name]
                     print(f"{tactile_name}: {intensity_tactile}")
 
         except KeyboardInterrupt:
@@ -287,7 +287,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         )
         while True:
             info = dummy_real_env._get_info()
-            if info["intensities"]:
+            if info["intensity_tactile"]:
                 break
         self.assert_env_info_valid(dummy_real_env)
         self.show_intensity_loop(dummy_real_env)

@@ -301,7 +301,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         info["rgb_images"] = {}
         info["depth_images"] = {}
-        info["intensities"] = {}
+        info["intensity_tactile"] = {}
         if len(self.pointcloud_camera_names) > 0:
             info["pointclouds"] = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -347,7 +347,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                 name, rgb_image, depth_image, pointcloud, intensities = future.result()
                 info["rgb_images"][name] = rgb_image
                 info["depth_images"][name] = depth_image
-                info["intensities"][name] = intensities
+                info["intensity_tactile"][name] = intensities
                 if pointcloud is not None:
                     info["pointclouds"][name] = pointcloud
 

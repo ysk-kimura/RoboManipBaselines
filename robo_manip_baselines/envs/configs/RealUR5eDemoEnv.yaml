@@ -7,3 +7,6 @@ camera_ids:
 #   tactile_right: "GelSight Mini R0B 2BG8-0H3X: Ge"
 # pointcloud_camera_ids:
 #   femtobolt: 0
+# sanwa_keyboard_ids:
+#   tactile_left: /dev/hidraw6
+#   tactile_right: /dev/hidraw9

@@ -12,15 +12,24 @@ CAMERA_ID_FRONT = "145522067924"
 CAMERA_ID_HAND = "153122070885"
 TACTILE_ID_LEFT = "GelSight Mini R0B 2BNK-CE0U: Ge"
 TACTILE_ID_RIGHT = "GelSight Mini R0B 2BG8-0H3X: Ge"
+KEYBOARD_PATH_LEFT = "/dev/hidraw6"
+KEYBOARD_PATH_RIGHT = "/dev/hidraw9"
 
 
 class DummyRealEnv(RealEnvBase):
-    def __init__(self, camera_ids, gelsight_ids, pointcloud_camera_ids=None):
+    def __init__(
+        self,
+        camera_ids,
+        gelsight_ids,
+        pointcloud_camera_ids=None,
+        sanwa_keyboard_ids=None,
+    ):
         super().__init__(
             robot_ip=None,
             camera_ids=camera_ids,
             gelsight_ids=gelsight_ids,
             pointcloud_camera_ids=pointcloud_camera_ids,
+            sanwa_keyboard_ids=sanwa_keyboard_ids,
         )
         self.setup_realsense(camera_ids)
 
@@ -30,6 +39,8 @@ class DummyRealEnv(RealEnvBase):
         self.setup_gelsight(gelsight_ids)
 
         self.setup_femtobolt(pointcloud_camera_ids)
+
+        self.setup_sanwa_keyboard(sanwa_keyboard_ids)
 
     def _reset_robot(self, *args, **kwargs):
         pass
@@ -49,6 +60,10 @@ class DummyRealEnv(RealEnvBase):
         return self.rgb_tactiles.keys()
 
     @property
+    def intensity_tactile_names(self):
+        return self.intensity_tactiles.keys()
+
+    @property
     def pointcloud_camera_names(self):
         return self.pointcloud_cameras.keys()
 
@@ -59,6 +74,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         self.assert_camera_images_valid(dummy_real_env, info)
         self.assert_tactile_images_valid(dummy_real_env, info)
         self.assert_pointcloud_images_valid(dummy_real_env, info)
+        self.assert_intensity_tactile_valid(dummy_real_env, info)
 
     def assert_camera_images_valid(self, dummy_real_env, info):
         for camera_name in dummy_real_env.camera_names:
@@ -105,6 +121,14 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             self.assertEqual(point_cloud.dtype, np.float32)
             self.assertEqual(len(point_cloud.shape), 2)
 
+    def assert_intensity_tactile_valid(self, dummy_real_env, info):
+        for intensity_tactile_name in dummy_real_env.intensity_tactile_names:
+            intensity_tactile = info["intensities"][intensity_tactile_name]
+            self.assertIsInstance(intensity_tactile, np.ndarray)
+            self.assertEqual(intensity_tactile.dtype, np.uint8)
+            self.assertEqual(len(intensity_tactile.shape), 1)
+            self.assertEqual(intensity_tactile.shape[-1], 6)
+
     def show_image_loop(self, dummy_real_env):
         print("press q on image to exit")
         try:
@@ -121,6 +145,20 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
+
+        except KeyboardInterrupt:
+            print("Interrupted!")
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+    def show_intensity_loop(self, dummy_real_env):
+        print("press Ctrl+C to exit")
+        try:
+            while True:
+                info = dummy_real_env._get_info()
+                for tactile_name in dummy_real_env.intensity_tactile_names:
+                    intensity_tactile = info["intensities"][tactile_name]
+                    print(f"{tactile_name}: {intensity_tactile}")
 
         except KeyboardInterrupt:
             print("Interrupted!")
@@ -236,6 +274,23 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         )
         self.assert_env_info_valid(dummy_real_env)
         self.show_image_loop(dummy_real_env)
+
+    # @unittest.skip("Skipping.")
+    def test_dummy_real_env_get_info_case9(self):
+        dummy_real_env = DummyRealEnv(
+            camera_ids={},
+            gelsight_ids={},
+            sanwa_keyboard_ids={
+                "tactile_left": KEYBOARD_PATH_LEFT,
+                "tactile_right": KEYBOARD_PATH_RIGHT,
+            },
+        )
+        while True:
+            info = dummy_real_env._get_info()
+            if info["intensities"]:
+                break
+        self.assert_env_info_valid(dummy_real_env)
+        self.show_intensity_loop(dummy_real_env)
 
     @unittest.skip("Skipping.")
     def test_dummy_real_env_get_pointcloud(self):

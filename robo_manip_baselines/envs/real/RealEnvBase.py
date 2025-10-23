@@ -31,6 +31,8 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         # Setup device variables
         self.cameras = {}
         self.rgb_tactiles = {}
+        self.intensity_tactiles = {}
+        self.sanwa_keyboard_state_bufs = {}
         self.pointcloud_cameras = {}
 
     def setup_realsense(self, camera_ids):
@@ -94,6 +96,26 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                 raise RuntimeError(
                     f"[{self.__class__.__name__}] Specified GelSight (name: {rgb_tactile_name}, ID: {gelsight_id}) not detected."
                 )
+
+    def setup_sanwa_keyboard(self, sanwa_keyboard_ids):
+        import hid
+
+        if sanwa_keyboard_ids is None:
+            return
+
+        for intensity_tactile_name, device_path in sanwa_keyboard_ids.items():
+            if not os.path.exists(device_path):
+                raise RuntimeError(
+                    f"[{self.__class__.__name__}] Specified keyboard (Path: {device_path}) not detected."
+                )
+            intensity_tactile = hid.Device(path=device_path.encode())
+            if intensity_tactile is None:
+                print(f"[{self.__class__.__name__}] Unable to open keyboard.")
+                continue
+            self.intensity_tactiles[intensity_tactile_name] = intensity_tactile
+            self.sanwa_keyboard_state_bufs[intensity_tactile_name] = np.zeros(
+                shape=[6], dtype=np.uint8
+            )
 
     def setup_femtobolt(self, pointcloud_camera_ids):
         if pointcloud_camera_ids is None:
@@ -271,6 +293,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         if (
             len(self.camera_names)
             + len(self.rgb_tactile_names)
+            + len(self.intensity_tactile_names)
             + len(self.pointcloud_camera_names)
             == 0
         ):
@@ -278,6 +301,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         info["rgb_images"] = {}
         info["depth_images"] = {}
+        info["intensities"] = {}
         if len(self.pointcloud_camera_names) > 0:
             info["pointclouds"] = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -307,10 +331,23 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                     )
                 ] = pointcloud_camera_name
 
+            for (
+                intensity_tactile_name,
+                intensity_tactile,
+            ) in self.intensity_tactiles.items():
+                futures[
+                    executor.submit(
+                        self.get_intensity_tactile_data,
+                        intensity_tactile_name,
+                        intensity_tactile,
+                    )
+                ] = intensity_tactile_name
+
             for future in concurrent.futures.as_completed(futures):
-                name, rgb_image, depth_image, pointcloud = future.result()
+                name, rgb_image, depth_image, pointcloud, intensities = future.result()
                 info["rgb_images"][name] = rgb_image
                 info["depth_images"][name] = depth_image
+                info["intensities"][name] = intensities
                 if pointcloud is not None:
                     info["pointclouds"][name] = pointcloud
 
@@ -319,7 +356,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
     def get_camera_data(self, camera_name, camera):
         rgb_image, depth_image = camera.read((640, 480))
         depth_image = (1e-3 * depth_image[:, :, 0]).astype(np.float32)  # [m]
-        return camera_name, rgb_image, depth_image, None
+        return camera_name, rgb_image, depth_image, None, None
 
     def get_rgb_tactile_data(self, rgb_tactile_name, rgb_tactile):
         ret, rgb_image = rgb_tactile.read()
@@ -329,7 +366,40 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             )
         image_size = (640, 480)
         rgb_image = cv2.resize(rgb_image, image_size)
-        return rgb_tactile_name, rgb_image, None, None
+        return rgb_tactile_name, rgb_image, None, None, None
+
+    def get_intensity_tactile_data(self, intensity_tactile_name, intensity_tactile):
+        # Key code mapping for each device
+        key_map = {
+            0x69: "F17",
+            0x6A: "F18",
+            0x6B: "F19",
+            0x6C: "F14",
+            0x6D: "F15",
+            0x6E: "F16",
+        }
+        key_idx_map = {
+            "F14": 0,
+            "F15": 1,
+            "F16": 2,
+            "F17": 3,
+            "F18": 4,
+            "F19": 5,
+        }
+        intensity_tactile_value = np.zeros(shape=[6], dtype=np.uint8)
+        key_binaries = intensity_tactile.read(9, timeout=100)
+        previous_intensity_tactile = self.sanwa_keyboard_state_bufs[
+            intensity_tactile_name
+        ]
+        if len(key_binaries) == 0:
+            return intensity_tactile_name, None, None, None, previous_intensity_tactile
+        for key_binary in key_binaries[2:]:
+            if key_binaries and key_binary in key_map:
+                key_name = key_map[key_binary]
+                idx = key_idx_map[key_name]
+                intensity_tactile_value[idx] = 1
+        self.sanwa_keyboard_state_bufs[intensity_tactile_name] = intensity_tactile_value
+        return intensity_tactile_name, None, None, None, intensity_tactile_value
 
     def get_pointcloud_camera_data(self, pointcloud_camera_name, pointcloud_camera):
         from pyorbbecsdk import OBFormat
@@ -338,7 +408,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         rgb_frame = frames.get_color_frame()
         if rgb_frame is None:
-            return pointcloud_camera_name, None, None, None
+            return pointcloud_camera_name, None, None, None, None
         rgb_width = rgb_frame.get_width()
         rgb_height = rgb_frame.get_height()
         rgb_format = rgb_frame.get_format()
@@ -363,7 +433,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
 
         depth_frame = frames.get_depth_frame()
         if depth_frame is None:
-            return pointcloud_camera_name, rgb_image, None, None
+            return pointcloud_camera_name, rgb_image, None, None, None
         depth_scale = depth_frame.get_depth_scale()
         depth_width = depth_frame.get_width()
         depth_height = depth_frame.get_height()
@@ -389,7 +459,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
         pointcloud[:, 3:6] = pointcloud[:, 3:6] / 255.0
         pointcloud[:, :3] = pointcloud[:, :3] / 1e3
 
-        return pointcloud_camera_name, rgb_image, depth_image, pointcloud
+        return pointcloud_camera_name, rgb_image, depth_image, pointcloud, None
 
     def get_joint_pos_from_obs(self, obs):
         """Get joint position from observation."""
@@ -433,6 +503,11 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
     def rgb_tactile_names(self):
         """Get names of tactile sensors with RGB output."""
         return list(self.rgb_tactiles.keys())
+
+    @property
+    def intensity_tactile_names(self):
+        """Get names of tactile sensors with intensity output."""
+        return list(self.intensity_tactiles.keys())
 
     @property
     def pointcloud_camera_names(self):

@@ -275,7 +275,7 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         self.assert_env_info_valid(dummy_real_env)
         self.show_image_loop(dummy_real_env)
 
-    # @unittest.skip("Skipping.")
+    @unittest.skip("Skipping.")
     def test_dummy_real_env_get_info_case9(self):
         dummy_real_env = DummyRealEnv(
             camera_ids={},

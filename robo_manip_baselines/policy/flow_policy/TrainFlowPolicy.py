@@ -39,7 +39,7 @@ class TrainFlowPolicy(TrainBase, TrainPointCloudMixin):
         parser.set_defaults(norm_type="limits")
 
         parser.set_defaults(batch_size=128)
-        parser.set_defaults(num_epochs=3000)
+        parser.set_defaults(num_epochs=2000)
         parser.set_defaults(lr=1e-4)
 
         parser.add_argument(

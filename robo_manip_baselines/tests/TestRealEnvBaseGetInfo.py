@@ -126,8 +126,8 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             intensity_tactile = info["intensity_tactile"][intensity_tactile_name]
             self.assertIsInstance(intensity_tactile, np.ndarray)
             self.assertEqual(intensity_tactile.dtype, np.uint8)
-            self.assertEqual(len(intensity_tactile.shape), 1)
-            self.assertEqual(intensity_tactile.shape[-1], 6)
+            self.assertEqual(len(intensity_tactile.shape), 2)
+            self.assertEqual(intensity_tactile.shape[-1], 3)
 
     def show_image_loop(self, dummy_real_env):
         print("press q on image to exit")

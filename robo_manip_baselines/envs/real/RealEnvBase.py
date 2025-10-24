@@ -114,7 +114,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                 continue
             self.intensity_tactiles[intensity_tactile_name] = intensity_tactile
             self.sanwa_keyboard_state_bufs[intensity_tactile_name] = np.zeros(
-                shape=[6], dtype=np.uint8
+                shape=[2, 3], dtype=np.uint8
             )
 
     def setup_femtobolt(self, pointcloud_camera_ids):
@@ -347,9 +347,10 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
                 name, rgb_image, depth_image, pointcloud, intensities = future.result()
                 info["rgb_images"][name] = rgb_image
                 info["depth_images"][name] = depth_image
-                info["intensity_tactile"][name] = intensities
                 if pointcloud is not None:
                     info["pointclouds"][name] = pointcloud
+                if intensities is not None:
+                    info["intensity_tactile"][name] = intensities
 
         return info
 
@@ -386,8 +387,8 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             "F18": 4,
             "F19": 5,
         }
-        intensity_tactile_value = np.zeros(shape=[6], dtype=np.uint8)
-        key_binaries = intensity_tactile.read(9, timeout=100)
+        intensity_tactile_value = np.zeros(shape=[2, 3], dtype=np.uint8)
+        key_binaries = intensity_tactile.read(9, timeout=3)
         previous_intensity_tactile = self.sanwa_keyboard_state_bufs[
             intensity_tactile_name
         ]
@@ -397,7 +398,7 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             if key_binaries and key_binary in key_map:
                 key_name = key_map[key_binary]
                 idx = key_idx_map[key_name]
-                intensity_tactile_value[idx] = 1
+                intensity_tactile_value[int(idx / 3)][int(idx % 3)] = 1
         self.sanwa_keyboard_state_bufs[intensity_tactile_name] = intensity_tactile_value
         return intensity_tactile_name, None, None, None, intensity_tactile_value
 

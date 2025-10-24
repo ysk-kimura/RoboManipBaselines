@@ -59,6 +59,7 @@ class RealUR5eEnvBase(RealEnvBase):
         camera_ids,
         gelsight_ids,
         pointcloud_camera_ids,
+        sanwa_keyboard_ids,
         init_qpos,
         **kwargs,
     ):
@@ -104,6 +105,7 @@ class RealUR5eEnvBase(RealEnvBase):
         self.setup_realsense(camera_ids)
         self.setup_gelsight(gelsight_ids)
         self.setup_femtobolt(pointcloud_camera_ids)
+        self.setup_sanwa_keyboard(sanwa_keyboard_ids)
 
     def setup_input_device(self, input_device_name, motion_manager, overwrite_kwargs):
         if input_device_name == "spacemouse":

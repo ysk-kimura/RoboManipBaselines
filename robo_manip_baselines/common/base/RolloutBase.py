@@ -153,6 +153,9 @@ class RolloutBase(OperationDataMixin, ABC):
         self.demo_name = self.args.demo_name or remove_suffix(self.env.spec.name, "Env")
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task
+        self.env.unwrapped.world_additional_modifications = (
+            self.args.world_additional_modifications
+        )
 
         # Setup policy
         self.setup_model_meta_info()
@@ -220,6 +223,13 @@ class RolloutBase(OperationDataMixin, ABC):
             type=float,
             default=None,
             help="random scale of simulation world (no randomness by default)",
+        )
+        parser.add_argument(
+            "--world_additional_modifications",
+            type=str,
+            nargs="*",
+            default=[""],
+            help="list of additional world modification (work in specific env only)",
         )
 
         parser.add_argument(

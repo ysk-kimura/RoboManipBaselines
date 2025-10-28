@@ -151,14 +151,38 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-    def show_intensity_loop(self, dummy_real_env):
-        print("press Ctrl+C to exit")
+    def show_intensity_loop(self, dummy_real_env, vmin=-1.0, vmax=1.0):
+        import matplotlib.pyplot as plt
+
+        print("press q on plot to exit")
+        fig, axes = plt.subplots(2, 1)
         try:
             while True:
                 info = dummy_real_env._get_info()
-                for tactile_name in dummy_real_env.intensity_tactile_names:
-                    intensity_tactile = info["intensity_tactile"][tactile_name]
-                    print(f"{tactile_name}: {intensity_tactile}")
+                for tactile_name, ax in zip(
+                    dummy_real_env.intensity_tactile_names, axes
+                ):
+                    tactile_data = info["intensity_tactile"][tactile_name]
+                    ax.clear()
+                    ax.axis("off")
+                    ax.imshow(
+                        np.clip(tactile_data, vmin, vmax),
+                        cmap="coolwarm",
+                        interpolation="none",
+                        vmin=vmin,
+                        vmax=vmax,
+                    )
+                    ax.set_title(tactile_name)
+                fig.canvas.draw()
+                cv2.imshow(
+                    "TestTactileIntensity",
+                    cv2.cvtColor(
+                        np.asarray(fig.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR
+                    ),
+                )
+
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
         except KeyboardInterrupt:
             print("Interrupted!")

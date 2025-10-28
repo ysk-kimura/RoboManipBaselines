@@ -664,7 +664,9 @@ class TeleopBase(OperationDataMixin, ABC):
         plt.pause(0.001)
 
     def draw_tactile(self, vmin=-50.0, vmax=50.0):
-        for tactile_name, ax in zip(self.info["intensity_tactile"], self.ax_tactile):
+        for tactile_name, ax in zip(
+            self.env.unwrapped.intensity_tactile_names, self.ax_tactile
+        ):
             tactile_data = self.info["intensity_tactile"][tactile_name]
             ax.clear()
             ax.axis("off")

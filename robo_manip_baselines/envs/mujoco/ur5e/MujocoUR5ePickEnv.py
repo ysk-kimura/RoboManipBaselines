@@ -73,6 +73,7 @@ class MujocoUR5ePickEnv(MujocoUR5eEnvBase):
         # Either None or "<obj_name>_<basket_name>"
         # (where <obj_name> is "obj1"-"obj9" and <basket_name> is "basket1"-"basket2")
         self.target_task = None
+        self.world_random_factors = []
 
     def _get_reward(self):
         obj_pos_list = {
@@ -102,7 +103,21 @@ class MujocoUR5ePickEnv(MujocoUR5eEnvBase):
         if world_idx is None:
             world_idx = cumulative_idx % len(self.basket_pos_offsets)
 
-        if "shuffle_side_of_baskets" in self.world_additional_modifications:
+        if self.world_random_factors is not None:
+            supported_world_random_factors = {
+                "shuffle_side_of_baskets",
+                "shuffle_object_pos",
+                "shuffle_basket_pos",
+            }
+            invalid_world_random_factors = (
+                set(self.world_random_factors) - supported_world_random_factors
+            )
+            if invalid_world_random_factors:
+                raise ValueError(
+                    f"[{self.__class__.__name__}] Invalid world_random_factors: {invalid_world_random_factors}."
+                )
+
+        if "shuffle_side_of_baskets" in self.world_random_factors:
             all_obj_pos_lists = [self.original_obj_pos_list, self.reversed_obj_pos_list]
             all_basket_pos_lists = [
                 self.original_basket_pos_list,
@@ -114,10 +129,9 @@ class MujocoUR5ePickEnv(MujocoUR5eEnvBase):
         else:
             current_obj_pos_list = self.original_obj_pos_list
             current_basket_pos_list = self.original_basket_pos_list
-
-        if "shuffle_object_pos" in self.world_additional_modifications:
+        if "shuffle_object_pos" in self.world_random_factors:
             current_obj_pos_list = self.shuffle_object_pos(current_obj_pos_list)
-        if "shuffle_basket_pos" in self.world_additional_modifications:
+        if "shuffle_basket_pos" in self.world_random_factors:
             current_basket_pos_list = self.shuffle_object_pos(current_basket_pos_list)
 
         basket_pos_offset = self.basket_pos_offsets[world_idx]
@@ -126,27 +140,25 @@ class MujocoUR5ePickEnv(MujocoUR5eEnvBase):
         ):
             self.model.body(basket_name).pos = basket_pos + basket_pos_offset
 
-        if self.world_random_scale is not None:
+        if (self.world_random_factors is not None) or (
+            self.world_random_scale is not None
+        ):
             for obj_name, obj_pos in zip(self.obj_name_list, current_obj_pos_list):
-                obj_pos_offset = np.random.uniform(
-                    low=-1.0 * self.world_random_scale,
-                    high=self.world_random_scale,
-                    size=3,
-                )
+                if self.world_random_scale is None:
+                    obj_pos_with_offset = obj_pos
+                else:
+                    obj_pos_offset = np.random.uniform(
+                        low=-1.0 * self.world_random_scale,
+                        high=self.world_random_scale,
+                        size=3,
+                    )
+                    obj_pos_with_offset = obj_pos + obj_pos_offset
+
                 obj_joint_id = mujoco.mj_name2id(
                     self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{obj_name}_freejoint"
                 )
                 obj_qpos_addr = self.model.jnt_qposadr[obj_joint_id]
-                self.init_qpos[obj_qpos_addr : obj_qpos_addr + 3] = (
-                    obj_pos + obj_pos_offset
-                )
-        elif "" not in self.world_additional_modifications:
-            for obj_name, obj_pos in zip(self.obj_name_list, current_obj_pos_list):
-                obj_joint_id = mujoco.mj_name2id(
-                    self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{obj_name}_freejoint"
-                )
-                obj_qpos_addr = self.model.jnt_qposadr[obj_joint_id]
-                self.init_qpos[obj_qpos_addr : obj_qpos_addr + 3] = obj_pos
+                self.init_qpos[obj_qpos_addr : obj_qpos_addr + 3] = obj_pos_with_offset
 
         return world_idx
 

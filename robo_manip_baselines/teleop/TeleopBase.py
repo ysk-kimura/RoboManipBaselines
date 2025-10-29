@@ -201,9 +201,8 @@ class TeleopBase(OperationDataMixin, ABC):
         self.env.reset(seed=self.args.seed)
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task
-        self.env.unwrapped.world_additional_modifications = (
-            self.args.world_additional_modifications
-        )
+        if self.args.world_random_factors is not None:
+            self.env.unwrapped.world_random_factors = self.args.world_random_factors
 
         # Setup motion manager
         self.motion_manager = self.MotionManagerClass(self.env)
@@ -348,11 +347,11 @@ class TeleopBase(OperationDataMixin, ABC):
             help="random scale of simulation world (no randomness by default)",
         )
         parser.add_argument(
-            "--world_additional_modifications",
-            type=str,
+            "--world_random_factors",
             nargs="*",
-            default=[""],
-            help="list of additional world modification (work in specific env only)",
+            type=str,
+            default=None,
+            help="list of randomization factors applied to simulation world (no randomness by default)",
         )
 
         parser.add_argument(

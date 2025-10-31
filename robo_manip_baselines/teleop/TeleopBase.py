@@ -241,12 +241,6 @@ class TeleopBase(OperationDataMixin, ABC):
             self.pointcloud_scatter_list = [None] * len(self.env.unwrapped.camera_names)
 
         if self.args.plot_tactile:
-            if "Mujoco" not in self.env.unwrapped.__class__.__name__:
-                raise RuntimeError(
-                    f"[{self.__class__.__name__}] The '--plot_tactile' option is only valid in the MuJoCo environment. "
-                    f"env: {self.env.unwrapped.__class__.__name__}"
-                )
-
             if len(self.env.unwrapped.intensity_tactile_names) > 0:
                 plt.rcParams["keymap.quit"] = ["q", "escape"]
                 fig, self.ax_tactile = plt.subplots(
@@ -670,7 +664,9 @@ class TeleopBase(OperationDataMixin, ABC):
         plt.pause(0.001)
 
     def draw_tactile(self, vmin=-50.0, vmax=50.0):
-        for tactile_name, ax in zip(self.info["intensity_tactile"], self.ax_tactile):
+        for tactile_name, ax in zip(
+            self.env.unwrapped.intensity_tactile_names, self.ax_tactile
+        ):
             tactile_data = self.info["intensity_tactile"][tactile_name]
             ax.clear()
             ax.axis("off")

@@ -102,10 +102,12 @@ maniflow-policy = [
 real-ur5e = [
   "ur_rtde",
   "pyrealsense2",
+  "hid",
 ]
 real-xarm7 = [
   "xArm-Python-SDK",
   "pyrealsense2",
+  "hid",
 ]
 benchmarks = [
   "ruamel.yaml",

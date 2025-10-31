@@ -215,6 +215,16 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         self.show_image_loop(dummy_real_env)
 
     @unittest.skip("Skipping.")
+    def test_dummy_real_env_get_info_pointcloud_camera(self):
+        dummy_real_env = DummyRealEnv(pointcloud_camera_ids={"femtobolt": 0})
+        while True:
+            info = dummy_real_env._get_info()
+            if info["pointclouds"]:
+                break
+        self.assert_env_info_valid(dummy_real_env)
+        self.show_pointcloud_loop(dummy_real_env)
+
+    @unittest.skip("Skipping.")
     def test_dummy_real_env_get_info_rgb_tactile1(self):
         dummy_real_env = DummyRealEnv(
             gelsight_ids={
@@ -267,16 +277,6 @@ class TestRealEnvBaseGetInfo(unittest.TestCase):
         )
         self.assert_env_info_valid(dummy_real_env)
         self.show_image_loop(dummy_real_env)
-
-    @unittest.skip("Skipping.")
-    def test_dummy_real_env_get_info_pointcloud_camera(self):
-        dummy_real_env = DummyRealEnv(pointcloud_camera_ids={"femtobolt": 0})
-        while True:
-            info = dummy_real_env._get_info()
-            if info["pointclouds"]:
-                break
-        self.assert_env_info_valid(dummy_real_env)
-        self.show_pointcloud_loop(dummy_real_env)
 
     @unittest.skip("Skipping.")
     def test_dummy_real_env_get_info_intensity_tactile(self):

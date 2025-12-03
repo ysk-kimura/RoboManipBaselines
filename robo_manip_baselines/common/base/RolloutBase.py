@@ -195,7 +195,11 @@ class RolloutBase(OperationDataMixin, ABC):
             )
 
         parser.add_argument(
-            "--checkpoint", type=str, required=True, help="checkpoint file"
+            "--checkpoint",
+            type=str,
+            nargs="+",
+            required=True,
+            help="checkpoint file(s)",
         )
 
         parser.add_argument(
@@ -324,6 +328,9 @@ class RolloutBase(OperationDataMixin, ABC):
         if argv is None:
             argv = sys.argv
         self.args = parser.parse_args(argv[1:])
+
+        if self.args.checkpoint is not None and len(self.args.checkpoint) == 1:
+            self.args.checkpoint = self.args.checkpoint[0]
 
         if self.args.world_idx_list is None:
             self.args.world_idx_list = [self.args.world_idx]

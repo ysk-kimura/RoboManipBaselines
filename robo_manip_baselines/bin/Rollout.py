@@ -41,7 +41,7 @@ class RolloutMain:
         parser.add_argument(
             "policy",
             type=str,
-            nargs="?",
+            nargs="*",
             default=None,
             choices=self.policy_choices,
             help="policy",
@@ -73,6 +73,8 @@ class RolloutMain:
             parser.print_help()
             print("\n================================\n")
             sys.argv += ["--help"]
+        if self.args.policy is not None and len(self.args.policy) == 1:
+            self.args.policy = self.args.policy[0]
 
     def run(self):
         if "Isaac" in self.args.env:

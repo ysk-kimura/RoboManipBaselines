@@ -142,9 +142,12 @@ class EndRolloutPhase(PhaseBase):
 class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
 
-    def __init__(self):
+    def __init__(self, pol_idx: int, **kwargs):
+        self.pol_idx = pol_idx
+
         # Setup arguments
-        self.setup_args()
+        self.setup_args(**kwargs)
+        self.args.checkpoint = self.args.checkpoint[self.pol_idx]
 
         set_random_seed(self.args.seed)
 

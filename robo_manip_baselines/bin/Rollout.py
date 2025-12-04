@@ -95,7 +95,7 @@ class RolloutMain:
                 config = yaml.safe_load(f)
 
         rollouts = []
-        for policy_name in self.args.policy:
+        for pol_idx, policy_name in enumerate(self.args.policy):
             policy_module = importlib.import_module(
                 f"{self.policy_parent_module_str}.{camel_to_snake(policy_name)}"
             )
@@ -104,12 +104,15 @@ class RolloutMain:
             class Rollout(OperationEnvClass, RolloutPolicyClass):
                 _rpc = RolloutPolicyClass
 
+                def __init__(self, pol_idx=None, **kwargs):
+                    super().__init__(pol_idx=pol_idx, **kwargs)
+
                 @property
                 def policy_name(self):
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
             try:
-                rollout_inst = Rollout(**config)
+                rollout_inst = Rollout(pol_idx=pol_idx, **config)
             except TypeError as e:
                 raise TypeError(f"Init fail '{policy_name}': {e}") from e
             rollouts.append(rollout_inst)

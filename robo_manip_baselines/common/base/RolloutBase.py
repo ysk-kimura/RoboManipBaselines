@@ -329,9 +329,6 @@ class RolloutBase(OperationDataMixin, ABC):
             argv = sys.argv
         self.args = parser.parse_args(argv[1:])
 
-        if self.args.checkpoint is not None and len(self.args.checkpoint) == 1:
-            self.args.checkpoint = self.args.checkpoint[0]
-
         if self.args.world_idx_list is None:
             self.args.world_idx_list = [self.args.world_idx]
         self.args.world_idx_list *= self.args.world_idx_repeat_count

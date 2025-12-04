@@ -88,25 +88,36 @@ class RolloutMain:
         )
         OperationEnvClass = getattr(operation_module, f"Operation{self.args.env}")
 
-        policy_module = importlib.import_module(
-            f"{self.policy_parent_module_str}.{camel_to_snake(self.args.policy)}"
-        )
-        RolloutPolicyClass = getattr(policy_module, f"Rollout{self.args.policy}")
-
-        # The order of parent classes must not be changed in order to maintain the method resolution order (MRO)
-        class Rollout(OperationEnvClass, RolloutPolicyClass):
-            @property
-            def policy_name(self):
-                return remove_prefix(RolloutPolicyClass.__name__, "Rollout")
-
         if self.args.config is None:
             config = {}
         else:
             with open(self.args.config, "r") as f:
                 config = yaml.safe_load(f)
 
-        rollout = Rollout(**config)
-        rollout.run()
+        rollouts = []
+        for policy_name in self.args.policy:
+            policy_module = importlib.import_module(
+                f"{self.policy_parent_module_str}.{camel_to_snake(policy_name)}"
+            )
+            RolloutPolicyClass = getattr(policy_module, f"Rollout{policy_name}")
+
+            class Rollout(OperationEnvClass, RolloutPolicyClass):
+                _rpc = RolloutPolicyClass
+
+                @property
+                def policy_name(self):
+                    return remove_prefix(self._rpc.__name__, "Rollout")
+
+            try:
+                rollout_inst = Rollout(**config)
+            except TypeError as e:
+                raise TypeError(f"Init fail '{policy_name}': {e}") from e
+            rollouts.append(rollout_inst)
+        if len(rollouts) == 0:
+            raise RuntimeError("No rollout instances. Check policies.")
+        rollout_master = rollouts[0]
+        rollout_master.rollouts = rollouts
+        rollout_master.run()
 
 
 if __name__ == "__main__":

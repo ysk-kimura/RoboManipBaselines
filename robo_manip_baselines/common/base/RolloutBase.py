@@ -436,47 +436,58 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.eval()
 
     def run(self):
-        self.reset_flag = True
-        self.quit_flag = False
-        self.inference_duration_list = []
+        rollouts = self.rollouts
+        for selr in rollouts:
+            selr.reset_flag = True
+            selr.quit_flag = False
+            selr.inference_duration_list = []
 
-        while True:
-            if self.reset_flag:
-                self.reset()
-                self.reset_flag = False
+        global_quit = False
+        while not global_quit:
+            for selr in rollouts:
+                if selr.reset_flag:
+                    selr.reset()
+                    selr.reset_flag = False
 
-            self.phase_manager.pre_update()
+                selr.phase_manager.pre_update()
 
-            env_action = np.concatenate(
-                [
-                    self.motion_manager.get_command_data(key)
-                    for key in self.env.unwrapped.command_keys_for_step
-                ]
-            )
+                env_action = np.concatenate(
+                    [
+                        selr.motion_manager.get_command_data(key)
+                        for key in selr.env.unwrapped.command_keys_for_step
+                    ]
+                )
 
-            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
-                self.record_data()
+                if selr.args.save_rollout and selr.phase_manager.is_phase(
+                    "RolloutPhase"
+                ):
+                    selr.record_data()
 
-            self.obs, self.reward, _, _, self.info = self.env.step(env_action)
+                selr.obs, selr.reward, _, _, selr.info = selr.env.step(env_action)
 
-            self.phase_manager.post_update()
+                selr.phase_manager.post_update()
 
-            self.key = cv2.waitKey(1)
-            self.phase_manager.check_transition()
+                selr.key = cv2.waitKey(1)
+                selr.phase_manager.check_transition()
 
-            if self.key == 27:  # escape key
-                self.quit_flag = True
-            if self.quit_flag:
+                if selr.key == 27:  # escape key
+                    selr.quit_flag = True
+                if selr.quit_flag:
+                    global_quit = True
+            if global_quit:
                 break
 
-        if self.args.result_filename is not None:
-            print(
-                f"[{self.__class__.__name__}] Save the rollout results: {self.args.result_filename}"
-            )
-            with open(self.args.result_filename, "w") as result_file:
-                yaml.dump(self.result, result_file)
-
-        self.print_statistics()
+        for selr in rollouts:
+            if selr.args.result_filename is not None:
+                print(
+                    f"[{selr.__class__.__name__}] Save the rollout results: "
+                    f"{selr.args.result_filename}"
+                )
+                with open(
+                    selr.args.result_filename, "w", encoding="utf-8"
+                ) as result_file:
+                    yaml.dump(selr.result, result_file)
+            selr.print_statistics()
 
         # self.env.close()
 

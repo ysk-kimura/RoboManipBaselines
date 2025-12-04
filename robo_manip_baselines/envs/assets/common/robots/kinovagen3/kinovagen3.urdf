@@ -5,7 +5,7 @@
 <!-- =================================================================================== -->
 <robot name="gen3">
   <!-- Run the macros -->
-  <link name="left_base_link">
+  <link name="base_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-0.000648 -0.000166 0.084487"/>
       <mass value="1.697"/>
@@ -27,7 +27,7 @@
       </geometry>
     </collision>
   </link>
-  <link name="left_shoulder_link">
+  <link name="shoulder_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-2.3E-05 -0.010364 -0.07336"/>
       <mass value="1.377"/>
@@ -49,14 +49,14 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_1" type="continuous">
+  <joint name="joint_1" type="revolute">
     <origin rpy="-3.1416 0.0 0.0" xyz="0 0 0.15643"/>
-    <parent link="left_base_link"/>
-    <child link="left_shoulder_link"/>
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="39" velocity="1.3963"/>
   </joint>
-  <link name="left_bicep_link">
+  <link name="bicep_link">
     <inertial>
       <origin rpy="0 0 0" xyz="3.5E-05 -0.208207 -0.01889"/>
       <mass value="1.262"/>
@@ -78,14 +78,14 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_2" type="revolute">
+  <joint name="joint_2" type="revolute">
     <origin rpy="1.5708 0.0 0.0" xyz="0 0.005375 -0.12838"/>
-    <parent link="left_shoulder_link"/>
-    <child link="left_bicep_link"/>
+    <parent link="shoulder_link"/>
+    <child link="bicep_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="39" lower="-2.24" upper="2.24" velocity="1.3963"/>
   </joint>
-  <link name="left_forearm_link">
+  <link name="forearm_link">
     <inertial>
       <origin rpy="0 0 0" xyz="1.8E-05 0.076168 -0.01397"/>
       <mass value="0.93"/>
@@ -107,14 +107,14 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_3" type="revolute">
+  <joint name="joint_3" type="revolute">
     <origin rpy="3.1416 0 0" xyz="0 -0.41 0"/>
-    <parent link="left_bicep_link"/>
-    <child link="left_forearm_link"/>
+    <parent link="bicep_link"/>
+    <child link="forearm_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="39" lower="-2.57" upper="2.57" velocity="1.3963"/>
   </joint>
-  <link name="left_spherical_wrist_1_link">
+  <link name="spherical_wrist_1_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-1E-06 0.008486 -0.062937"/>
       <mass value="0.6781"/>
@@ -136,14 +136,14 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_4" type="continuous">
+  <joint name="joint_4" type="revolute">
     <origin rpy="1.5708 0.0 0.0" xyz="0 0.20843 -0.006375"/>
-    <parent link="left_forearm_link"/>
-    <child link="left_spherical_wrist_1_link"/>
+    <parent link="forearm_link"/>
+    <child link="spherical_wrist_1_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="9" velocity="1.2218"/>
   </joint>
-  <link name="left_spherical_wrist_2_link">
+  <link name="spherical_wrist_2_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-1E-06 0.046429 -0.008704"/>
       <mass value="0.678"/>
@@ -165,14 +165,14 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_5" type="revolute">
+  <joint name="joint_5" type="revolute">
     <origin rpy="-1.5708 0.0 0.0" xyz="0 -0.00017505 -0.10593"/>
-    <parent link="left_spherical_wrist_1_link"/>
-    <child link="left_spherical_wrist_2_link"/>
+    <parent link="spherical_wrist_1_link"/>
+    <child link="spherical_wrist_2_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="9" lower="-2.09" upper="2.09" velocity="1.2218"/>
   </joint>
-  <link name="left_bracelet_link">
+  <link name="bracelet_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0.000281 0.011402 -0.029798"/>
       <mass value="0.5"/>
@@ -194,43 +194,18 @@
       </geometry>
     </collision>
   </link>
-  <joint name="left_joint_6" type="continuous">
+  <joint name="joint_6" type="revolute">
     <origin rpy="1.5708 0.0 0.0" xyz="0 0.10593 -0.00017505"/>
-    <parent link="left_spherical_wrist_2_link"/>
-    <child link="left_bracelet_link"/>
+    <parent link="spherical_wrist_2_link"/>
+    <child link="bracelet_link"/>
     <axis xyz="0 0 1"/>
     <limit effort="9" velocity="1.2218"/>
   </joint>
-  <link name="left_end_effector_link"/>
-  <joint name="left_end_effector" type="fixed">
-    <origin rpy="3.14159265358979 1.09937075168372E-32 3.14159265358979" xyz="0 0 -0.0615250000000001"/>
-    <parent link="left_bracelet_link"/>
-    <child link="left_end_effector_link"/>
-    <axis xyz="0 0 0"/>
-  </joint>
-  <link name="left_camera_link"/>
-  <joint name="left_camera_module" type="fixed">
-    <origin rpy="3.14159265358979 3.14159265358979 0" xyz="0 0.05639 -0.00305"/>
-    <parent link="left_end_effector_link"/>
-    <child link="left_camera_link"/>
-  </joint>
-  <link name="left_camera_depth_frame"/>
-  <joint name="left_depth_module" type="fixed">
-    <origin rpy="3.14159265358979 3.14159265358979 0" xyz="0.0275 0.066 -0.00305"/>
-    <parent link="left_end_effector_link"/>
-    <child link="left_camera_depth_frame"/>
-  </joint>
-  <link name="left_camera_color_frame"/>
-  <joint name="left_color_module" type="fixed">
-    <origin rpy="3.14159265358979 3.14159265358979 0" xyz="0 0.05639 -0.00305"/>
-    <parent link="left_end_effector_link"/>
-    <child link="left_camera_color_frame"/>
-  </joint>
-  <link name="left_tool_frame"/>
-  <joint name="left_tool_frame_joint" type="fixed">
+  <link name="end_effector_link"/>
+  <joint name="end_effector" type="revolute">
     <origin rpy="0 0 0" xyz="0 0 0"/>
-    <parent link="left_end_effector_link"/>
-    <child link="left_tool_frame"/>
-    <axis xyz="0 0 0"/>
+    <parent link="bracelet_link"/>
+    <child link="end_effector_link"/>
+    <limit effort="20" lower="-3.1101767270538954" upper="3.1101767270538954" velocity="3.14"/>
   </joint>
 </robot>

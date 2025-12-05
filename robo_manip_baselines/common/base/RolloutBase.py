@@ -457,6 +457,7 @@ class RolloutBase(OperationDataMixin, ABC):
 
         break_all_rollout_loops = False
         while not break_all_rollout_loops:
+            env_action_parts = []
             for selr in self.rollouts:
                 if selr.reset_flag:
                     selr.reset()
@@ -464,26 +465,32 @@ class RolloutBase(OperationDataMixin, ABC):
 
                 selr.phase_manager.pre_update()
 
-                env_action = np.concatenate(
-                    [
-                        selr.motion_manager.get_command_data(key)
-                        for key in selr.env.unwrapped.command_keys_for_step
-                    ]
-                )
+                per_selr_parts = [
+                    selr.motion_manager.get_command_data(key)
+                    for key in selr.env.unwrapped.command_keys_for_step
+                ]
+                if len(per_selr_parts) > 0:
+                    per_selr_action = np.concatenate(per_selr_parts)
+                else:
+                    per_selr_action = np.zeros(0, dtype=np.float64)
+                env_action_parts.append(per_selr_action)
 
-            if selr.args.save_rollout and selr.phase_manager.is_phase("RolloutPhase"):
-                selr.record_data()
+            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
+                self.record_data()
 
-            selr.obs, selr.reward, _, _, selr.info = selr.env.step(env_action)
+            selected_rollout_id = 0  # TODO
+            self.obs, self.reward, _, _, self.info = self.env.step(
+                env_action_parts[selected_rollout_id]
+            )
 
-            selr.phase_manager.post_update()
+            self.phase_manager.post_update()
 
-            selr.key = cv2.waitKey(1)
-            selr.phase_manager.check_transition()
+            self.key = cv2.waitKey(1)
+            self.phase_manager.check_transition()
 
-            if selr.key == 27:  # escape key
-                selr.quit_flag = True
-            if selr.quit_flag:
+            if self.key == 27:  # escape key
+                self.quit_flag = True
+            if self.quit_flag:
                 break_all_rollout_loops = True
 
             if break_all_rollout_loops:

@@ -95,8 +95,8 @@
   </actuator>
 
   <sensor>
-    <force name="force_sensor" site="pinch_site"/>
-    <torque name="torque_sensor" site="pinch_site"/>
+    <force name="force_sensor" site="force_sensor"/>
+    <torque name="torque_sensor" site="force_sensor"/>
   </sensor>
 
   <!-- gripper: robotiq_2f85 -->

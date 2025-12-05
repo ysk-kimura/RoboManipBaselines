@@ -32,7 +32,7 @@ class MujocoKinovaGen3EnvBase(MujocoEnvBase):
     def setup_robot(self, init_qpos):
         self.init_qpos[: len(init_qpos)] = init_qpos
         self.init_qvel[:] = 0.0
-        print(len(init_qpos))
+
         mujoco.mj_kinematics(self.model, self.data)
 
         self.body_config_list = [

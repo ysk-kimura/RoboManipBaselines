@@ -26,7 +26,7 @@ class MujocoKinovaGen3CableEnv(MujocoKinovaGen3EnvBase):
                     0.17,
                     1,
                     0.15,
-                    *np.zeros(6),
+                    *np.zeros(8),
                 ]
             ),
             **kwargs,

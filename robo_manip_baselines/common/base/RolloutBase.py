@@ -141,8 +141,10 @@ class EndRolloutPhase(PhaseBase):
 
 class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
+    _display_initialized = False
+    _display_window_name = "robo_manip_policy_display"
 
-    def __init__(self, pol_idx: int, **kwargs):
+    def __init__(self, pol_idx: int, env=None, **kwargs):
         self.pol_idx = pol_idx
 
         # Setup arguments
@@ -153,7 +155,12 @@ class RolloutBase(OperationDataMixin, ABC):
 
         # Setup gym environment
         render_mode = None if self.args.no_render else "human"
-        self.setup_env(render_mode=render_mode)
+        if env is None:
+            self.setup_env(render_mode=render_mode)
+            self._owns_env = True
+        else:
+            self.env = env
+            self._owns_env = False
         self.demo_name = self.args.demo_name or remove_suffix(self.env.spec.name, "Env")
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task
@@ -392,13 +399,17 @@ class RolloutBase(OperationDataMixin, ABC):
 
         self.canvas = FigureCanvasAgg(self.fig)
         self.canvas.draw()
-        cv2.imshow(
-            self.policy_name,
-            cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
-        )
+        img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
+
+        window_name = RolloutBase._display_window_name
+        if not RolloutBase._display_initialized:
+            cv2.imshow(window_name, img)
+            RolloutBase._display_initialized = True
+        else:
+            cv2.imshow(window_name, img)
 
         if self.args.win_xy_plot is not None:
-            cv2.moveWindow(self.policy_name, *self.args.win_xy_plot)
+            cv2.moveWindow(window_name, *self.args.win_xy_plot)
         cv2.waitKey(1)
 
         if len(self.action_keys) > 0:
@@ -439,15 +450,14 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.eval()
 
     def run(self):
-        rollouts = self.rollouts
-        for selr in rollouts:
+        for selr in self.rollouts:
             selr.reset_flag = True
             selr.quit_flag = False
             selr.inference_duration_list = []
 
-        global_quit = False
-        while not global_quit:
-            for selr in rollouts:
+        break_all_rollout_loops = False
+        while not break_all_rollout_loops:
+            for selr in self.rollouts:
                 if selr.reset_flag:
                     selr.reset()
                     selr.reset_flag = False
@@ -461,26 +471,25 @@ class RolloutBase(OperationDataMixin, ABC):
                     ]
                 )
 
-                if selr.args.save_rollout and selr.phase_manager.is_phase(
-                    "RolloutPhase"
-                ):
-                    selr.record_data()
+            if selr.args.save_rollout and selr.phase_manager.is_phase("RolloutPhase"):
+                selr.record_data()
 
-                selr.obs, selr.reward, _, _, selr.info = selr.env.step(env_action)
+            selr.obs, selr.reward, _, _, selr.info = selr.env.step(env_action)
 
-                selr.phase_manager.post_update()
+            selr.phase_manager.post_update()
 
-                selr.key = cv2.waitKey(1)
-                selr.phase_manager.check_transition()
+            selr.key = cv2.waitKey(1)
+            selr.phase_manager.check_transition()
 
-                if selr.key == 27:  # escape key
-                    selr.quit_flag = True
-                if selr.quit_flag:
-                    global_quit = True
-            if global_quit:
+            if selr.key == 27:  # escape key
+                selr.quit_flag = True
+            if selr.quit_flag:
+                break_all_rollout_loops = True
+
+            if break_all_rollout_loops:
                 break
 
-        for selr in rollouts:
+        for selr in self.rollouts:
             if selr.args.result_filename is not None:
                 print(
                     f"[{selr.__class__.__name__}] Save the rollout results: "
@@ -503,10 +512,8 @@ class RolloutBase(OperationDataMixin, ABC):
 
             self.canvas = FigureCanvasAgg(self.fig)
             self.canvas.draw()
-            cv2.imshow(
-                self.policy_name,
-                cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
-            )
+            img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
+            cv2.imshow(RolloutBase._display_window_name, img)
 
         # Reset motion manager
         self.motion_manager.reset()

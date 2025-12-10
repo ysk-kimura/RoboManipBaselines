@@ -83,6 +83,12 @@ register(
     entry_point="robo_manip_baselines.envs.mujoco:MujocoHsrTidyupEnv",
 )
 
+## Kinova Gen3
+register(
+    id="robo_manip_baselines/MujocoKinovaGen3CableEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoKinovaGen3CableEnv",
+)
+
 ## G1
 register(
     id="robo_manip_baselines/MujocoG1BottlesEnv-v0",

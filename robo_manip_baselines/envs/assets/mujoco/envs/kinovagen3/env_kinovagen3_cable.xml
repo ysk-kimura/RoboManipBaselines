@@ -30,10 +30,10 @@
     </body>
 
     <body name="stand">
-      <geom type="box" size="0.33 0.33 0.4" pos="-0.605 0 0.4" material="stand"/>
+      <geom type="box" size="0.22 0.22 0.4" pos="-0.5 0 0.4" material="stand"/>
     </body>
 
-    <body name="kinovagen3_root_frame" pos="-0.605 0.0 0.8">
+    <body name="kinovagen3_root_frame" pos="-0.5 0.0 0.8">
       <include file="../../robots/kinovagen3/kinovagen3_body.xml"/>
     </body>
 

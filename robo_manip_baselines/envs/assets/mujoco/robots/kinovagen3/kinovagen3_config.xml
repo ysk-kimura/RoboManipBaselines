@@ -3,6 +3,24 @@
   <option integrator="implicitfast"/>
 
   <default>
+    <default class="kinovagen3">
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.75294 0.75294 0.75294 1"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3"/>
+      </default>
+      <default class="large_actuator">
+        <position kp="2000" kv="400" forcerange="-105 105"/>
+        <!-- <position kp="2000" kv="100" forcerange="-105 105"/> -->
+      </default>
+      <default class="small_actuator">
+        <position kp="500" kv="100" forcerange="-52 52"/>
+        <!-- <position kp="500" kv="50" forcerange="-52 52"/> -->
+      </default>
+      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+    </default>
+
     <!-- gripper: robotiq_2f85 -->
     <default class="2f85">
       <mesh scale="0.001 0.001 0.001"/>
@@ -37,22 +55,6 @@
         </default>
       </default>
     </default>
-
-    <default class="kinovagen3">
-      <default class="visual">
-        <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.75294 0.75294 0.75294 1"/>
-      </default>
-      <default class="collision">
-        <geom type="mesh" group="3"/>
-      </default>
-      <default class="large_actuator">
-        <position kp="2000" kv="100" forcerange="-105 105"/>
-      </default>
-      <default class="small_actuator">
-        <position kp="500" kv="50" forcerange="-52 52"/>
-      </default>
-      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
-    </default>
   </default>
 
   <asset>
@@ -71,23 +73,23 @@
     <material name="gray" rgba="0.4627 0.4627 0.4627 1"/>
     <material name="black" rgba="0.149 0.149 0.149 1"/>
 
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/gripper_base.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/driver.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/coupler.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/follower.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/pad.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/silicone_pad.stl"/>
-    <mesh class="2f85" file="../../assets/meshes/robotiq2/spring_link.stl"/>
+    <mesh class="2f85" file="robotiq2/gripper_base.stl"/>
+    <mesh class="2f85" file="robotiq2/driver.stl"/>
+    <mesh class="2f85" file="robotiq2/coupler.stl"/>
+    <mesh class="2f85" file="robotiq2/follower.stl"/>
+    <mesh class="2f85" file="robotiq2/pad.stl"/>
+    <mesh class="2f85" file="robotiq2/silicone_pad.stl"/>
+    <mesh class="2f85" file="robotiq2/spring_link.stl"/>
   </asset>
 
   <actuator>
-    <position class="large_actuator" name="joint_1" joint="joint_1"/>
+    <position class="large_actuator" name="joint_1" joint="joint_1" ctrlrange="-6.28 6.28"/>
     <position class="large_actuator" name="joint_2" joint="joint_2" ctrlrange="-2.2497294058206907 2.2497294058206907"/>
-    <position class="large_actuator" name="joint_3" joint="joint_3"/>
+    <position class="large_actuator" name="joint_3" joint="joint_3" ctrlrange="-6.28 6.28"/>
     <position class="large_actuator" name="joint_4" joint="joint_4" ctrlrange="-2.5795966344476193 2.5795966344476193"/>
-    <position class="small_actuator" name="joint_5" joint="joint_5"/>
+    <position class="small_actuator" name="joint_5" joint="joint_5" ctrlrange="-6.28 6.28"/>
     <position class="small_actuator" name="joint_6" joint="joint_6" ctrlrange="-2.0996310901491784 2.0996310901491784"/>
-    <position class="small_actuator" name="joint_7" joint="joint_7"/>
+    <position class="small_actuator" name="joint_7" joint="joint_7" ctrlrange="-6.28 6.28"/>
 
     <!-- gripper: robotiq_2f85 -->
     <general class="2f85" name="fingers_actuator" tendon="split" forcerange="-5 5" ctrlrange="0 255"
@@ -122,11 +124,4 @@
     <joint joint1="right_driver_joint" joint2="left_driver_joint" polycoef="0 1 0 0 0" solimp="0.95 0.99 0.001"
       solref="0.005 1"/>
   </equality>
-
-  <!-- <keyframe>
-    <key name="home" qpos="0 0.26179939 3.14159265 -2.26892803 0 0.95993109 1.57079633"
-      ctrl="0 0.26179939 3.14159265 -2.26892803 0 0.95993109 1.57079633"/>
-    <key name="retract" qpos="0 -0.34906585 3.14159265 -2.54818071 0 -0.87266463 1.57079633"
-      ctrl="0 -0.34906585 3.14159265 -2.54818071 0 -0.87266463 1.57079633"/>
-  </keyframe> -->
 </mujoco>

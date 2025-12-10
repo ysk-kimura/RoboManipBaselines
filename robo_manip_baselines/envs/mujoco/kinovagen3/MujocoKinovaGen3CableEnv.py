@@ -20,12 +20,12 @@ class MujocoKinovaGen3CableEnv(MujocoKinovaGen3EnvBase):
             np.array(
                 [
                     0,
-                    0.2,
+                    np.deg2rad(20),
                     0,
-                    1.8,
-                    0.17,
-                    1,
-                    0.15,
+                    np.deg2rad(100),
+                    0,
+                    np.deg2rad(60),
+                    0,
                     *np.zeros(8),
                 ]
             ),

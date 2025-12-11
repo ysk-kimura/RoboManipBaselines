@@ -141,8 +141,7 @@ class EndRolloutPhase(PhaseBase):
 
 class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
-    _display_initialized = False
-    _display_window_name = "robo_manip_policy_display"
+    _dispatch_window_name = "dispatch_window"
 
     def __init__(self, pol_idx: int, env=None, **kwargs):
         self.pol_idx = pol_idx
@@ -401,12 +400,8 @@ class RolloutBase(OperationDataMixin, ABC):
         self.canvas.draw()
         img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
 
-        window_name = RolloutBase._display_window_name
-        if not RolloutBase._display_initialized:
-            cv2.imshow(window_name, img)
-            RolloutBase._display_initialized = True
-        else:
-            cv2.imshow(window_name, img)
+        window_name = RolloutBase._dispatch_window_name
+        cv2.imshow(window_name, img)
 
         if self.args.win_xy_plot is not None:
             cv2.moveWindow(window_name, *self.args.win_xy_plot)
@@ -532,7 +527,7 @@ class RolloutBase(OperationDataMixin, ABC):
             self.canvas = FigureCanvasAgg(self.fig)
             self.canvas.draw()
             img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
-            cv2.imshow(RolloutBase._display_window_name, img)
+            cv2.imshow(RolloutBase._dispatch_window_name, img)
 
             # Reset motion manager
             for selr in getattr(self, "rollouts", [self]):

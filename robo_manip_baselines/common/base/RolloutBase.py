@@ -144,9 +144,8 @@ class RolloutBase(OperationDataMixin, ABC):
     _dispatch_window_name = "dispatch_window"
 
     def __init__(self, pol_idx: int, env=None, **kwargs):
-        self.pol_idx = pol_idx
-
         # Setup arguments
+        self.pol_idx = pol_idx
         self.setup_args(**kwargs)
         self.args.checkpoint = self.args.checkpoint[self.pol_idx]
 

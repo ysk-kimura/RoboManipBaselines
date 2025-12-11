@@ -476,10 +476,10 @@ class RolloutBase(OperationDataMixin, ABC):
                 ) and selr.phase_manager.is_phase("RolloutPhase"):
                     selr.record_data()
 
-            selected_rollout_id = 0  # TODO
-            self.obs, self.reward, _, _, self.info = self.env.step(
-                env_action_parts[selected_rollout_id]
+            env_action = np.mean(np.stack(env_action_parts, axis=0), axis=0).astype(
+                env_action_parts[0].dtype, copy=True
             )
+            self.obs, self.reward, _, _, self.info = self.env.step(env_action)
             for selr in self.rollouts:
                 selr.obs = self.obs
                 selr.reward = self.reward

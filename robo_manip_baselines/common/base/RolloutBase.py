@@ -470,15 +470,16 @@ class RolloutBase(OperationDataMixin, ABC):
                     per_selr_action = np.zeros(0, dtype=np.float64)
                 env_action_parts.append(per_selr_action)
 
+            env_action = np.mean(np.stack(env_action_parts, axis=0), axis=0).astype(
+                env_action_parts[0].dtype, copy=True
+            )
+
             for selr in self.rollouts:
                 if getattr(
                     selr.args, "save_rollout", False
                 ) and selr.phase_manager.is_phase("RolloutPhase"):
                     selr.record_data()
 
-            env_action = np.mean(np.stack(env_action_parts, axis=0), axis=0).astype(
-                env_action_parts[0].dtype, copy=True
-            )
             self.obs, self.reward, _, _, self.info = self.env.step(env_action)
             for selr in self.rollouts:
                 selr.obs = self.obs
@@ -526,12 +527,14 @@ class RolloutBase(OperationDataMixin, ABC):
 
             self.canvas = FigureCanvasAgg(self.fig)
             self.canvas.draw()
-            img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
-            cv2.imshow(RolloutBase._dispatch_window_name, img)
+            cv2.imshow(
+                RolloutBase._dispatch_window_name,
+                cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
+            )
 
-            # Reset motion manager
-            for selr in getattr(self, "rollouts", [self]):
-                selr.motion_manager.reset()
+        # Reset motion manager
+        for selr in getattr(self, "rollouts", [self]):
+            selr.motion_manager.reset()
 
         # Reset data manager
         self.data_manager.reset()

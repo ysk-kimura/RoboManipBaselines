@@ -493,7 +493,7 @@ class RolloutBase(OperationDataMixin, ABC):
                 try:
                     selr.phase_manager.check_transition()
                 except AttributeError:
-                    pass
+                    pass  # Ignore AttributeError if phase_manager absent; safe as not all rollouts have it
 
             if self.key == 27:  # escape key
                 self.quit_flag = True

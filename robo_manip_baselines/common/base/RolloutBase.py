@@ -495,7 +495,10 @@ class RolloutBase(OperationDataMixin, ABC):
 
             self.key = cv2.waitKey(1)
             for selr in self.rollouts:
-                selr.phase_manager.check_transition()
+                try:
+                    selr.phase_manager.check_transition()
+                except AttributeError:
+                    pass
 
             if self.key == 27:  # escape key
                 self.quit_flag = True

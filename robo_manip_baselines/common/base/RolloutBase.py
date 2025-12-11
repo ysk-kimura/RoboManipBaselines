@@ -450,7 +450,7 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.eval()
 
     def run(self):
-        for selr in self.rollouts:
+        for selr in self.rollouts:  # selr: selected rollout instance
             selr.reset_flag = True
             selr.quit_flag = False
             selr.inference_duration_list = []
@@ -475,18 +475,27 @@ class RolloutBase(OperationDataMixin, ABC):
                     per_selr_action = np.zeros(0, dtype=np.float64)
                 env_action_parts.append(per_selr_action)
 
-            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
-                self.record_data()
+            for selr in self.rollouts:
+                if getattr(
+                    selr.args, "save_rollout", False
+                ) and selr.phase_manager.is_phase("RolloutPhase"):
+                    selr.record_data()
 
             selected_rollout_id = 0  # TODO
             self.obs, self.reward, _, _, self.info = self.env.step(
                 env_action_parts[selected_rollout_id]
             )
+            for selr in self.rollouts:
+                selr.obs = self.obs
+                selr.reward = self.reward
+                selr.info = self.info
 
-            self.phase_manager.post_update()
+            for selr in self.rollouts:
+                selr.phase_manager.post_update()
 
             self.key = cv2.waitKey(1)
-            self.phase_manager.check_transition()
+            for selr in self.rollouts:
+                selr.phase_manager.check_transition()
 
             if self.key == 27:  # escape key
                 self.quit_flag = True
@@ -522,8 +531,9 @@ class RolloutBase(OperationDataMixin, ABC):
             img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
             cv2.imshow(RolloutBase._display_window_name, img)
 
-        # Reset motion manager
-        self.motion_manager.reset()
+            # Reset motion manager
+            for selr in getattr(self, "rollouts", [self]):
+                selr.motion_manager.reset()
 
         # Reset data manager
         self.data_manager.reset()

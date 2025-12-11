@@ -398,13 +398,13 @@ class RolloutBase(OperationDataMixin, ABC):
 
         self.canvas = FigureCanvasAgg(self.fig)
         self.canvas.draw()
-        img = cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR)
-
-        window_name = RolloutBase._dispatch_window_name
-        cv2.imshow(window_name, img)
+        cv2.imshow(
+            RolloutBase._dispatch_window_name,
+            cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
+        )
 
         if self.args.win_xy_plot is not None:
-            cv2.moveWindow(window_name, *self.args.win_xy_plot)
+            cv2.moveWindow(RolloutBase._dispatch_window_name, *self.args.win_xy_plot)
         cv2.waitKey(1)
 
         if len(self.action_keys) > 0:

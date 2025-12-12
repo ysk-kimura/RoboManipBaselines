@@ -155,10 +155,8 @@ class RolloutBase(OperationDataMixin, ABC):
         render_mode = None if self.args.no_render else "human"
         if env is None:
             self.setup_env(render_mode=render_mode)
-            self._owns_env = True
         else:
             self.env = env
-            self._owns_env = False
         self.demo_name = self.args.demo_name or remove_suffix(self.env.spec.name, "Env")
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task
@@ -444,76 +442,51 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.eval()
 
     def run(self):
-        for selr in self.rollouts:  # selr: selected rollout instance
-            selr.reset_flag = True
-            selr.quit_flag = False
-            selr.inference_duration_list = []
+        self.reset_flag = True
+        self.quit_flag = False
+        self.inference_duration_list = []
 
-        break_all_rollout_loops = False
-        while not break_all_rollout_loops:
-            env_action_parts = []
-            for selr in self.rollouts:
-                if selr.reset_flag:
-                    selr.reset()
-                    selr.reset_flag = False
+        while True:
+            if self.reset_flag:
+                self.reset()
+                self.reset_flag = False
 
-                selr.phase_manager.pre_update()
+            self.phase_manager.pre_update()
 
-                per_selr_parts = [
-                    selr.motion_manager.get_command_data(key)
-                    for key in selr.env.unwrapped.command_keys_for_step
+            env_action = np.concatenate(
+                [
+                    self.motion_manager.get_command_data(key)
+                    for key in self.env.unwrapped.command_keys_for_step
                 ]
-                if len(per_selr_parts) > 0:
-                    per_selr_action = np.concatenate(per_selr_parts)
-                else:
-                    per_selr_action = np.zeros(0, dtype=np.float64)
-                env_action_parts.append(per_selr_action)
-
-            env_action = np.mean(np.stack(env_action_parts, axis=0), axis=0).astype(
-                env_action_parts[0].dtype, copy=True
             )
 
-            for selr in self.rollouts:
-                if getattr(
-                    selr.args, "save_rollout", False
-                ) and selr.phase_manager.is_phase("RolloutPhase"):
-                    selr.record_data()
+            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
+                self.record_data()
 
             self.obs, self.reward, _, _, self.info = self.env.step(env_action)
-            for selr in self.rollouts:
-                selr.obs = self.obs
-                selr.reward = self.reward
-                selr.info = self.info
 
-            for selr in self.rollouts:
-                selr.phase_manager.post_update()
+            self.phase_manager.post_update()
 
             self.key = cv2.waitKey(1)
-            for selr in self.rollouts:
-                try:
-                    selr.phase_manager.check_transition()
-                except AttributeError:
-                    pass  # Ignore AttributeError if phase_manager absent; safe as not all rollouts have it
+            try:
+                self.phase_manager.check_transition()
+            except AttributeError:
+                pass  # Ignore AttributeError if phase_manager absent; safe as not all rollouts have it
 
             if self.key == 27:  # escape key
                 self.quit_flag = True
             if self.quit_flag:
-                break_all_rollout_loops = True
-
-            if break_all_rollout_loops:
                 break
 
-        for selr in self.rollouts:
-            if selr.args.result_filename is not None:
-                print(
-                    f"[{selr.__class__.__name__}] Save the rollout results: "
-                    f"{selr.args.result_filename}"
-                )
-                with open(
-                    selr.args.result_filename, "w", encoding="utf-8"
-                ) as result_file:
-                    yaml.dump(selr.result, result_file)
-            selr.print_statistics()
+        if self.args.result_filename is not None:
+            print(
+                f"[{self.__class__.__name__}] Save the rollout results: "
+                f"{self.args.result_filename}"
+            )
+            with open(self.args.result_filename, "w", encoding="utf-8") as result_file:
+                yaml.dump(self.result, result_file)
+
+        self.print_statistics()
 
         # self.env.close()
 
@@ -532,8 +505,8 @@ class RolloutBase(OperationDataMixin, ABC):
             )
 
         # Reset motion manager
-        for selr in getattr(self, "rollouts", [self]):
-            selr.motion_manager.reset()
+        for self in getattr(self, "rollouts", [self]):
+            self.motion_manager.reset()
 
         # Reset data manager
         self.data_manager.reset()

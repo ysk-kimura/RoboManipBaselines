@@ -6,6 +6,8 @@ import sys
 
 import yaml
 
+from robo_manip_baselines.common.ensemble.RolloutEnsembleBase import RolloutEnsembleBase
+
 
 class RolloutEnsembleMain:
     operation_parent_module_str = "robo_manip_baselines.envs.operation"
@@ -123,9 +125,10 @@ class RolloutEnsembleMain:
             rollouts.append(rollout_inst)
         if len(rollouts) == 0:
             raise RuntimeError("No rollout instances. Check policies.")
-        rollout_main = rollouts[0]
-        rollout_main.rollouts = rollouts
-        rollout_main.run()
+        if len(rollouts) == 0:
+            raise RuntimeError("No rollout instances. Check policies.")
+        ensemble = RolloutEnsembleBase(rollout_instances=rollouts)
+        ensemble.run()
 
 
 if __name__ == "__main__":

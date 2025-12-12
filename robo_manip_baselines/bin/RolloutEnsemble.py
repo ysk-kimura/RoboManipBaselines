@@ -7,7 +7,7 @@ import sys
 import yaml
 
 
-class RolloutMain:
+class RolloutEnsembleMain:
     operation_parent_module_str = "robo_manip_baselines.envs.operation"
     policy_parent_module_str = "robo_manip_baselines.policy"
     policy_choices = [
@@ -34,24 +34,22 @@ class RolloutMain:
 
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            description="This is a meta argument parser for the rollout switching between different policies and environments. The actual arguments are handled by another internal argument parser.",
+            description="This is a meta argument parser for the rollout ensemble, switching between different policies and environments. The actual arguments are handled by another internal argument parser.",
             fromfile_prefix_chars="@",
             add_help=False,
         )
         parser.add_argument(
             "policy",
             type=str,
-            nargs="?",
+            nargs="+",
             default=None,
             choices=self.policy_choices,
-            help="policy",
+            help="policy(s)",
         )
         parser.add_argument(
             "env",
             type=str,
             help="environment",
-            nargs="?",
-            default=None,
             choices=env_utils_module.get_env_names(
                 operation_parent_module_str=self.operation_parent_module_str
             ),
@@ -90,27 +88,46 @@ class RolloutMain:
         )
         OperationEnvClass = getattr(operation_module, f"Operation{self.args.env}")
 
-        policy_module = importlib.import_module(
-            f"{self.policy_parent_module_str}.{camel_to_snake(self.args.policy)}"
-        )
-        RolloutPolicyClass = getattr(policy_module, f"Rollout{self.args.policy}")
-
-        # The order of parent classes must not be changed in order to maintain the method resolution order (MRO)
-        class Rollout(OperationEnvClass, RolloutPolicyClass):
-            @property
-            def policy_name(self):
-                return remove_prefix(RolloutPolicyClass.__name__, "Rollout")
-
         if self.args.config is None:
             config = {}
         else:
             with open(self.args.config, "r") as f:
                 config = yaml.safe_load(f)
 
-        rollout = Rollout(**config)
-        rollout.run()
+        rollouts = []
+        main_env = None
+        for pol_idx, policy_name in enumerate(self.args.policy):
+            policy_module = importlib.import_module(
+                f"{self.policy_parent_module_str}.{camel_to_snake(policy_name)}"
+            )
+            RolloutPolicyClass = getattr(policy_module, f"Rollout{policy_name}")
+
+            class Rollout(OperationEnvClass, RolloutPolicyClass):
+                _rpc = RolloutPolicyClass
+
+                def __init__(self, pol_idx=None, **kwargs):
+                    super().__init__(pol_idx=pol_idx, **kwargs)
+
+                @property
+                def policy_name(self):
+                    return remove_prefix(self._rpc.__name__, "Rollout")
+
+            try:
+                if main_env is None:
+                    rollout_inst = Rollout(pol_idx=pol_idx, **config)
+                    main_env = rollout_inst.env
+                else:
+                    rollout_inst = Rollout(pol_idx=pol_idx, env=main_env, **config)
+            except TypeError as e:
+                raise TypeError(f"Init fail '{policy_name}': {e}") from e
+            rollouts.append(rollout_inst)
+        if len(rollouts) == 0:
+            raise RuntimeError("No rollout instances. Check policies.")
+        rollout_main = rollouts[0]
+        rollout_main.rollouts = rollouts
+        rollout_main.run()
 
 
 if __name__ == "__main__":
-    main = RolloutMain()
+    main = RolloutEnsembleMain()
     main.run()

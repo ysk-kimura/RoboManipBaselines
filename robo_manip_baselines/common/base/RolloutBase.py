@@ -441,43 +441,38 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.to(self.device)
         self.policy.eval()
 
-    def run(self):
+    def reset_run_vars(self):
         self.reset_flag = True
         self.quit_flag = False
         self.inference_duration_list = []
 
-        while True:
-            if self.reset_flag:
-                self.reset()
-                self.reset_flag = False
+    def get_env_action(self):
+        if self.reset_flag:
+            self.reset()
+            self.reset_flag = False
 
-            self.phase_manager.pre_update()
+        self.phase_manager.pre_update()
 
-            env_action = np.concatenate(
-                [
-                    self.motion_manager.get_command_data(key)
-                    for key in self.env.unwrapped.command_keys_for_step
-                ]
-            )
+        env_action = np.concatenate(
+            [
+                self.motion_manager.get_command_data(key)
+                for key in self.env.unwrapped.command_keys_for_step
+            ]
+        )
 
-            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
-                self.record_data()
+        return env_action
 
-            self.obs, self.reward, _, _, self.info = self.env.step(env_action)
+    def record_rollout_data(self):
+        if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
+            self.record_data()
 
-            self.phase_manager.post_update()
+    def post_phase_update(self):
+        self.phase_manager.post_update()
 
-            self.key = cv2.waitKey(1)
-            try:
-                self.phase_manager.check_transition()
-            except AttributeError:
-                pass  # Ignore AttributeError if phase_manager absent; safe as not all rollouts have it
+    def check_phase_transition(self):
+        self.phase_manager.check_transition()
 
-            if self.key == 27:  # escape key
-                self.quit_flag = True
-            if self.quit_flag:
-                break
-
+    def dump_rollout_result(self):
         if self.args.result_filename is not None:
             print(
                 f"[{self.__class__.__name__}] Save the rollout results: "
@@ -485,6 +480,27 @@ class RolloutBase(OperationDataMixin, ABC):
             )
             with open(self.args.result_filename, "w", encoding="utf-8") as result_file:
                 yaml.dump(self.result, result_file)
+
+    def run(self):
+        self.reset_run_vars()
+
+        while True:
+            env_action = self.get_env_action()
+            self.record_rollout_data()
+
+            self.obs, self.reward, _, _, self.info = self.env.step(env_action)
+
+            self.post_phase_update()
+
+            self.key = cv2.waitKey(1)
+            self.check_phase_transition()
+
+            if self.key == 27:  # escape key
+                self.quit_flag = True
+            if self.quit_flag:
+                break
+
+        self.dump_rollout_result()
 
         self.print_statistics()
 

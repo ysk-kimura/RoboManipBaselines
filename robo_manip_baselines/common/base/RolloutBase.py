@@ -343,7 +343,7 @@ class RolloutBase(OperationDataMixin, ABC):
             self.args.world_random_scale = np.array(self.args.world_random_scale)
 
         if self.args.seed < 0:
-            self.args.seed = int(time.time()) % (2**32)
+            self.args.seed = int(time.time()) % (2 ** 32)
 
     def set_additional_args(self, parser):
         pass
@@ -446,21 +446,19 @@ class RolloutBase(OperationDataMixin, ABC):
         self.quit_flag = False
         self.inference_duration_list = []
 
-    def get_env_action(self):
+    def fetch_env_commands(self):
         if self.reset_flag:
             self.reset()
             self.reset_flag = False
 
         self.phase_manager.pre_update()
 
-        env_action = np.concatenate(
-            [
-                self.motion_manager.get_command_data(key)
-                for key in self.env.unwrapped.command_keys_for_step
-            ]
-        )
+        commands = [
+            self.motion_manager.get_command_data(key)
+            for key in self.env.unwrapped.command_keys_for_step
+        ]
 
-        return env_action
+        return commands
 
     def record_rollout_data(self):
         if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
@@ -485,7 +483,9 @@ class RolloutBase(OperationDataMixin, ABC):
         self.reset_run_vars()
 
         while True:
-            env_action = self.get_env_action()
+            commands = self.fetch_env_commands()
+            env_action = np.concatenate(commands)
+
             self.record_rollout_data()
 
             self.obs, self.reward, _, _, self.info = self.env.step(env_action)

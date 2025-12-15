@@ -15,7 +15,9 @@ class RolloutEnsembleBase:
 
     def run(self, **kwargs):
         for rollout_instance in self.rollout_instances:
-            rollout_instance.reset_run_vars()
+            rollout_instance.reset_flag = True
+            rollout_instance.quit_flag = False
+            rollout_instance.inference_duration_list = []
 
         while True:
             env_action_parts = []
@@ -31,7 +33,11 @@ class RolloutEnsembleBase:
             )
 
             for rollout_instance in self.rollout_instances:
-                rollout_instance.record_rollout_data()
+                if (
+                    rollout_instance.args.save_rollout
+                    and rollout_instance.phase_manager.is_phase("RolloutPhase")
+                ):
+                    rollout_instance.record_data()
 
             obs, reward, _, _, info = self.rollout_instances[0].env.step(env_action)
             for rollout_instance in self.rollout_instances:
@@ -40,12 +46,12 @@ class RolloutEnsembleBase:
                 rollout_instance.info = info
 
             for rollout_instance in self.rollout_instances:
-                rollout_instance.post_phase_update()
+                rollout_instance.phase_manager.post_update()
 
             for rollout_instance in self.rollout_instances:
                 rollout_instance.key = cv2.waitKey(1)
                 try:
-                    rollout_instance.check_phase_transition()
+                    rollout_instance.phase_manager.check_transition()
                 except AttributeError:
                     pass  # Ignore AttributeError if phase_manager absent; safe as not all rollouts have it
 

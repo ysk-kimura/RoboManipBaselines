@@ -343,7 +343,7 @@ class RolloutBase(OperationDataMixin, ABC):
             self.args.world_random_scale = np.array(self.args.world_random_scale)
 
         if self.args.seed < 0:
-            self.args.seed = int(time.time()) % (2 ** 32)
+            self.args.seed = int(time.time()) % (2**32)
 
     def set_additional_args(self, parser):
         pass
@@ -441,11 +441,6 @@ class RolloutBase(OperationDataMixin, ABC):
         self.policy.to(self.device)
         self.policy.eval()
 
-    def reset_run_vars(self):
-        self.reset_flag = True
-        self.quit_flag = False
-        self.inference_duration_list = []
-
     def fetch_env_commands(self):
         if self.reset_flag:
             self.reset()
@@ -460,16 +455,6 @@ class RolloutBase(OperationDataMixin, ABC):
 
         return commands
 
-    def record_rollout_data(self):
-        if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
-            self.record_data()
-
-    def post_phase_update(self):
-        self.phase_manager.post_update()
-
-    def check_phase_transition(self):
-        self.phase_manager.check_transition()
-
     def dump_rollout_result(self):
         if self.args.result_filename is not None:
             print(
@@ -480,20 +465,23 @@ class RolloutBase(OperationDataMixin, ABC):
                 yaml.dump(self.result, result_file)
 
     def run(self):
-        self.reset_run_vars()
+        self.reset_flag = True
+        self.quit_flag = False
+        self.inference_duration_list = []
 
         while True:
             commands = self.fetch_env_commands()
             env_action = np.concatenate(commands)
 
-            self.record_rollout_data()
+            if self.args.save_rollout and self.phase_manager.is_phase("RolloutPhase"):
+                self.record_data()
 
             self.obs, self.reward, _, _, self.info = self.env.step(env_action)
 
-            self.post_phase_update()
+            self.phase_manager.post_update()
 
             self.key = cv2.waitKey(1)
-            self.check_phase_transition()
+            self.phase_manager.check_transition()
 
             if self.key == 27:  # escape key
                 self.quit_flag = True

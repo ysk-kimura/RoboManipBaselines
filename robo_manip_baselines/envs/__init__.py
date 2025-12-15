@@ -67,6 +67,12 @@ register(
     entry_point="robo_manip_baselines.envs.mujoco:MujocoKinovaGen3CableEnv",
 )
 
+## CRX-5iA
+register(
+    id="robo_manip_baselines/MujocoCrx5iaCableEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoCrx5iaCableEnv",
+)
+
 ## ViperX 300S
 register(
     id="robo_manip_baselines/MujocoVx300sPickEnv-v0",

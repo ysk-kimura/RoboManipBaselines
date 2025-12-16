@@ -3,8 +3,31 @@ import numpy as np
 
 
 class RolloutEnsembleBase:
-    def __init__(self, rollout_instances=None):
-        self.rollout_instances = rollout_instances or []
+    def __init__(self):
+        self.rollout_instances = []
+        self.env = None
+        self.key = None
+
+    def setup_env(self, OperationEnvClass, **config):
+        render_mode = None if config.get("no_render", False) else "human"
+        try:
+            op_inst = OperationEnvClass()
+        except TypeError:
+            op_inst = OperationEnvClass(**config)
+        try:
+            op_inst.setup_env(render_mode=render_mode)
+        except TypeError:
+            op_inst.setup_env(render_mode=render_mode, **config)
+        self._operation_template = op_inst
+        self.env = getattr(op_inst, "env", None)
+        if self.env is None:
+            raise RuntimeError(
+                f"Operation class {OperationEnvClass.__name__}.setup_env() did not set `self.env`."
+            )
+        return self.env
+
+    def set_rollout_inst_list(self, rollout_instances):
+        self.rollout_instances = rollout_instances
 
     def init_vars(self):
         for rollout_instance in self.rollout_instances:
@@ -63,6 +86,12 @@ class RolloutEnsembleBase:
         return False
 
     def run(self, **kwargs):
+        if self.env is None:
+            raise RuntimeError("env not initialized. Call setup_env() before run().")
+
+        if len(self.rollout_instances) == 0:
+            raise RuntimeError("No rollout instances set.")
+
         self.init_vars()
 
         while True:
@@ -74,7 +103,7 @@ class RolloutEnsembleBase:
 
             self.record_rollout_data()
 
-            obs, reward, _, _, info = self.rollout_instances[0].env.step(env_action)
+            obs, reward, _, _, info = self.env.step(env_action)
             self.set_obs(obs, reward, info)
 
             self.post_update()

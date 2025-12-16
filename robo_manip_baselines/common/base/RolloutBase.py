@@ -153,10 +153,10 @@ class RolloutBase(OperationDataMixin, ABC):
 
         # Setup gym environment
         render_mode = None if self.args.no_render else "human"
-        if env is None:
-            self.setup_env(render_mode=render_mode)
-        else:
+        if env is not None:
             self.env = env
+        else:
+            self.setup_env(render_mode=render_mode)
         self.demo_name = self.args.demo_name or remove_suffix(self.env.spec.name, "Env")
         if self.args.target_task is not None:
             self.env.unwrapped.target_task = self.args.target_task

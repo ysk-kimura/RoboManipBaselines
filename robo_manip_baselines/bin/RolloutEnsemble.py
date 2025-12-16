@@ -96,8 +96,10 @@ class RolloutEnsembleMain:
             with open(self.args.config, "r") as f:
                 config = yaml.safe_load(f)
 
-        rollouts = []
-        main_env = None
+        rollout_ensemble = RolloutEnsembleBase()
+        env = rollout_ensemble.setup_env(OperationEnvClass, **config)
+
+        rollout_inst_list = []
         for pol_idx, policy_name in enumerate(self.args.policy):
             policy_module = importlib.import_module(
                 f"{self.policy_parent_module_str}.{camel_to_snake(policy_name)}"
@@ -115,20 +117,14 @@ class RolloutEnsembleMain:
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
             try:
-                if main_env is None:
-                    rollout_inst = Rollout(pol_idx=pol_idx, **config)
-                    main_env = rollout_inst.env
-                else:
-                    rollout_inst = Rollout(pol_idx=pol_idx, env=main_env, **config)
+                rollout_inst = Rollout(pol_idx=pol_idx, env=env, **config)
             except TypeError as e:
                 raise TypeError(f"Init fail '{policy_name}': {e}") from e
-            rollouts.append(rollout_inst)
-        if len(rollouts) == 0:
+            rollout_inst_list.append(rollout_inst)
+        if len(rollout_inst_list) == 0:
             raise RuntimeError("No rollout instances. Check policies.")
-        if len(rollouts) == 0:
-            raise RuntimeError("No rollout instances. Check policies.")
-        ensemble = RolloutEnsembleBase(rollout_instances=rollouts)
-        ensemble.run()
+        rollout_ensemble.set_rollout_inst_list(rollout_inst_list)
+        rollout_ensemble.run()
 
 
 if __name__ == "__main__":

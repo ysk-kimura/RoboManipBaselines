@@ -16,6 +16,8 @@ from .xarm7.MujocoXarm7PushtEnv import MujocoXarm7PushtEnv
 
 from .kinovagen3.MujocoKinovaGen3CableEnv import MujocoKinovaGen3CableEnv
 
+from .panda.MujocoPandaCableEnv import MujocoPandaCableEnv
+
 from .vx300s.MujocoVx300sPickEnv import MujocoVx300sPickEnv
 
 from .aloha.MujocoAlohaCableEnv import MujocoAlohaCableEnv

@@ -48,7 +48,7 @@ class MujocoPandaEnvBase(MujocoEnvBase):
                 gripper_joint_idxes_in_gripper_joint_pos=np.array([0]),
                 eef_idx=0,
                 init_arm_joint_pos=self.init_qpos[0:7],
-                init_gripper_joint_pos=np.array([0.04]),
+                init_gripper_joint_pos=np.array([1.0]),
             )
         ]
 
@@ -103,7 +103,7 @@ class MujocoPandaEnvBase(MujocoEnvBase):
                 for joint_name in gripper_joint_name_list
             ]
         )
-        gripper_joint_pos = np.rad2deg(gripper_qpos.mean(keepdims=True)) / 45.0 * 255.0
+        gripper_joint_pos = gripper_qpos.mean(keepdims=True) / 0.04
         gripper_joint_vel = np.zeros(1)
         force = self.data.sensor("force_sensor").data.flat.copy()
         torque = self.data.sensor("torque_sensor").data.flat.copy()

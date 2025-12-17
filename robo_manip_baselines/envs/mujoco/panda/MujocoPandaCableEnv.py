@@ -26,7 +26,7 @@ class MujocoPandaCableEnv(MujocoPandaEnvBase):
                     0,
                     np.deg2rad(82),
                     np.deg2rad(-40),
-                    *np.zeros(8),
+                    *np.zeros(2),
                 ]
             ),
             **kwargs,

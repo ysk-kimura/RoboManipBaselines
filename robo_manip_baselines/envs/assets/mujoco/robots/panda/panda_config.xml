@@ -1,5 +1,4 @@
 <mujoco name="panda_config">
-
   <default>
     <default class="panda">
       <material specular="0.5" shininess="0.25"/>
@@ -14,7 +13,7 @@
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
       </default>
       <default class="collision">
-        <geom group="3" type="mesh" contype="0" conaffinity="0"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="3"/>
         <default class="primitive_collision">
           <geom group="3" type="box" contype="0" conaffinity="0"
            condim="3" solimp="0.99 0.995 0.01" solref="0.01 1" friction="1 0.005 0.0001"/>
@@ -137,8 +136,10 @@
     <position class="panda" name="actuator6" joint="joint6" kp="300" kv="2" forcerange="-12 12"
       ctrlrange="-0.0175 3.7525"/>
     <position class="panda" name="actuator7" joint="joint7" kp="300" kv="2" forcerange="-12 12"/>
-    <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-200 200" ctrlrange="0 0.04"
-      gainprm="350 0 0" biasprm="0 -350 -10"/>
+    <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-8 8" ctrlrange="0 1.0"
+      gainprm="14 0 0" biasprm="0 -14 -0.4" gear="25"/>
+    <!-- <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-200 200" ctrlrange="0 0.04" -->
+    <!--   gainprm="350 0 0" biasprm="0 -350 -10"/> -->
   </actuator>
 
   <contact>

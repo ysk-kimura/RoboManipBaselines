@@ -76,11 +76,23 @@ Task to push the T-shaped block to align the pose.
 
 https://github.com/user-attachments/assets/000ae494-8ed5-423a-a26e-652b7817c372
 
+### Panda
+#### MujocoPandaCableEnv
+Task to pass the cable between two poles.
+
+https://github.com/user-attachments/assets/046eaf8b-a02f-408f-a586-821338fbeec0
+
 ### KinovaGen3
 #### MujocoKinovaGen3Cable
 Task to pass the cable between two poles.
 
 https://github.com/user-attachments/assets/4e9d4112-ce82-47e6-8977-eff4653be6cf
+
+### CRX-5iA
+#### MujocoCrx5iaCable
+Task to pass the cable between two poles.
+
+https://github.com/user-attachments/assets/d1880909-6d93-4225-9d3d-3216ff25b402
 
 ### ALOHA
 #### MujocoAlohaCable

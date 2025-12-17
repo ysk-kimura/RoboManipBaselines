@@ -61,6 +61,12 @@ register(
     entry_point="robo_manip_baselines.envs.mujoco:MujocoXarm7PushtEnv",
 )
 
+## Franka Emika Panda
+register(
+    id="robo_manip_baselines/MujocoPandaCableEnv-v0",
+    entry_point="robo_manip_baselines.envs.mujoco:MujocoPandaCableEnv",
+)
+
 ## Kinova Gen3
 register(
     id="robo_manip_baselines/MujocoKinovaGen3CableEnv-v0",

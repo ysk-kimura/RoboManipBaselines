@@ -115,6 +115,7 @@ class RolloutEnsembleMain:
             )
 
         rollout_ensemble = RolloutEnsembleBase()
+        # Pass OperationEnvClass so the ensemble can instantiate and initialize the environment
         env = rollout_ensemble.setup_env(OperationEnvClass, **config)
 
         rollout_inst_list = []

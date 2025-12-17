@@ -141,7 +141,6 @@ class EndRolloutPhase(PhaseBase):
 
 class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
-    _dispatch_window_name = "dispatch_window"
 
     def __init__(self, **kwargs):
         # Setup arguments
@@ -393,12 +392,12 @@ class RolloutBase(OperationDataMixin, ABC):
         self.canvas = FigureCanvasAgg(self.fig)
         self.canvas.draw()
         cv2.imshow(
-            RolloutBase._dispatch_window_name,
+            self.policy_name,
             cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
         )
 
         if self.args.win_xy_plot is not None:
-            cv2.moveWindow(RolloutBase._dispatch_window_name, *self.args.win_xy_plot)
+            cv2.moveWindow(self.policy_name, *self.args.win_xy_plot)
         cv2.waitKey(1)
 
         if len(self.action_keys) > 0:
@@ -501,7 +500,7 @@ class RolloutBase(OperationDataMixin, ABC):
             self.canvas = FigureCanvasAgg(self.fig)
             self.canvas.draw()
             cv2.imshow(
-                RolloutBase._dispatch_window_name,
+                self.policy_name,
                 cv2.cvtColor(np.asarray(self.canvas.buffer_rgba()), cv2.COLOR_RGB2BGR),
             )
 

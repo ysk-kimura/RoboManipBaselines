@@ -506,8 +506,7 @@ class RolloutBase(OperationDataMixin, ABC):
             )
 
         # Reset motion manager
-        for self in getattr(self, "rollouts", [self]):
-            self.motion_manager.reset()
+        self.motion_manager.reset()
 
         # Reset data manager
         self.data_manager.reset()

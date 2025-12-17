@@ -8,9 +8,7 @@ from robo_manip_baselines.common import GraspPhaseBase, ReachPhaseBase
 def get_target_se3(op, pos_z):
     target_pos = op.env.unwrapped.get_body_pose("cable_end")[0:3]
     target_pos[2] = pos_z
-    return pin.SE3(
-        np.array([[0, -0.03, 1], [0.02, 1, 0.03], [-1, 0.02, 0]]), target_pos
-    )
+    return pin.SE3(np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]), target_pos)
 
 
 class ReachPhase1(ReachPhaseBase):

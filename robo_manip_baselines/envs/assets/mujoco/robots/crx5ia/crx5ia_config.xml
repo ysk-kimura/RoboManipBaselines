@@ -1,5 +1,4 @@
 <mujoco name="crx5ia_config">
-
   <default>
     <default class="crx5ia">
       <default class="visual">
@@ -7,7 +6,7 @@
       </default>
       <default class="collision">
         <mesh scale="0.001 0.001 0.001"/>
-        <geom type="mesh" rgba="0 0 0 0"/>
+        <geom type="mesh" group="3"/>
       </default>
       <default class="large_actuator">
         <position kp="2000" kv="400" forcerange="-160 160"/>
@@ -96,6 +95,7 @@
     <position class="small_actuator" name="act4" joint="J4" ctrlrange="-3.31613 3.31613"/>
     <position class="small_actuator" name="act5" joint="J5" ctrlrange="-3.13985 3.13985"/>
     <position class="small_actuator" name="act6" joint="J6" ctrlrange="-3.92699 3.92699"/>
+
     <!-- gripper: robotiq_2f85 -->
     <general class="2f85" name="fingers_actuator" tendon="split" forcerange="-5 5" ctrlrange="0 255"
              gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
@@ -131,5 +131,4 @@
     <joint joint1="right_driver_joint" joint2="left_driver_joint"
            polycoef="0 1 0 0 0" solimp="0.95 0.99 0.001" solref="0.005 1"/>
   </equality>
-
 </mujoco>

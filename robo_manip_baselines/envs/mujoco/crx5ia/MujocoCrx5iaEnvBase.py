@@ -23,8 +23,8 @@ class MujocoCrx5iaEnvBase(MujocoEnvBase):
     }
     observation_space = Dict(
         {
-            "joint_pos": Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float64),
-            "joint_vel": Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float64),
+            "joint_pos": Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float64),
+            "joint_vel": Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float64),
             "wrench": Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float64),
         }
     )

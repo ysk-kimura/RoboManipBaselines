@@ -63,6 +63,13 @@ class RolloutEnsembleMain:
             action="store_true",
             help="Show this help message and continue",
         )
+        parser.add_argument(
+            "--checkpoint",
+            type=str,
+            nargs="+",
+            required=True,
+            help="checkpoint file(s)",
+        )
 
         self.args, remaining_argv = parser.parse_known_args()
         sys.argv = [sys.argv[0]] + remaining_argv
@@ -96,6 +103,17 @@ class RolloutEnsembleMain:
             with open(self.args.config, "r") as f:
                 config = yaml.safe_load(f)
 
+        checkpoint_list = self.args.checkpoint
+        if checkpoint_list is None:
+            raise ValueError("`checkpoint` must be specified in config file.")
+        if not isinstance(checkpoint_list, (list, tuple)):
+            raise TypeError("`checkpoint` must be a list of paths (one per policy).")
+        if len(checkpoint_list) != len(self.args.policy):
+            raise ValueError(
+                f"Number of policies ({len(self.args.policy)}) does not match "
+                f"number of checkpoints ({len(checkpoint_list)})."
+            )
+
         rollout_ensemble = RolloutEnsembleBase()
         env = rollout_ensemble.setup_env(OperationEnvClass, **config)
 
@@ -109,17 +127,29 @@ class RolloutEnsembleMain:
             class Rollout(OperationEnvClass, RolloutPolicyClass):
                 _rpc = RolloutPolicyClass
 
-                def __init__(self, pol_idx=None, **kwargs):
-                    super().__init__(pol_idx=pol_idx, **kwargs)
+                def __init__(self, **kwargs):
+                    super().__init__(**kwargs)
 
                 @property
                 def policy_name(self):
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
+            pconfig = dict(config)
+            pconfig["checkpoint"] = checkpoint_list[pol_idx]
+            pconfig["env"] = env
+
+            sys.argv = [
+                sys.argv[0],
+                "--checkpoint",
+                checkpoint_list[pol_idx],
+            ]
             try:
-                rollout_inst = Rollout(pol_idx=pol_idx, env=env, **config)
-            except TypeError as e:
-                raise TypeError(f"Init fail '{policy_name}': {e}") from e
+                rollout_inst = Rollout(**pconfig)
+            except Exception:
+                print(
+                    f"[{self.__class__.__name__}] Rollout init failed. argv={sys.argv}"
+                )
+                raise
             rollout_inst_list.append(rollout_inst)
         if len(rollout_inst_list) == 0:
             raise RuntimeError("No rollout instances. Check policies.")

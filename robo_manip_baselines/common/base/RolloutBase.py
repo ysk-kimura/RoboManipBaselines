@@ -143,16 +143,17 @@ class RolloutBase(OperationDataMixin, ABC):
     require_task_desc = False
     _dispatch_window_name = "dispatch_window"
 
-    def __init__(self, pol_idx: int, env=None, **kwargs):
+    def __init__(self, **kwargs):
         # Setup arguments
-        self.pol_idx = pol_idx
-        self.setup_args(**kwargs)
-        self.args.checkpoint = self.args.checkpoint[self.pol_idx]
+        self.setup_args()
+        for k, v in kwargs.items():
+            setattr(self.args, k, v)
 
         set_random_seed(self.args.seed)
 
         # Setup gym environment
         render_mode = None if self.args.no_render else "human"
+        env = kwargs.get("env")
         if env is not None:
             self.env = env
         else:
@@ -199,15 +200,9 @@ class RolloutBase(OperationDataMixin, ABC):
             parser = argparse.ArgumentParser(
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter
             )
-
         parser.add_argument(
-            "--checkpoint",
-            type=str,
-            nargs="+",
-            required=True,
-            help="checkpoint file(s)",
+            "--checkpoint", type=str, required=True, help="checkpoint file"
         )
-
         parser.add_argument(
             "--world_idx",
             type=int,

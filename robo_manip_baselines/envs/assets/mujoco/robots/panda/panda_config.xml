@@ -136,8 +136,8 @@
     <position class="panda" name="actuator6" joint="joint6" kp="300" kv="2" forcerange="-12 12"
       ctrlrange="-0.0175 3.7525"/>
     <position class="panda" name="actuator7" joint="joint7" kp="300" kv="2" forcerange="-12 12"/>
-    <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-8 8" ctrlrange="0 1.0"
-      gainprm="14 0 0" biasprm="0 -14 -0.4" gear="25"/>
+    <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-5 5" ctrlrange="0 1.0"
+      gainprm="10 0 0" biasprm="0 -10 -0.1" gear="25"/>
     <!-- <general class="panda" name="actuator8" joint="finger_joint1" forcerange="-200 200" ctrlrange="0 0.04" -->
     <!--   gainprm="350 0 0" biasprm="0 -350 -10"/> -->
   </actuator>

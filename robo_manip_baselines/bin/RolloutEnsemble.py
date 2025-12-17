@@ -46,7 +46,7 @@ class RolloutEnsembleMain:
             nargs="+",
             default=None,
             choices=self.policy_choices,
-            help="policy(s)",
+            help="policy",
         )
         parser.add_argument(
             "env",

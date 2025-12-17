@@ -200,9 +200,11 @@ class RolloutBase(OperationDataMixin, ABC):
             parser = argparse.ArgumentParser(
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter
             )
+
         parser.add_argument(
             "--checkpoint", type=str, required=True, help="checkpoint file"
         )
+
         parser.add_argument(
             "--world_idx",
             type=int,

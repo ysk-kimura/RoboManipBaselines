@@ -1,11 +1,13 @@
 import argparse
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 
 import yaml
 
+from robo_manip_baselines.common.base.RolloutBase import RolloutBase
 from robo_manip_baselines.common.ensemble.RolloutEnsembleBase import RolloutEnsembleBase
 
 
@@ -136,21 +138,82 @@ class RolloutEnsembleMain:
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
             pconfig = dict(config)
-            pconfig["checkpoint"] = checkpoint_list[pol_idx]
-            pconfig["env"] = env
 
             sys.argv = [
                 sys.argv[0],
                 "--checkpoint",
                 checkpoint_list[pol_idx],
             ]
+            rollout_inst = object.__new__(Rollout)
+            op_template = getattr(rollout_ensemble, "_operation_template", None)
+            _op_attrs = [
+                "robot_ip",
+                "camera_ids",
+                "gelsight_ids",
+                "pointcloud_camera_ids",
+                "sanwa_keyboard_ids",
+            ]
+            if op_template is not None:
+                for _a in _op_attrs:
+                    if hasattr(op_template, _a) and not hasattr(rollout_inst, _a):
+                        setattr(rollout_inst, _a, getattr(op_template, _a))
+            for k in _op_attrs:
+                if k in pconfig and not hasattr(rollout_inst, k):
+                    setattr(rollout_inst, k, pconfig[k])
+            called_policy_init = False
+            sig = inspect.signature(RolloutPolicyClass.__init__)
+            params = sig.parameters
+            accepts_kwargs = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+            accepts_env = "env" in params
             try:
-                rollout_inst = Rollout(**pconfig)
-            except Exception:
+                if accepts_kwargs or accepts_env:
+                    try:
+                        RolloutPolicyClass.__init__(
+                            rollout_inst, env=rollout_ensemble.env, **pconfig
+                        )
+                        called_policy_init = True
+                    except TypeError:
+                        try:
+                            RolloutPolicyClass.__init__(
+                                rollout_inst, env=rollout_ensemble.env
+                            )
+                            called_policy_init = True
+                        except Exception:
+                            called_policy_init = False
+                else:
+                    try:
+                        RolloutPolicyClass.__init__(rollout_inst)
+                        called_policy_init = True
+                    except Exception:
+                        called_policy_init = False
+            except Exception as e:
                 print(
-                    f"[{self.__class__.__name__}] Rollout init failed. argv={sys.argv}"
+                    f"[{self.__class__.__name__}] ERROR: RolloutPolicyClass.__init__ raised:",
+                    e,
                 )
                 raise
+            try:
+                RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env)
+            except TypeError:
+                try:
+                    RolloutBase.__init__(
+                        rollout_inst, env=rollout_ensemble.env, **pconfig
+                    )
+                except Exception:
+                    print(
+                        "[{self.__class__.__name__}] ERROR: RolloutBase.__init__ failed even with env"
+                    )
+                    raise
+            rollout_inst._operation_template = rollout_ensemble._operation_template
+            rollout_inst.env = rollout_ensemble.env
+            if not hasattr(rollout_inst, "reset_flag"):
+                rollout_inst.reset_flag = True
+            if not hasattr(rollout_inst, "quit_flag"):
+                rollout_inst.quit_flag = False
+            if not hasattr(rollout_inst, "inference_duration_list"):
+                rollout_inst.inference_duration_list = []
             rollout_inst_list.append(rollout_inst)
         if len(rollout_inst_list) == 0:
             raise RuntimeError("No rollout instances. Check policies.")

@@ -10,14 +10,16 @@ class RolloutEnsembleBase:
 
     def setup_env(self, OperationEnvClass, **config):
         render_mode = None if config.get("no_render", False) else "human"
+        op_config = dict(config)
+        op_config.pop("checkpoint", None)
         try:
-            op_inst = OperationEnvClass()
+            op_inst = OperationEnvClass(**op_config)
         except TypeError:
-            op_inst = OperationEnvClass(**config)
+            op_inst = OperationEnvClass()
         try:
             op_inst.setup_env(render_mode=render_mode)
         except TypeError:
-            op_inst.setup_env(render_mode=render_mode, **config)
+            op_inst.setup_env(render_mode=render_mode, **op_config)
         self._operation_template = op_inst
         self.env = getattr(op_inst, "env", None)
         if self.env is None:

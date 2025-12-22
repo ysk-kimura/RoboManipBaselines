@@ -147,20 +147,17 @@ class RolloutEnsembleMain:
             ] + getattr(self, "_remaining_argv", [])
             rollout_inst = object.__new__(Rollout)
             op_template = getattr(rollout_ensemble, "_operation_template", None)
-            try:
-                sig = inspect.signature(OperationEnvClass.__init__)
-                op_arg_names = [
-                    name
-                    for name, param in sig.parameters.items()
-                    if name != "self"
-                    and param.kind
-                    in (
-                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                        inspect.Parameter.KEYWORD_ONLY,
-                    )
-                ]
-            except Exception:
-                op_arg_names = []
+            sig = inspect.signature(OperationEnvClass.__init__)
+            op_arg_names = [
+                name
+                for name, param in sig.parameters.items()
+                if name != "self"
+                and param.kind
+                in (
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
+                )
+            ]
             copied = []
             if op_template is not None:
                 for name in op_arg_names:
@@ -174,29 +171,6 @@ class RolloutEnsembleMain:
                     setattr(rollout_inst, name, pconfig[name])
                     if name not in copied:
                         copied.append(name)
-            if not op_arg_names and op_template is not None:
-                fallback_keys = [
-                    k
-                    for k in dir(op_template)
-                    if not k.startswith("_")
-                    and any(
-                        x in k
-                        for x in (
-                            "robot",
-                            "camera",
-                            "gelsight",
-                            "pointcloud",
-                            "sanwa",
-                        )
-                    )
-                ]
-                for name in fallback_keys:
-                    if not hasattr(rollout_inst, name):
-                        try:
-                            setattr(rollout_inst, name, getattr(op_template, name))
-                            copied.append(name)
-                        except Exception:
-                            pass
             RolloutPolicyClass.__init__(
                 rollout_inst, env=rollout_ensemble.env, **pconfig
             )

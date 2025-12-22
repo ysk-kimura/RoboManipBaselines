@@ -111,6 +111,8 @@ class RolloutEnsembleBase:
             self.post_update()
 
             self.key = cv2.waitKey(1)
+            for rollout_instance in self.rollout_instances:
+                rollout_instance.key = self.key
             self.check_transition()
 
             if self.key == 27:  # escape key

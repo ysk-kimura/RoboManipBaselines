@@ -9,6 +9,14 @@ import yaml
 from robo_manip_baselines.common.base.RolloutBase import RolloutBase
 from robo_manip_baselines.common.ensemble.RolloutEnsembleBase import RolloutEnsembleBase
 
+OP_ATTRS = [
+    "robot_ip",
+    "camera_ids",
+    "gelsight_ids",
+    "pointcloud_camera_ids",
+    "sanwa_keyboard_ids",
+]
+
 
 class RolloutEnsembleMain:
     operation_parent_module_str = "robo_manip_baselines.envs.operation"
@@ -73,6 +81,7 @@ class RolloutEnsembleMain:
         )
 
         self.args, remaining_argv = parser.parse_known_args()
+        self._remaining_argv = remaining_argv
         sys.argv = [sys.argv[0]] + remaining_argv
         if self.args.policy is None or self.args.env is None:
             parser.print_help()
@@ -142,17 +151,10 @@ class RolloutEnsembleMain:
                 sys.argv[0],
                 "--checkpoint",
                 checkpoint_list[pol_idx],
-            ]
+            ] + getattr(self, "_remaining_argv", [])
             rollout_inst = object.__new__(Rollout)
             op_template = getattr(rollout_ensemble, "_operation_template", None)
-            _op_attrs = [
-                "robot_ip",
-                "camera_ids",
-                "gelsight_ids",
-                "pointcloud_camera_ids",
-                "sanwa_keyboard_ids",
-            ]
-            for a in _op_attrs:
+            for a in OP_ATTRS:
                 if hasattr(op_template, a):
                     setattr(rollout_inst, a, getattr(op_template, a))
                 elif a in pconfig:

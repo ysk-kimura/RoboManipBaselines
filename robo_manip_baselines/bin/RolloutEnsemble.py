@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 
@@ -8,14 +9,6 @@ import yaml
 
 from robo_manip_baselines.common.base.RolloutBase import RolloutBase
 from robo_manip_baselines.common.ensemble.RolloutEnsembleBase import RolloutEnsembleBase
-
-OP_ATTRS = [
-    "robot_ip",
-    "camera_ids",
-    "gelsight_ids",
-    "pointcloud_camera_ids",
-    "sanwa_keyboard_ids",
-]
 
 
 class RolloutEnsembleMain:
@@ -154,23 +147,67 @@ class RolloutEnsembleMain:
             ] + getattr(self, "_remaining_argv", [])
             rollout_inst = object.__new__(Rollout)
             op_template = getattr(rollout_ensemble, "_operation_template", None)
-            for a in OP_ATTRS:
-                if hasattr(op_template, a):
-                    setattr(rollout_inst, a, getattr(op_template, a))
-                elif a in pconfig:
-                    setattr(rollout_inst, a, pconfig[a])
+            try:
+                sig = inspect.signature(OperationEnvClass.__init__)
+                op_arg_names = [
+                    name
+                    for name, param in sig.parameters.items()
+                    if name != "self"
+                    and param.kind
+                    in (
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY,
+                    )
+                ]
+            except Exception:
+                op_arg_names = []
+            copied = []
+            if op_template is not None:
+                for name in op_arg_names:
+                    if hasattr(op_template, name) and not hasattr(rollout_inst, name):
+                        value = getattr(op_template, name)
+                        if value is not None:
+                            setattr(rollout_inst, name, value)
+                            copied.append(name)
+            for name in op_arg_names:
+                if name in pconfig and not hasattr(rollout_inst, name):
+                    setattr(rollout_inst, name, pconfig[name])
+                    if name not in copied:
+                        copied.append(name)
+            if not op_arg_names and op_template is not None:
+                fallback_keys = [
+                    k
+                    for k in dir(op_template)
+                    if not k.startswith("_")
+                    and any(
+                        x in k
+                        for x in (
+                            "robot",
+                            "camera",
+                            "gelsight",
+                            "pointcloud",
+                            "sanwa",
+                        )
+                    )
+                ]
+                for name in fallback_keys:
+                    if not hasattr(rollout_inst, name):
+                        try:
+                            setattr(rollout_inst, name, getattr(op_template, name))
+                            copied.append(name)
+                        except Exception:
+                            pass
             RolloutPolicyClass.__init__(
                 rollout_inst, env=rollout_ensemble.env, **pconfig
             )
-            RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env)
-            rollout_inst._operation_template = rollout_ensemble._operation_template
+            RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env, argv=sys.argv)
+            rollout_inst._operation_template = op_template
             rollout_inst.env = rollout_ensemble.env
-            if not hasattr(rollout_inst, "reset_flag"):
-                rollout_inst.reset_flag = True
-            if not hasattr(rollout_inst, "quit_flag"):
-                rollout_inst.quit_flag = False
-            if not hasattr(rollout_inst, "inference_duration_list"):
-                rollout_inst.inference_duration_list = []
+            rollout_inst.reset_flag = getattr(rollout_inst, "reset_flag", True)
+            rollout_inst.quit_flag = getattr(rollout_inst, "quit_flag", False)
+            rollout_inst.inference_duration_list = getattr(
+                rollout_inst, "inference_duration_list", []
+            )
             rollout_inst_list.append(rollout_inst)
         if not rollout_inst_list:
             raise RuntimeError("No rollout instances. Check policies.")

@@ -160,52 +160,10 @@ class RolloutEnsembleMain:
             for k in _op_attrs:
                 if k in pconfig and not hasattr(rollout_inst, k):
                     setattr(rollout_inst, k, pconfig[k])
-            called_policy_init = False
-            sig = inspect.signature(RolloutPolicyClass.__init__)
-            params = sig.parameters
-            accepts_kwargs = any(
-                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            RolloutPolicyClass.__init__(
+                rollout_inst, env=rollout_ensemble.env, **pconfig
             )
-            accepts_env = "env" in params
-            try:
-                if accepts_kwargs or accepts_env:
-                    try:
-                        RolloutPolicyClass.__init__(
-                            rollout_inst, env=rollout_ensemble.env, **pconfig
-                        )
-                        called_policy_init = True
-                    except TypeError:
-                        try:
-                            RolloutPolicyClass.__init__(
-                                rollout_inst, env=rollout_ensemble.env
-                            )
-                            called_policy_init = True
-                        except Exception:
-                            called_policy_init = False
-                else:
-                    try:
-                        RolloutPolicyClass.__init__(rollout_inst)
-                        called_policy_init = True
-                    except Exception:
-                        called_policy_init = False
-            except Exception as e:
-                print(
-                    f"[{self.__class__.__name__}] ERROR: RolloutPolicyClass.__init__ raised:",
-                    e,
-                )
-                raise
-            try:
-                RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env)
-            except TypeError:
-                try:
-                    RolloutBase.__init__(
-                        rollout_inst, env=rollout_ensemble.env, **pconfig
-                    )
-                except Exception:
-                    print(
-                        "[{self.__class__.__name__}] ERROR: RolloutBase.__init__ failed even with env"
-                    )
-                    raise
+            RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env)
             rollout_inst._operation_template = rollout_ensemble._operation_template
             rollout_inst.env = rollout_ensemble.env
             if not hasattr(rollout_inst, "reset_flag"):
@@ -215,7 +173,7 @@ class RolloutEnsembleMain:
             if not hasattr(rollout_inst, "inference_duration_list"):
                 rollout_inst.inference_duration_list = []
             rollout_inst_list.append(rollout_inst)
-        if len(rollout_inst_list) == 0:
+        if not rollout_inst_list:
             raise RuntimeError("No rollout instances. Check policies.")
         rollout_ensemble.set_rollout_inst_list(rollout_inst_list)
         rollout_ensemble.run()

@@ -1,7 +1,6 @@
 import argparse
 import importlib
 import importlib.util
-import inspect
 import os
 import sys
 
@@ -118,7 +117,7 @@ class RolloutEnsembleMain:
 
         rollout_ensemble = RolloutEnsembleBase()
         # Pass OperationEnvClass so the ensemble can instantiate and initialize the environment
-        env = rollout_ensemble.setup_env(OperationEnvClass, **config)
+        _ = rollout_ensemble.setup_env(OperationEnvClass, **config)
 
         rollout_inst_list = []
         for pol_idx, policy_name in enumerate(self.args.policy):
@@ -153,13 +152,11 @@ class RolloutEnsembleMain:
                 "pointcloud_camera_ids",
                 "sanwa_keyboard_ids",
             ]
-            if op_template is not None:
-                for _a in _op_attrs:
-                    if hasattr(op_template, _a) and not hasattr(rollout_inst, _a):
-                        setattr(rollout_inst, _a, getattr(op_template, _a))
-            for k in _op_attrs:
-                if k in pconfig and not hasattr(rollout_inst, k):
-                    setattr(rollout_inst, k, pconfig[k])
+            for a in _op_attrs:
+                if hasattr(op_template, a):
+                    setattr(rollout_inst, a, getattr(op_template, a))
+                elif a in pconfig:
+                    setattr(rollout_inst, a, pconfig[a])
             RolloutPolicyClass.__init__(
                 rollout_inst, env=rollout_ensemble.env, **pconfig
             )

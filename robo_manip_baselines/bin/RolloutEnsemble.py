@@ -84,6 +84,53 @@ class RolloutEnsembleMain:
             print("\n================================\n")
             sys.argv += ["--help"]
 
+    def _create_rollout_instance(
+        self,
+        OperationEnvClass,
+        config,
+        checkpoint_list,
+        rollout_ensemble,
+        pol_idx,
+        RolloutPolicyClass,
+        Rollout,
+    ):
+        config = dict(config)
+
+        sys.argv = [
+            sys.argv[0],
+            "--checkpoint",
+            checkpoint_list[pol_idx],
+        ] + getattr(self, "_remaining_argv", [])
+        rollout_inst = object.__new__(Rollout)
+        op_template = getattr(rollout_ensemble, "_operation_template", None)
+        sig = inspect.signature(OperationEnvClass.__init__)
+        op_arg_names = [
+            name
+            for name, param in sig.parameters.items()
+            if name != "self"
+            and param.kind
+            in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            )
+        ]
+        copied = []
+        if op_template is not None:
+            for name in op_arg_names:
+                if hasattr(op_template, name) and not hasattr(rollout_inst, name):
+                    value = getattr(op_template, name)
+                    if value is not None:
+                        setattr(rollout_inst, name, value)
+                        copied.append(name)
+        for name in op_arg_names:
+            if name in config and not hasattr(rollout_inst, name):
+                setattr(rollout_inst, name, config[name])
+                if name not in copied:
+                    copied.append(name)
+        RolloutPolicyClass.__init__(rollout_inst, env=rollout_ensemble.env, **config)
+
+        return rollout_inst, op_template
+
     def run(self):
         if "Isaac" in self.args.env:
             from isaacgym import (
@@ -119,8 +166,7 @@ class RolloutEnsembleMain:
 
         rollout_ensemble = RolloutEnsembleBase()
         # Pass OperationEnvClass so the ensemble can instantiate and initialize the environment
-        _ = rollout_ensemble.setup_env(OperationEnvClass, **config)
-
+        rollout_ensemble.setup_env(OperationEnvClass, **config)
         rollout_inst_list = []
         for pol_idx, policy_name in enumerate(self.args.policy):
             policy_module = importlib.import_module(
@@ -138,41 +184,14 @@ class RolloutEnsembleMain:
                 def policy_name(self):
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
-            pconfig = dict(config)
-
-            sys.argv = [
-                sys.argv[0],
-                "--checkpoint",
-                checkpoint_list[pol_idx],
-            ] + getattr(self, "_remaining_argv", [])
-            rollout_inst = object.__new__(Rollout)
-            op_template = getattr(rollout_ensemble, "_operation_template", None)
-            sig = inspect.signature(OperationEnvClass.__init__)
-            op_arg_names = [
-                name
-                for name, param in sig.parameters.items()
-                if name != "self"
-                and param.kind
-                in (
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    inspect.Parameter.KEYWORD_ONLY,
-                )
-            ]
-            copied = []
-            if op_template is not None:
-                for name in op_arg_names:
-                    if hasattr(op_template, name) and not hasattr(rollout_inst, name):
-                        value = getattr(op_template, name)
-                        if value is not None:
-                            setattr(rollout_inst, name, value)
-                            copied.append(name)
-            for name in op_arg_names:
-                if name in pconfig and not hasattr(rollout_inst, name):
-                    setattr(rollout_inst, name, pconfig[name])
-                    if name not in copied:
-                        copied.append(name)
-            RolloutPolicyClass.__init__(
-                rollout_inst, env=rollout_ensemble.env, **pconfig
+            rollout_inst, op_template = self._create_rollout_instance(
+                OperationEnvClass,
+                config,
+                checkpoint_list,
+                rollout_ensemble,
+                pol_idx,
+                RolloutPolicyClass,
+                Rollout,
             )
             RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env, argv=sys.argv)
             rollout_inst._operation_template = op_template

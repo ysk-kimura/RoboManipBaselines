@@ -26,7 +26,6 @@ class RolloutEnsembleBase:
             raise RuntimeError(
                 f"Operation class {OperationEnvClass.__name__}.setup_env() did not set `self.env`."
             )
-        return self.env
 
     def set_rollout_inst_list(self, rollout_instances):
         self.rollout_instances = rollout_instances

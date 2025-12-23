@@ -84,22 +84,43 @@ class RolloutEnsembleMain:
             print("\n================================\n")
             sys.argv += ["--help"]
 
-    def _create_rollout_instance(
+    def _load_config(self):
+        if self.args.config is None:
+            config = {}
+        else:
+            with open(self.args.config, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+        return config
+
+    def _get_valid_checkpoint_list(self):
+        checkpoint_list = self.args.checkpoint
+        if checkpoint_list is None:
+            raise ValueError("`checkpoint` must be specified in config file.")
+        if not isinstance(checkpoint_list, (list, tuple)):
+            raise TypeError("`checkpoint` must be a list of paths (one per policy).")
+        if len(checkpoint_list) != len(self.args.policy):
+            raise ValueError(
+                f"Number of policies ({len(self.args.policy)}) does not match "
+                f"number of checkpoints ({len(checkpoint_list)})."
+            )
+
+        return checkpoint_list
+
+    def _build_rollout_instance(
         self,
-        OperationEnvClass,
         config,
-        checkpoint_list,
+        checkpoint_path,
         rollout_ensemble,
-        pol_idx,
         RolloutPolicyClass,
         Rollout,
+        OperationEnvClass,
     ):
         config = dict(config)
 
         sys.argv = [
             sys.argv[0],
             "--checkpoint",
-            checkpoint_list[pol_idx],
+            checkpoint_path,
         ] + getattr(self, "_remaining_argv", [])
         rollout_inst = object.__new__(Rollout)
         op_template = getattr(rollout_ensemble, "_operation_template", None)
@@ -131,6 +152,16 @@ class RolloutEnsembleMain:
 
         return rollout_inst, op_template
 
+    @classmethod
+    def _setup_rollout_context(cls, rollout_ensemble, rollout_inst, op_template):
+        rollout_inst._operation_template = op_template
+        rollout_inst.env = rollout_ensemble.env
+        rollout_inst.reset_flag = getattr(rollout_inst, "reset_flag", True)
+        rollout_inst.quit_flag = getattr(rollout_inst, "quit_flag", False)
+        rollout_inst.inference_duration_list = getattr(
+            rollout_inst, "inference_duration_list", []
+        )
+
     def run(self):
         if "Isaac" in self.args.env:
             from isaacgym import (
@@ -147,28 +178,13 @@ class RolloutEnsembleMain:
         )
         OperationEnvClass = getattr(operation_module, f"Operation{self.args.env}")
 
-        if self.args.config is None:
-            config = {}
-        else:
-            with open(self.args.config, "r") as f:
-                config = yaml.safe_load(f)
-
-        checkpoint_list = self.args.checkpoint
-        if checkpoint_list is None:
-            raise ValueError("`checkpoint` must be specified in config file.")
-        if not isinstance(checkpoint_list, (list, tuple)):
-            raise TypeError("`checkpoint` must be a list of paths (one per policy).")
-        if len(checkpoint_list) != len(self.args.policy):
-            raise ValueError(
-                f"Number of policies ({len(self.args.policy)}) does not match "
-                f"number of checkpoints ({len(checkpoint_list)})."
-            )
-
+        config = self._load_config()
+        checkpoint_list = self._get_valid_checkpoint_list()
         rollout_ensemble = RolloutEnsembleBase()
         # Pass OperationEnvClass so the ensemble can instantiate and initialize the environment
         rollout_ensemble.setup_env(OperationEnvClass, **config)
         rollout_inst_list = []
-        for pol_idx, policy_name in enumerate(self.args.policy):
+        for policy_name, checkpoint_path in zip(self.args.policy, checkpoint_list):
             policy_module = importlib.import_module(
                 f"{self.policy_parent_module_str}.{camel_to_snake(policy_name)}"
             )
@@ -184,23 +200,16 @@ class RolloutEnsembleMain:
                 def policy_name(self):
                     return remove_prefix(self._rpc.__name__, "Rollout")
 
-            rollout_inst, op_template = self._create_rollout_instance(
-                OperationEnvClass,
+            rollout_inst, op_template = self._build_rollout_instance(
                 config,
-                checkpoint_list,
+                checkpoint_path,
                 rollout_ensemble,
-                pol_idx,
                 RolloutPolicyClass,
                 Rollout,
+                OperationEnvClass,
             )
             RolloutBase.__init__(rollout_inst, env=rollout_ensemble.env, argv=sys.argv)
-            rollout_inst._operation_template = op_template
-            rollout_inst.env = rollout_ensemble.env
-            rollout_inst.reset_flag = getattr(rollout_inst, "reset_flag", True)
-            rollout_inst.quit_flag = getattr(rollout_inst, "quit_flag", False)
-            rollout_inst.inference_duration_list = getattr(
-                rollout_inst, "inference_duration_list", []
-            )
+            self._setup_rollout_context(rollout_ensemble, rollout_inst, op_template)
             rollout_inst_list.append(rollout_inst)
         if not rollout_inst_list:
             raise RuntimeError("No rollout instances. Check policies.")

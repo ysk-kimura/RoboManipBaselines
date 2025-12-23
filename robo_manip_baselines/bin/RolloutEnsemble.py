@@ -190,6 +190,7 @@ class RolloutEnsembleMain:
             )
             RolloutPolicyClass = getattr(policy_module, f"Rollout{policy_name}")
 
+            # The order of parent classes must not be changed in order to maintain the method resolution order (MRO)
             class Rollout(OperationEnvClass, RolloutPolicyClass):
                 _rpc = RolloutPolicyClass
 

@@ -84,14 +84,6 @@ class RolloutEnsembleMain:
             print("\n================================\n")
             sys.argv += ["--help"]
 
-    def _load_config(self):
-        if self.args.config is None:
-            config = {}
-        else:
-            with open(self.args.config, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-        return config
-
     def _get_valid_checkpoint_list(self):
         checkpoint_list = self.args.checkpoint
         if checkpoint_list is None:
@@ -216,6 +208,14 @@ class RolloutEnsembleMain:
             raise RuntimeError("No rollout instances. Check policies.")
         rollout_ensemble.set_rollout_inst_list(rollout_inst_list)
         rollout_ensemble.run()
+
+    def _load_config(self):
+        if self.args.config is None:
+            config = {}
+        else:
+            with open(self.args.config, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+        return config
 
 
 if __name__ == "__main__":

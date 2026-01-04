@@ -55,7 +55,8 @@ class RolloutPhase(PhaseBase):
     def pre_update(self):
         if self.op.rollout_time_idx % self.op.args.skip == 0:
             inference_start_time = time.time()
-            self.op.infer_policy()
+            with torch.inference_mode():
+                self.op.infer_policy()
             self.op.inference_duration_list.append(time.time() - inference_start_time)
 
         self.op.set_command_data()

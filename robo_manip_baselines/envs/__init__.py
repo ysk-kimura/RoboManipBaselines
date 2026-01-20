@@ -117,6 +117,12 @@ register(
     entry_point="robo_manip_baselines.envs.isaac:IsaacUR5eCabinetEnv",
 )
 
+# Tacto
+register(
+    id="robo_manip_baselines/TactoSawyerGraspEnv-v0",
+    entry_point="robo_manip_baselines.envs.tacto:TactoSawyerGraspEnv",
+)
+
 # Real
 ## UR5e
 register(

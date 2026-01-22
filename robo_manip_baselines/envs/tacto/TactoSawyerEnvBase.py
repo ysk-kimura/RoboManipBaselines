@@ -20,17 +20,17 @@ from robo_manip_baselines.teleop import (
 class Camera:
     def __init__(
         self,
-        width=320,
-        height=240,
-        camera_pos=[0.5, 0, 0.05],
-        camera_distance=0.4,
-        up_axis_index=2,
-        yaw=90,
-        pitch=-30,
-        roll=0,
+        camera_pos,
+        camera_distance,
+        yaw,
+        pitch,
+        roll,
+        width=640,
+        height=480,
         fov=60,
         near_plane=0.01,
-        far_plane=100,
+        far_plane=100.0,
+        up_axis_index=2,
     ):
         self.width = width
         self.height = height
@@ -80,14 +80,14 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
         ],
     }
 
-    tactile_joint_names = ["joint_finger_tip_left", "joint_finger_tip_right"]
-
     def __init__(
         self,
         init_qpos,
         **kwargs,
     ):
-        self.init_time = time.time()
+        self.init_time = (
+            time.time()
+        )  # TODO: timeは使わずにシミュレーションの時刻を用いる
         self.init_qpos = init_qpos
         self.render_mode = kwargs.get("render_mode")
 
@@ -103,6 +103,7 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
         # Setup environment parameters
         self.dt = 0.02  # [s]
+        self.world_random_scale = None
 
         p.setGravity(0, 0, -9.8)
         p.setTimeStep(self.dt)
@@ -115,20 +116,20 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
             {
                 "joint_pos": self.robot.state_space["joint_position"],
                 "joint_vel": self.robot.state_space["joint_velocity"],
-                "wrench": self.robot.state_space["joint_reaction_forces"],
+                "wrench": self.robot.state_space[
+                    "joint_reaction_forces"
+                ],  # TODO: 全関節の6軸トルクのspaceになっていないか要確認
             }
         )
 
     def setup_robot(self, init_qpos):
-        robot_args = {
-            "urdf_path": path.join(
+        self.robot = px.Robot(
+            urdf_path=path.join(
                 path.dirname(__file__),
                 "../assets/tacto/robots/sawyer/sawyer_wsg50.urdf",
             ),
-            "use_fixed_base": True,
-        }
-
-        self.robot = px.Robot(**robot_args)
+            use_fixed_base=True,
+        )
         self.robot.zero_pose = init_qpos
         self.body_config_list = [
             ArmConfig(
@@ -152,28 +153,21 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
     def setup_rgb_tactile_sensor(self):
         self.rgb_tactiles = Sensor(width=640, height=480, visualize_gui=False)
-        tactile_links = [
-            self.robot.get_joint_index_by_name(name)
-            for name in self.tactile_joint_names
+        tactile_joint_names = ["joint_finger_tip_left", "joint_finger_tip_right"]
+        tactile_link_ids = [
+            self.robot.get_joint_index_by_name(name) for name in tactile_joint_names
         ]
-        self.rgb_tactiles.add_camera(self.robot.id, tactile_links)
+        self.rgb_tactiles.add_camera(self.robot.id, tactile_link_ids)
 
     def setup_camera(self):
         self.cameras = {}
-        camera_default_params = {
-            "width": 640,
-            "height": 480,
-            "camera_pos": [0.5, 0, 0.05],
-            "camera_distance": 0.4,
-            "up_axis_index": 2,
-            "yaw": 90,
-            "pitch": -30.0,
-            "roll": 0,
-            "fov": 60,
-            "near_plane": 0.01,
-            "far_plane": 100,
-        }
-        self.cameras["front"] = Camera(**camera_default_params)
+        self.cameras["front"] = Camera(
+            camera_pos=[0.5, 0, 0.05],
+            camera_distance=0.4,
+            yaw=90,
+            pitch=-30.0,
+            roll=0,
+        )
 
     @abstractmethod
     def setup_task_specific_object(self):
@@ -232,29 +226,18 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
         if self.render_mode == "human":
             self.render()
 
-        # self.gym.sync_frame_time(self.sim)
-
-        # Return only the results of the representative environment to comply with the Gym API
         # truncation=False as the time limit is handled by the `TimeLimit` wrapper added during `make`
-        return (
-            self.obs,
-            reward,
-            terminated,
-            False,
-            self.info,
-        )
+        return (self.obs, reward, terminated, False, self.info)
 
     def _set_actions(self, action):
-        actions = self.robot.action_space.new()
         gripper_joint_pos = action[-1]
-        action_for_robot = np.concatenate(
+        tacto_action = np.concatenate(
             (action[:8], np.array([-1 * gripper_joint_pos, gripper_joint_pos]))
         )
-        actions[self.action_spacekey] = action_for_robot
         if self.robot.torque_control:
-            self.robot.set_joint_torque(actions["joint_torque"])
+            self.robot.set_joint_torque(tacto_action)
         else:
-            self.robot.set_joint_position(actions["joint_position"])
+            self.robot.set_joint_position(tacto_action)
 
     def _get_obs(self):
         arm_joint_name_list = [
@@ -273,23 +256,23 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
         ]
 
         arm_joint_idx = [
-            self.robot.get_joint_by_name(joint_name)["joint_index"]
+            self.robot.get_joint_index_by_name(joint_name)
             for joint_name in arm_joint_name_list
         ]
         arm_joint_state = self.robot.get_joint_states(joint_indices=arm_joint_idx)
+        arm_joint_pos = arm_joint_state["joint_position"]
+        arm_joint_vel = arm_joint_state["joint_velocity"]
 
         gripper_joint_idx = [
-            self.robot.get_joint_by_name(joint_name)["joint_index"]
+            self.robot.get_joint_index_by_name(joint_name)
             for joint_name in gripper_joint_name_list
         ]
         gripper_joint_state = self.robot.get_joint_states(
             joint_indices=gripper_joint_idx
         )
-
-        arm_joint_pos = arm_joint_state["joint_position"]
-        arm_joint_vel = arm_joint_state["joint_velocity"]
-
-        gripper_joint_pos = gripper_joint_state["joint_position"][1:]
+        gripper_joint_pos = gripper_joint_state["joint_position"][
+            1:
+        ]  # TODO: 絶対値を2で割る?
         gripper_joint_vel = np.zeros(1)
 
         eef_joint_state = self.robot.get_joint_state_by_name("right_hand")
@@ -333,13 +316,8 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
     def _get_reward(self):
         return 0.0
 
-    def _get_success(self):
-        # Intended to be overridden in derived classes
-        return False
-
     def close(self):
-        self.gym.destroy_viewer(self.viewer)
-        self.gym.destroy_sim(self.sim)
+        pass
 
     def get_joint_pos_from_obs(self, obs):
         """Get joint position from observation."""
@@ -403,9 +381,7 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
     def get_camera_fovy(self, camera_name):
         """Get vertical field-of-view of the camera."""
-        single_camera = self.cameras[camera_name]
-        camera_fovy = single_camera.height / single_camera.width * single_camera.fov
-        return camera_fovy
+        return self.cameras[camera_name].fov
 
     @abstractmethod
     def modify_world(self, world_idx=None, cumulative_idx=None):

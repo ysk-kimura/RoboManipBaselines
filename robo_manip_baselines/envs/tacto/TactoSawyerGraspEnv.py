@@ -7,14 +7,6 @@ from .TactoSawyerEnvBase import TactoSawyerEnvBase
 
 
 class TactoSawyerGraspEnv(TactoSawyerEnvBase):
-    metadata = {
-        "render_modes": [
-            "human",
-        ],
-    }
-
-    tactile_joint_names = ["joint_finger_tip_left", "joint_finger_tip_right"]
-
     def __init__(
         self,
         **kwargs,
@@ -53,20 +45,21 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
         self.modify_world()
 
     def _get_reward(self):
-        return 0.0
-
-    def _get_success(self):
         (x, y, z), _ = self.obj.get_base_pose()
-        velocity, angular_velocity = self.obj.get_base_velocity()
-        velocity = np.linalg.norm(velocity)
+        linear_velocity, angular_velocity = self.obj.get_base_velocity()
+        linear_velocity = np.linalg.norm(linear_velocity)
         angular_velocity = np.linalg.norm(angular_velocity)
 
-        return z > 0.1 and velocity < 0.025 and angular_velocity < 0.025
+        if z > 0.1 and linear_velocity < 0.025 and angular_velocity < 0.025:
+            return 1.0
+        else:
+            return 0.0
 
     def modify_world(self, world_idx=None, cumulative_idx=None):
         """Modify simulation world depending on world index."""
-        # Move the object to random location
-        dx, dy = np.random.randn(2) * 0.1
-        x, y, z = self.obj.init_base_position
-        position = [x + dx, y + dy, z]
-        self.obj.set_base_pose(position)
+        pos = self.obj.init_base_position.copy()
+        if self.world_random_scale is not None:
+            pos += np.random.uniform(
+                low=-1.0 * self.world_random_scale, high=self.world_random_scale, size=3
+            )
+        self.obj.set_base_pose(pos)

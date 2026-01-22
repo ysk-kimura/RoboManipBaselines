@@ -41,3 +41,4 @@
 [submodule "third_party/tacto"]
 	path = third_party/tacto
 	url = https://github.com/Naoki-Shibayama/tacto.git
+        ignore = untracked

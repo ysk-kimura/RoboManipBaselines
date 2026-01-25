@@ -130,6 +130,13 @@ The parallel simulation feature of Isaac Gym allows multiple robots to be contro
 
 https://github.com/user-attachments/assets/4f171bd3-7572-41a4-9e81-9df5dfec575a
 
+## [Tacto](https://github.com/facebookresearch/tacto) environments
+### Sawyer
+#### TactoSawyerGrasp
+Task to pick a box with optical tactile sensing at the fingertips.
+
+https://github.com/user-attachments/assets/0e119da0-5ff8-4129-ab0d-c0f2bd5ec04a
+
 ## Real-world environments
 ### UR5e
 #### RealUR5eDemo

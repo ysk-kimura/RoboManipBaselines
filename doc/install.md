@@ -209,6 +209,23 @@ Downgrade MuJoCo:
 $ pip install mujoco==2.3.7
 ```
 
+### [TACTO environments](../robo_manip_baselines/envs/tacto)
+Install dependent libraries including [tacto](https://github.com/facebookresearch/tacto):
+```console
+# Go to the top directory of this repository
+$ pip install -e .[tacto]
+
+# Go to the top directory of this repository
+$ cd third_party/tacto/third_party/attrdict
+$ pip install -e .
+$ cd ../urdfpy
+$ pip install -e .
+$ cd ../pybulletX
+$ pip install -e .
+$ cd ../../
+$ pip install -e .
+```
+
 ### [Real UR5e environments](../robo_manip_baselines/envs/real/ur5e)
 Install dependent libraries including [gello_software](https://github.com/wuphilipp/gello_software):
 ```console

@@ -501,7 +501,7 @@
      <origin xyz="0 0 0" rpy="0 0 0" />      <!--origin xyz="-0.0067 0 0.049" rpy="0 0 0" /-->
      <parent link="gripper_base_link"/>
      <child link="gripper_left" />
-     <dynamics friction="100" damping="100" />
+     <dynamics friction="100" damping="70" />
      <axis xyz="1 0 0"/>
      <limit effort="100" velocity="100"/>
   </joint>
@@ -632,9 +632,7 @@
           <geometry>
              <mesh filename="./meshes/wsg50/digit.STL"/>
           </geometry>
-          <material name="white">
-            <color rgba="1. 1. 1. 1"/>
-          </material>
+          <material name="darkgray" />
       </visual>
 
       <collision>
@@ -653,7 +651,7 @@
      <parent link="gripper_base_link"/>
      <child link="gripper_right" />
      <axis xyz="-1 0 0"/>
-     <dynamics friction="100" damping="100" />
+     <dynamics friction="100" damping="70" />
      <limit effort="100" velocity="100"/>
   </joint>
 
@@ -777,9 +775,7 @@
           <geometry>
              <mesh filename="./meshes/wsg50/digit.STL"/>
           </geometry>
-          <material name="white">
-            <color rgba="1. 1. 1. 1"/>
-          </material>
+          <material name="darkgray" />
       </visual>
 
       <collision>

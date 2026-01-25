@@ -22,8 +22,8 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
                     0.27,
                     0.7,
                     1,
-                    -0.005,
-                    0.005,
+                    -0.02,
+                    0.02,
                 ]
             ),
         )
@@ -33,7 +33,7 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
             urdf_path=path.join(
                 path.dirname(__file__), "../assets/tacto/objects/cube/cube_small.urdf"
             ),
-            base_position=[0.50, 0, 0.02],
+            base_position=[0.6, 0, 0.1],
             global_scaling=0.6,
         )
 
@@ -56,9 +56,14 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
 
     def modify_world(self, world_idx=None, cumulative_idx=None):
         """Modify simulation world depending on world index."""
+        if world_idx is None:
+            world_idx = 0
+
         pos = self.obj.init_base_position.copy()
         if self.world_random_scale is not None:
             pos += np.random.uniform(
                 low=-1.0 * self.world_random_scale, high=self.world_random_scale, size=3
             )
         self.obj.set_base_pose(pos)
+
+        return world_idx

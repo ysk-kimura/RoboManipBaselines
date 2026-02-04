@@ -112,6 +112,9 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
         # Setup environment parameters
         self.dt = 0.02  # [s]
+        p.setPhysicsEngineParameter(
+            numSolverIterations=200, solverResidualThreshold=1e-8, enableConeFriction=1
+        )
 
         p.setGravity(0, 0, -9.8)
         p.setTimeStep(self.dt)
@@ -199,6 +202,17 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
             self.robot.id, self.robot.get_joint_index_by_name("right_hand"), True
         )
         self.robot.configure_state_space(applied_joint_motor_torque=False)
+        gripper_name = ["joint_finger_tip_left", "joint_finger_tip_right"]
+        for name in gripper_name:
+            p.changeDynamics(
+                self.robot.id,
+                self.robot.get_joint_index_by_name(name),
+                lateralFriction=1.2,
+                spinningFriction=0.03,
+                rollingFriction=0.03,
+                contactStiffness=300,
+                contactDamping=30,
+            )
 
     def setup_rgb_tactile_sensor(self):
         self.rgb_tactiles = Sensor(width=480, height=640, visualize_gui=False)

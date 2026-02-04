@@ -1,18 +1,17 @@
 <?xml version="1.0" ?>
-<robot name="cube">
-
-  <link name="cube">
+<robot name="board">
+  <link name="board">
     <visual>
       <geometry>
-        <box size=".03 .03 .136"/>
+        <box size=".005 .05 .29"/>
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.2 0.8 1"/>
+      <material name="green">
+        <color rgba="0.2 0.8 0.2 1"/>
       </material>
     </visual>
     <collision>
       <geometry>
-        <box size=".03 .03 .136"/>
+        <box size=".005 .05 .29"/>
       </geometry>
     </collision>
     <inertial>

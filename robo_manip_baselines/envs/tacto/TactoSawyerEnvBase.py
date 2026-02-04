@@ -112,10 +112,10 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
         # Setup environment parameters
         self.dt = 0.02  # [s]
+
         p.setPhysicsEngineParameter(
             numSolverIterations=200, solverResidualThreshold=1e-8, enableConeFriction=1
         )
-
         p.setGravity(0, 0, -9.8)
         p.setTimeStep(self.dt)
 
@@ -202,8 +202,8 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
             self.robot.id, self.robot.get_joint_index_by_name("right_hand"), True
         )
         self.robot.configure_state_space(applied_joint_motor_torque=False)
-        gripper_name = ["joint_finger_tip_left", "joint_finger_tip_right"]
-        for name in gripper_name:
+        self.tactile_joint_names = ["joint_finger_tip_left", "joint_finger_tip_right"]
+        for name in self.tactile_joint_names:
             p.changeDynamics(
                 self.robot.id,
                 self.robot.get_joint_index_by_name(name),
@@ -216,9 +216,9 @@ class TactoSawyerEnvBase(EnvDataMixin, gym.Env, ABC):
 
     def setup_rgb_tactile_sensor(self):
         self.rgb_tactiles = Sensor(width=480, height=640, visualize_gui=False)
-        tactile_joint_names = ["joint_finger_tip_left", "joint_finger_tip_right"]
         tactile_link_ids = [
-            self.robot.get_joint_index_by_name(name) for name in tactile_joint_names
+            self.robot.get_joint_index_by_name(name)
+            for name in self.tactile_joint_names
         ]
         self.rgb_tactiles.add_camera(self.robot.id, tactile_link_ids)
 

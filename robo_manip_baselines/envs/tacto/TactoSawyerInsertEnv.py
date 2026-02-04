@@ -61,14 +61,14 @@ class TactoSawyerInsertEnv(TactoSawyerEnvBase):
     def setup_task_specific_object(self):
         self.obj = px.Body(
             urdf_path=path.join(
-                path.dirname(__file__), "../assets/tacto/objects/box/board.urdf"
+                path.dirname(__file__), "../assets/tacto/objects/insert/board.urdf"
             ),
             base_position=[0.505, -0.03, 0.077],
             global_scaling=0.6,
         )
         self.obj2 = px.Body(
             urdf_path=path.join(
-                path.dirname(__file__), "../assets/tacto/objects/box/cube.urdf"
+                path.dirname(__file__), "../assets/tacto/objects/insert/cube.urdf"
             ),
             base_position=[0.493, -0.03, 0.03],
             global_scaling=0.68,
@@ -76,7 +76,7 @@ class TactoSawyerInsertEnv(TactoSawyerEnvBase):
         )
         self.obj3 = px.Body(
             urdf_path=path.join(
-                path.dirname(__file__), "../assets/tacto/objects/box/cube.urdf"
+                path.dirname(__file__), "../assets/tacto/objects/insert/cube.urdf"
             ),
             base_position=[0.517, -0.03, 0.03],
             global_scaling=0.68,
@@ -84,7 +84,7 @@ class TactoSawyerInsertEnv(TactoSawyerEnvBase):
         )
         self.obj4 = px.Body(
             urdf_path=path.join(
-                path.dirname(__file__), "../assets/tacto/objects/box/box.urdf"
+                path.dirname(__file__), "../assets/tacto/objects/insert/box.urdf"
             ),
             base_position=[0.505, 0.2, 0.05],
             global_scaling=0.6,
@@ -95,8 +95,6 @@ class TactoSawyerInsertEnv(TactoSawyerEnvBase):
 
     def reset_task_specific_object(self):
         pass
-        # self.obj.reset()
-        # self.modify_world()
 
     def _get_reward(self):
         (x, y, z), _ = self.obj.get_base_pose()

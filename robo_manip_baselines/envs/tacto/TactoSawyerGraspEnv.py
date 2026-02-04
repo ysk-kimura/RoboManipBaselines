@@ -31,7 +31,7 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
     def setup_task_specific_object(self):
         self.obj = px.Body(
             urdf_path=path.join(
-                path.dirname(__file__), "../assets/tacto/objects/cube/cube_small.urdf"
+                path.dirname(__file__), "../assets/tacto/objects/grasp/cube.urdf"
             ),
             base_position=[0.6, 0, 0.1],
             global_scaling=0.6,
@@ -41,7 +41,6 @@ class TactoSawyerGraspEnv(TactoSawyerEnvBase):
 
     def reset_task_specific_object(self):
         self.obj.reset()
-        self.modify_world()
 
     def _get_reward(self):
         (x, y, z), _ = self.obj.get_base_pose()

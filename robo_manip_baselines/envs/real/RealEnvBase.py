@@ -286,6 +286,16 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             #     print(f"[{self.__class__.__name__}] Overwrite joint command for safety.")
             action[arm_joint_idxes] = arm_joint_pos_command_overwritten
 
+        if not np.all(np.isfinite(action)):
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Action contains NaN or Inf: {action}"
+            )
+
+        if duration is None or not np.isfinite(duration):
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] Duration is NaN or Inf: {duration}"
+            )
+
         return action, duration
 
     @abstractmethod

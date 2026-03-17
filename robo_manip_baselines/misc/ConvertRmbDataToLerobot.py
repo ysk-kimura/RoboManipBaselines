@@ -87,7 +87,7 @@ class ConvertRmbDataToLerobot:
                 rgb_image_key = DataKey.get_rgb_image_key(camera_name)
                 rgb_image_shape = rmb_data[rgb_image_key][0].shape
                 print(rgb_image_shape, (3, 480, 640))
-                features[f"observation.images.{camera_name}"] = {
+                features[f"observation.images.{camera_name}_rgb"] = {
                     "dtype": mode,
                     "shape": rgb_image_shape,
                     "names": [
@@ -113,8 +113,8 @@ class ConvertRmbDataToLerobot:
         images_per_camera = {}
         for camera_name in self.camera_name_list:
             rgb_image_key = DataKey.get_rgb_image_key(camera_name)
-            images_per_camera[camera_name] = rmb_data[rgb_image_key][:]
-            print(camera_name, images_per_camera[camera_name].shape)
+            images_per_camera[f"{camera_name}_rgb"] = rmb_data[rgb_image_key][:]
+            print(f"{camera_name}_rgb", images_per_camera[f"{camera_name}_rgb"].shape)
         return images_per_camera
 
     def load_raw_episode_data(
@@ -199,10 +199,16 @@ class ConvertRmbDataToLerobot:
                     with open(self.dataset.root / "meta" / "modality.json", "w") as f:
                         modality = {
                             "state": {
-                                "qpos": {"start": 0, "end": len(self.joint_name_list)}
+                                "single_arm": {
+                                    "start": 0,
+                                    "end": len(self.joint_name_list),
+                                }
                             },
                             "action": {
-                                "action": {"start": 0, "end": len(self.joint_name_list)}
+                                "single_arm": {
+                                    "start": 0,
+                                    "end": len(self.joint_name_list),
+                                }
                             },
                             "video": {
                                 f"{camera_name}_rgb": {
@@ -211,9 +217,7 @@ class ConvertRmbDataToLerobot:
                                 for camera_name in self.camera_name_list
                             },
                             "annotation": {
-                                "human.action.task_description": {
-                                    "original_key": "task_index"
-                                }
+                                "human.task_description": {"original_key": "task_index"}
                             },
                         }
                         json.dump(modality, f, indent=4)

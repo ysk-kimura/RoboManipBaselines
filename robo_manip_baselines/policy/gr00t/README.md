@@ -46,7 +46,7 @@ Convert your RMB dataset into the LeRobot dataset format.
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python misc/ConvertRmbDataToLerobot.py <RMB_data_dir> --repo_id <user_name>/<dataset_name>
+$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot_dataset_dir>
 ```
 
 ## Model Training
@@ -58,7 +58,7 @@ Here is an example command for UR5e.
 ```console
 # Use Env 2
 # Go to Isaac-GR00T directory
-$ python gr00t/experiment/launch_finetune.py --base-model-path nvidia/GR00T-N1.6-3B --dataset-path <data_dir> --embodiment-tag NEW_EMBODIMENT --modality-config-path examples/UR5e/ur5e_config.py --num-gpus <num_gpus> --output-dir ./log/<log_name> --save-total-limit 5 --save-steps 60000 --max-steps 60000 --global-batch-size 64 --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 --dataloader-num-workers 4
+$ python gr00t/experiment/launch_finetune.py --base-model-path nvidia/GR00T-N1.6-3B --dataset-path <lerobot_dataset_dir> --embodiment-tag NEW_EMBODIMENT --modality-config-path examples/UR5e/ur5e_config.py --num-gpus <num_gpus> --output-dir ./log/<log_name> --save-total-limit 5 --save-steps 60000 --max-steps 60000 --global-batch-size 64 --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 --dataloader-num-workers 4
 ```
 
 ## Policy rollout

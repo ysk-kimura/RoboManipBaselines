@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import json
 import shutil
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -26,15 +27,28 @@ DEFAULT_DATASET_CONFIG = DatasetConfig()
 
 
 class ConvertRmbDataToLerobot:
-    def __init__(self, path, repo_id, robot_type, task_desc):
+    def __init__(self, path, output_dir, repo_id, robot_type, task_desc):
         self.rmb_path_list = find_rmb_files(path)
-        self.repo_id = repo_id
         self.robot_type = robot_type
         self.task_desc = task_desc
+
+        if repo_id is None:
+            if output_dir is None:
+                raise ValueError("Either repo_id or output_dir must be specified")
+            output_path = Path(output_dir)
+            repo_name = output_path.name
+            if repo_name == "":
+                raise ValueError(f"Invalid output_dir: {output_dir}")
+            self.repo_id = repo_name
+            self.output_dir = str(output_path.parent)
+        else:
+            self.repo_id = repo_id
+            self.output_dir = output_dir
 
     def create_empty_dataset(
         self,
         repo_id: str,
+        root: str,
         robot_type: str,
         mode: Literal["video", "image"] = "video",
         *,
@@ -99,6 +113,7 @@ class ConvertRmbDataToLerobot:
 
         self.dataset = LeRobotDataset.create(
             repo_id=repo_id,
+            root=root,
             fps=30,
             robot_type=robot_type,
             features=features,
@@ -353,11 +368,18 @@ class ConvertRmbDataToLerobot:
         mode: Literal["video", "image"] = "video",
         dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
     ):
-        if (HF_LEROBOT_HOME / self.repo_id).exists():
-            shutil.rmtree(HF_LEROBOT_HOME / self.repo_id)
+        root_dir = HF_LEROBOT_HOME if self.output_dir is None else Path(self.output_dir)
+        dataset_path = root_dir / self.repo_id
+        if dataset_path.exists():
+            shutil.rmtree(dataset_path)
+
+        print(
+            f"[{self.__class__.__name__}] Start dataset conversion: {dataset_path.resolve()}"
+        )
 
         self.create_empty_dataset(
-            self.repo_id,
+            repo_id=self.repo_id,
+            root=dataset_path,
             robot_type=self.robot_type,
             mode=mode,
             dataset_config=dataset_config,
@@ -368,9 +390,7 @@ class ConvertRmbDataToLerobot:
         self.dataset.finalize()
 
         meta_stats = self.dataset.meta.stats
-        self.dataset = LeRobotDataset(
-            repo_id=self.repo_id, root=(HF_LEROBOT_HOME / self.repo_id)
-        )
+        self.dataset = LeRobotDataset(repo_id=self.repo_id, root=dataset_path)
 
         stats_patterns = self.get_stats_einops_patterns(8)
 
@@ -403,13 +423,14 @@ class ConvertRmbDataToLerobot:
         if push_to_hub:
             self.dataset.push_to_hub()
 
-        print(f"[{self.__class__.__name__}] Finished converting dataset.")
+        print(f"[{self.__class__.__name__}] Complete dataset conversion.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str)
-    parser.add_argument("--repo_id", type=str)
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--repo_id", type=str, default=None)
     parser.add_argument("--robot_type", type=str, default="ur5e")
     parser.add_argument("--task_desc", type=str, default=None)
     args = parser.parse_args()

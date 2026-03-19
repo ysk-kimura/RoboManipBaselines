@@ -40,7 +40,7 @@ Convert your RMB dataset into the LeRobot dataset format.
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python misc/ConvertRmbDataToLerobot.py <RMB_data_dir> --repo_id <user_name>/<dataset_name>
+$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot_dataset_root>/<lerobot_dataset_repo_id>
 ```
 
 ## Model Training
@@ -55,7 +55,7 @@ Next, please delete all `observation.images` keys from the `input_features` sect
 ```console
 # Use Env 2
 # Go to lerobot directory
-$ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<your name>/<data name> --dataset.root=<your data dir> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
+$ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<lerobot_dataset_repo_id> --dataset.root=<lerobot_dataset_root> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
 ```
 
 ## Policy rollout
@@ -66,5 +66,5 @@ Run a trained policy in the simulator.
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python ./bin/Rollout.py Pi0 <task name> --checkpoint <checkpoint dir> --world_idx 0 --no_plot --task_desc <task description text>
+$ python ./bin/Rollout.py Pi0 <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
 ```

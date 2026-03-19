@@ -4,7 +4,7 @@
 
 You need two virtual environments: one for data preparation and rollout, and another for training.
 
-**Env 1: Environment for data preparation and rollout**
+### Env 1: Environment for data preparation and rollout
 
 Install [RoboManipBaselines](https://github.com/isri-aist/RoboManipBaselines) according to [here](../../../doc/install.md#common-installation).
 
@@ -15,7 +15,7 @@ $ cd third_party/lerobot
 $ pip install -e .
 ```
 
-**Env 2: Environment for training**
+### Env 2: Environment for training
 
 Install [LeRobot](https://github.com/huggingface/lerobot) by the following commands.
 ```console
@@ -32,15 +32,15 @@ Create a Hugging Face account and search for the `google/paligemma-3b-pt-224` mo
 You will see a notice stating "You need to agree to share your contact information to access this model".
 Click "Agree and access repository" and follow the instructions to complete the process.
 
-## Dataset preparation
+## Data preparation
 
-Convert your RMB dataset into the LeRobot dataset format.
+Convert RMB dataset into the LeRobot dataset format.
 
 ```console
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot_dataset_root>/<lerobot_dataset_repo_id>
+$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <dataset_root>/<dataset_repo_id>
 ```
 
 ## Model Training
@@ -55,7 +55,7 @@ Next, please delete all `observation.images` keys from the `input_features` sect
 ```console
 # Use Env 2
 # Go to lerobot directory
-$ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<lerobot_dataset_repo_id> --dataset.root=<lerobot_dataset_root> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
+$ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<dataset_repo_id> --dataset.root=<dataset_root> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
 ```
 
 ## Policy rollout

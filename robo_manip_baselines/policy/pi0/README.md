@@ -45,8 +45,7 @@ $ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <dataset
 
 ## Model Training
 
-Train the model. The trained weights are saved in the `outputs` folder.
-
+Train a model. The trained weights are saved in the `outputs` directory.
 Here is an example command for UR5e.
 
 Once you've run this command and confirmed that the pi0_base model has been downloaded, please stop.

@@ -68,20 +68,18 @@ Convert from LeRobot v3 to v2.
 # Go to Isaac-GR00T directory
 $ cd scripts/lerobot_conversion
 $ python convert_v3_to_v2.py --root <dataset_root> --repo-id <dataset_repo_id>
+$ cp <dataset_root>/<dataset_repo_id>_v3.0/meta/modality.json <dataset_root>/<dataset_repo_id>/meta/
 ```
 
 ## Model Training
 
-Train the model. The trained weights are saved in the `log` folder.
-
+Train a model.
 Here is an example command for UR5e.
 
 ```console
 # Use Env 3
 # Go to Isaac-GR00T directory
-$ python gr00t/experiment/launch_finetune.py --base-model-path nvidia/GR00T-N1.6-3B --dataset-path <dataset_root>/<dataset_repo_id> --embodiment-tag NEW_EMBODIMENT --modality-config-path examples/UR5e/ur5e_config.py --num-gpus <num_gpus> --output-dir ./log/<log_name> --save-total-limit 5 --save-steps 60000 --max-steps 60000 --global-batch-size 64 --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 --dataloader-num-workers 4
-
-$ cp <dataset_root>/<dataset_repo_id>_v3.0/meta/modality.json <dataset_root>/<dataset_repo_id>/meta/
+$ python gr00t/experiment/launch_finetune.py --base-model-path nvidia/GR00T-N1.6-3B --dataset-path <dataset_root>/<dataset_repo_id> --embodiment-tag NEW_EMBODIMENT --modality-config-path examples/UR5e/ur5e_config.py --num-gpus <num_gpus> --output-dir <checkpoint_dir> --save-total-limit 5 --save-steps 60000 --max-steps 60000 --global-batch-size 64 --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 --dataloader-num-workers 4
 ```
 
 ## Policy rollout

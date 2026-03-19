@@ -44,8 +44,6 @@ class RolloutGr00t(RolloutBase):
         # Print policy information
         self.print_policy_info()
 
-        # self.device = torch.device("cpu")
-
     def setup_plot(self):
         fig_ax = plt.subplots(
             2,

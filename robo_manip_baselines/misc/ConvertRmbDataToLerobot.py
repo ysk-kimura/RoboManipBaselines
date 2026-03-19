@@ -26,10 +26,11 @@ DEFAULT_DATASET_CONFIG = DatasetConfig()
 
 
 class ConvertRmbDataToLerobot:
-    def __init__(self, path, repo_id, robot_type):
+    def __init__(self, path, repo_id, robot_type, task_desc):
         self.rmb_path_list = find_rmb_files(path)
         self.repo_id = repo_id
         self.robot_type = robot_type
+        self.task_desc = task_desc
 
     def create_empty_dataset(
         self,
@@ -86,14 +87,13 @@ class ConvertRmbDataToLerobot:
             for camera_name in self.camera_name_list:
                 rgb_image_key = DataKey.get_rgb_image_key(camera_name)
                 rgb_image_shape = rmb_data[rgb_image_key][0].shape
-                print(rgb_image_shape, (3, 480, 640))
                 features[f"observation.images.{camera_name}_rgb"] = {
                     "dtype": mode,
                     "shape": rgb_image_shape,
                     "names": [
-                        "channels",
                         "height",
                         "width",
+                        "channels",
                     ],
                 }
 
@@ -114,7 +114,6 @@ class ConvertRmbDataToLerobot:
         for camera_name in self.camera_name_list:
             rgb_image_key = DataKey.get_rgb_image_key(camera_name)
             images_per_camera[f"{camera_name}_rgb"] = rmb_data[rgb_image_key][:]
-            print(f"{camera_name}_rgb", images_per_camera[f"{camera_name}_rgb"].shape)
         return images_per_camera
 
     def load_raw_episode_data(
@@ -141,7 +140,6 @@ class ConvertRmbDataToLerobot:
             state = torch.from_numpy(state_joint)
             action = torch.from_numpy(action_joint)
 
-        # "/measured_joint_vel" in ep and "/measured_mobile_omni_vel" in ep:
         if self.has_velocity:
             velocity_joint = rmb_data[DataKey.MEASURED_JOINT_VEL][:]
             if self.robot_type == "hsr":
@@ -173,7 +171,9 @@ class ConvertRmbDataToLerobot:
 
         for rmb_idx, rmb_path in tqdm.tqdm(enumerate(self.rmb_path_list)):
             with RmbData(rmb_path) as rmb_data:
-                if "task_desc" in rmb_data.attrs:
+                if self.task_desc is not None:
+                    task_desc = self.task_desc
+                elif "task_desc" in rmb_data.attrs:
                     task_desc = rmb_data.attrs["task_desc"]
                 else:
                     env_name = rmb_data.attrs["env"]
@@ -189,6 +189,10 @@ class ConvertRmbDataToLerobot:
                         task_desc = "open the door"
                     elif env_name == "MujocoHsrTidyupEnv":
                         task_desc = "Bring the object to the box"
+                    else:
+                        raise ValueError(
+                            f"[{self.__class__.__name__}] Failed to retrieve the task description."
+                        )
 
                 images_per_camera, state, action, velocity, effort = (
                     self.load_raw_episode_data(rmb_data)
@@ -399,14 +403,15 @@ class ConvertRmbDataToLerobot:
         if push_to_hub:
             self.dataset.push_to_hub()
 
-        print("Finished converting dataset.")
+        print(f"[{self.__class__.__name__}] Finished converting dataset.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str)
+    parser.add_argument("path", type=str)
     parser.add_argument("--repo_id", type=str)
     parser.add_argument("--robot_type", type=str, default="ur5e")
+    parser.add_argument("--task_desc", type=str, default=None)
     args = parser.parse_args()
 
     rmb_to_lerobot = ConvertRmbDataToLerobot(**vars(args))

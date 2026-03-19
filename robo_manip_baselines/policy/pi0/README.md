@@ -25,7 +25,7 @@ $ cd lerobot
 $ pip install -e .[pi]
 ```
 
-## Preparation for PaLI-Gemma
+## Account Registration for PaLI-Gemma
 
 Create a Hugging Face account and search for the `google/paligemma-3b-pt-224` model on the website.
 

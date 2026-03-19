@@ -19,7 +19,7 @@ $ pip install -e .
 
 Install [lerobot_conversion](https://github.com/yu-kitagawa/Isaac-GR00T/tree/main/scripts/lerobot_conversion) by the following commands.
 ```console
-$ # Go to any directory
+# Go to any directory
 $ git clone https://github.com/yu-kitagawa/Isaac-GR00T
 $ cd Isaac-GR00T/scripts/lerobot_conversion
 $ pip install -e .
@@ -29,7 +29,7 @@ $ pip install -e .
 
 Install [GR00T](https://github.com/yu-kitagawa/Isaac-GR00T) by the following commands.
 ```console
-$ # Go to any directory
+# Go to any directory
 $ git clone https://github.com/yu-kitagawa/Isaac-GR00T
 $ cd Isaac-GR00T
 $ pip install -e .

@@ -42,3 +42,6 @@
 	path = third_party/tacto
 	url = https://github.com/Naoki-Shibayama/tacto.git
         ignore = untracked
+[submodule "third_party/lerobot"]
+	path = third_party/lerobot
+	url = https://github.com/huggingface/lerobot.git

@@ -131,3 +131,14 @@ Run a trained policy in the simulator.
 $ cd robo_manip_baselines
 $ python ./bin/Rollout.py Gr00t <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
 ```
+
+## Technical Details
+For more information on the technical details, please see the following paper:
+```bib
+@article{GR00T_arXiv2025,
+  title={{GR00T}: An open foundation model for generalist humanoid robots},
+  author={Bjorck, Johan and Casta{\~n}eda, Fernando and Cherniadev, Nikita and Da, Xingye and Ding, Runyu and Fan, Linxi and Fang, Yu and Fox, Dieter and Hu, Fengyuan and Huang, Spencer and others},
+  journal={arXiv preprint arXiv:2503.14734},
+  year={2025}
+}
+```

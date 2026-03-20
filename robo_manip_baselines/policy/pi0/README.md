@@ -67,3 +67,14 @@ Run a trained policy in the simulator.
 $ cd robo_manip_baselines
 $ python ./bin/Rollout.py Pi0 <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
 ```
+
+## Technical Details
+For more information on the technical details, please see the following paper:
+```bib
+@article{Pi0_arXiv2024,
+  title={$$\backslash$pi\_0 $: A Vision-Language-Action Flow Model for General Robot Control},
+  author={Black, Kevin and Brown, Noah and Driess, Danny and Esmail, Adnan and Equi, Michael and Finn, Chelsea and Fusai, Niccolo and Groom, Lachy and Hausman, Karol and Ichter, Brian and others},
+  journal={arXiv preprint arXiv:2410.24164},
+  year={2024}
+}
+```

@@ -55,6 +55,8 @@ We provide several powerful policy architectures for manipulation tasks:
 - 🔹 **[3D Diffusion Policy](./robo_manip_baselines/policy/diffusion_policy_3d)**: Diffusion-based policy with 3D point cloud input
 - 🔹 **[Flow Policy](./robo_manip_baselines/policy/flow_policy)**: Flow-matching-based policy with 3D point cloud input
 - 🔹 **[ManiFlow Policy](./robo_manip_baselines/policy/mani_flow_policy)**: Flow-matching and consistency-based policy with 2D/3D vision
+- 🔹 **[pi0](./robo_manip_baselines/policy/pi0)**: Flow-matching-based policy with a vision-language model backbone (PaliGemma)
+- 🔹 **[GR00T](./robo_manip_baselines/policy/gr00t)**: Diffusion Transformer-based policy with a vision-language model backbone (Eagle-2)
 
 ---
 

@@ -37,6 +37,25 @@ $ pip install wheel packaging ninja
 $ pip install --no-build-isolation flash-attn==2.7.4.post1
 ```
 
+> [!NOTE]
+> When running on ABCI, the following command:
+> ```console
+> $ pip install --no-build-isolation flash-attn==2.7.4.post1
+> ```
+> must be executed on a GPU node.
+>
+> Before running this command on a GPU node, you need to load the CUDA module:
+> ```console
+> source /etc/profile.d/modules.sh
+> module load cuda/12.6/12.6.1
+> ```
+>
+> and set a temporary directory:
+> ```console
+> export TMPDIR=$HOME/tmp
+> mkdir -p $TMPDIR
+> ```
+
 ### Env 4: Environment for rollout
 
 Install [GR00T](https://github.com/yu-kitagawa/Isaac-GR00T) as in Env 3.
@@ -79,7 +98,20 @@ Here is an example command for UR5e.
 ```console
 # Use Env 3
 # Go to Isaac-GR00T directory
-$ python gr00t/experiment/launch_finetune.py --base-model-path nvidia/GR00T-N1.6-3B --dataset-path <dataset_root>/<dataset_repo_id> --embodiment-tag NEW_EMBODIMENT --modality-config-path examples/UR5e/ur5e_config.py --num-gpus <num_gpus> --output-dir <checkpoint_dir> --save-total-limit 5 --save-steps 60000 --max-steps 60000 --global-batch-size 64 --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 --dataloader-num-workers 4
+$ export NUM_GPUS=1
+$ CUDA_VISIBLE_DEVICES=0 python gr00t/experiment/launch_finetune.py \
+  --base-model-path nvidia/GR00T-N1.6-3B \
+  --dataset-path <dataset_root>/<dataset_repo_id> \
+  --embodiment-tag NEW_EMBODIMENT \
+  --modality-config-path examples/UR5e/ur5e_config.py \
+  --num-gpus $NUM_GPUS \
+  --output-dir <checkpoint_dir> \
+  --save-total-limit 5 \
+  --save-steps 60000 \
+  --max-steps 60000 \
+  --global-batch-size 64 \
+  --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
+  --dataloader-num-workers 4
 ```
 
 ## Policy rollout

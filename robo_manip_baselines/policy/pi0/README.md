@@ -27,12 +27,14 @@ $ pip install -e .[pi]
 
 ## Account Registration for PaLI-Gemma
 
-Create a Hugging Face account and search for the `google/paligemma-3b-pt-224` model on the website.
+Log in to your Hugging Face account, open the model card page for [google/paligemma-3b-pt-224](https://huggingface.co/google/paligemma-3b-pt-224), click the "Acknowledge license" button, and complete the required steps.
 
-You will see a notice stating "You need to agree to share your contact information to access this model".
-Click "Agree and access repository" and follow the instructions to complete the process.
+After that, register your Hugging Face token in the environment used for training and rollout with the following command:
+```console
+$ hf auth login
+```
 
-## Data preparation
+## Data Preparation
 
 Convert RMB dataset into the LeRobot dataset format.
 
@@ -40,7 +42,7 @@ Convert RMB dataset into the LeRobot dataset format.
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <dataset_root>/<dataset_repo_id>
+$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot_dataset_dir>
 ```
 
 ## Model Training
@@ -54,7 +56,24 @@ Next, please delete all `observation.images` keys from the `input_features` sect
 ```console
 # Use Env 2
 # Go to lerobot directory
-$ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<dataset_repo_id> --dataset.root=<dataset_root> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
+$ python src/lerobot/scripts/lerobot_train.py \
+  --dataset.repo_id=null \
+  --dataset.root=<lerobot_dataset_dir> \
+  --policy.type=pi0 \
+  --job_name=pi0_training \
+  --policy.pretrained_path=lerobot/pi0_base \
+  --policy.repo_id=local_repo \
+  --policy.compile_model=true \
+  --policy.gradient_checkpointing=false \
+  --policy.dtype=bfloat16 \
+  --policy.freeze_vision_encoder=false \
+  --policy.train_expert_only=true \
+  --policy.push_to_hub=false \
+  --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"}, "observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"}, "observation.state": {"shape":[7], "type":"STATE"}}' \
+  --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' \
+  --policy.n_action_steps=8 \
+  --policy.chunk_size=16 \
+  --batch_size=32
 ```
 
 ## Policy Rollout

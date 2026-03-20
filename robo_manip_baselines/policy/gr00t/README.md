@@ -75,7 +75,7 @@ Convert RMB dataset into the LeRobot dataset format.
 # Use Env 1
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <dataset_root>/<dataset_repo_id>
+$ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot_dataset_dir>
 ```
 
 ## LeRobot Data Conversion
@@ -87,8 +87,13 @@ Convert from LeRobot v3 to v2.
 # Go to Isaac-GR00T directory
 $ cd scripts/lerobot_conversion
 $ python convert_v3_to_v2.py --root <dataset_root> --repo-id <dataset_repo_id>
-$ cp <dataset_root>/<dataset_repo_id>_v3.0/meta/modality.json <dataset_root>/<dataset_repo_id>/meta/
+$ cp <lerobot_dataset_dir>_v3.0/meta/modality.json <lerobot_dataset_dir>/meta
 ```
+
+> [!NOTE]
+> Let `<dataset_repo_id>` be the name of the final directory in `<lerobot_dataset_dir>`, and `<dataset_root>` be the path to its parent directory.
+>
+> For example, if `<lerobot_dataset_dir>` is `./dir_aaa/dir_bbb/dir_ccc`, then `<dataset_repo_id>` is `dir_ccc`, and `<dataset_root>` is `./dir_aaa/dir_bbb`.
 
 ## Model Training
 
@@ -101,7 +106,7 @@ Here is an example command for UR5e.
 $ export NUM_GPUS=1
 $ CUDA_VISIBLE_DEVICES=0 python gr00t/experiment/launch_finetune.py \
   --base-model-path nvidia/GR00T-N1.6-3B \
-  --dataset-path <dataset_root>/<dataset_repo_id> \
+  --dataset-path <lerobot_dataset_dir> \
   --embodiment-tag NEW_EMBODIMENT \
   --modality-config-path examples/UR5e/ur5e_config.py \
   --num-gpus $NUM_GPUS \

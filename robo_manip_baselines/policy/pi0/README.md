@@ -57,7 +57,7 @@ Next, please delete all `observation.images` keys from the `input_features` sect
 $ python src/lerobot/scripts/lerobot_train.py --dataset.repo_id=<dataset_repo_id> --dataset.root=<dataset_root> --policy.type=pi0 --job_name=pi0_finetune --policy.pretrained_path=lerobot/pi0_base --policy.repo_id=local_repo --policy.compile_model=true --policy.gradient_checkpointing=false --policy.dtype=bfloat16 --policy.freeze_vision_encoder=true --policy.train_expert_only=true --policy.push_to_hub=false --policy.input_features=null --policy.input_features='{"observation.images.front_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.hand_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.left_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.images.right_rgb": {"shape":[3,224,224], "type":"VISUAL"},"observation.state": {"shape":[7], "type":"STATE"}}' --policy.output_features='{"action": {"shape":[7], "type":"ACTION"}}' --policy.n_action_steps=8 --policy.chunk_size=16 --batch_size=16
 ```
 
-## Policy rollout
+## Policy Rollout
 
 Run a trained policy in the simulator.
 

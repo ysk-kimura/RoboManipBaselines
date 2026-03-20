@@ -121,7 +121,7 @@ $ CUDA_VISIBLE_DEVICES=0 python gr00t/experiment/launch_finetune.py \
 > $ module load cuda/12.6/12.6.1
 > ```
 
-## Policy rollout
+## Policy Rollout
 
 Run a trained policy in the simulator.
 

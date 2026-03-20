@@ -38,11 +38,10 @@ $ pip install --no-build-isolation flash-attn==2.7.4.post1
 ```
 
 > [!NOTE]
-> When running on ABCI, the following command:
+> When running on ABCI, the following command must be executed on a GPU node:
 > ```console
 > $ pip install --no-build-isolation flash-attn==2.7.4.post1
 > ```
-> must be executed on a GPU node.
 >
 > Before running this command on a GPU node, you need to load the CUDA module:
 > ```console
@@ -105,12 +104,12 @@ Here is an example command for UR5e.
 # Go to Isaac-GR00T directory
 $ export NUM_GPUS=1
 $ CUDA_VISIBLE_DEVICES=0 python gr00t/experiment/launch_finetune.py \
-  --base-model-path nvidia/GR00T-N1.6-3B \
   --dataset-path <lerobot_dataset_dir> \
+  --output-dir <checkpoint_dir> \
+  --base-model-path nvidia/GR00T-N1.6-3B \
   --embodiment-tag NEW_EMBODIMENT \
   --modality-config-path examples/UR5e/ur5e_config.py \
   --num-gpus $NUM_GPUS \
-  --output-dir <checkpoint_dir> \
   --save-total-limit 5 \
   --save-steps 60000 \
   --max-steps 60000 \

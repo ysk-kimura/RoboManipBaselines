@@ -47,18 +47,15 @@ $ python misc/ConvertRmbDataToLerobot.py <rmb_dataset_dir> --output_dir <lerobot
 
 ## Model Training
 
-Train a model. The trained weights are saved in the `outputs` directory.
+Train a model.
 Here is an example command for UR5e.
-
-Once you've run this command and confirmed that the pi0_base model has been downloaded, please stop.
-Next, please delete all `observation.images` keys from the `input_features` section in the `config.json` file for the pi0_base model (`~/.cache/huggingface/hub/models--lerobot--pi0_base/snapshots/<omitted>/config.json`).
 
 ```console
 # Use Env 2
-# Go to lerobot directory
-$ python src/lerobot/scripts/lerobot_train.py \
-  --dataset.repo_id=null \
+$ lerobot-train \
   --dataset.root=<lerobot_dataset_dir> \
+  --output_dir=<checkpoint_dir> \
+  --dataset.repo_id=null \
   --policy.type=pi0 \
   --job_name=pi0_training \
   --policy.pretrained_path=lerobot/pi0_base \
@@ -75,6 +72,14 @@ $ python src/lerobot/scripts/lerobot_train.py \
   --policy.chunk_size=16 \
   --batch_size=32
 ```
+
+> [!NOTE]
+> When running on ABCI, the following commands are required in advance:
+> ```console
+> $ conda install -c conda-forge ffmpeg
+> $ conda install -c conda-forge libstdcxx-ng
+> $ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+> ```
 
 ## Policy Rollout
 

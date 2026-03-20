@@ -46,14 +46,14 @@ $ pip install --no-build-isolation flash-attn==2.7.4.post1
 >
 > Before running this command on a GPU node, you need to load the CUDA module:
 > ```console
-> source /etc/profile.d/modules.sh
-> module load cuda/12.6/12.6.1
+> $ source /etc/profile.d/modules.sh
+> $ module load cuda/12.6/12.6.1
 > ```
 >
 > and set a temporary directory:
 > ```console
-> export TMPDIR=$HOME/tmp
-> mkdir -p $TMPDIR
+> $ export TMPDIR=$HOME/tmp
+> $ mkdir -p $TMPDIR
 > ```
 
 ### Env 4: Environment for rollout
@@ -113,6 +113,13 @@ $ CUDA_VISIBLE_DEVICES=0 python gr00t/experiment/launch_finetune.py \
   --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
   --dataloader-num-workers 4
 ```
+
+> [!NOTE]
+> When running on ABCI, you need to load the CUDA module:
+> ```console
+> $ source /etc/profile.d/modules.sh
+> $ module load cuda/12.6/12.6.1
+> ```
 
 ## Policy rollout
 

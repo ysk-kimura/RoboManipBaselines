@@ -2,9 +2,9 @@
 
 ## Install
 
-You need two virtual environments: one for data preparation and rollout, and another for training.
+You need three virtual environments for data preparation, training, and rollout.
 
-### Env 1: Environment for data preparation and rollout
+### Env 1: Environment for data preparation
 
 Install [RoboManipBaselines](https://github.com/isri-aist/RoboManipBaselines) according to [here](../../../doc/install.md#common-installation).
 
@@ -22,6 +22,17 @@ Install [LeRobot](https://github.com/huggingface/lerobot) by the following comma
 # Go to any directory
 $ git clone https://github.com/huggingface/lerobot -b v0.4.4
 $ cd lerobot
+$ pip install -e .[pi]
+```
+
+### Env 3: Environment for rollout
+
+Install [RoboManipBaselines](https://github.com/isri-aist/RoboManipBaselines) according to [here](../../../doc/install.md#common-installation).
+
+Install [LeRobot](https://github.com/huggingface/lerobot) by the following commands.
+```console
+# Go to the top directory of this repository
+$ cd third_party/lerobot
 $ pip install -e .[pi]
 ```
 
@@ -86,11 +97,14 @@ $ lerobot-train \
 Run a trained policy in the simulator.
 
 ```console
-# Use Env 1
+# Use Env 3
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
 $ python ./bin/Rollout.py Pi0 <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
 ```
+
+> [!NOTE]
+> Specify the path to a `checkpoints/**/pretrained_model` directory (e.g., `checkpoints/100000/pretrained_model`) for `<checkpoint_dir>`.
 
 ## Technical Details
 For more information on the technical details, please see the following paper:

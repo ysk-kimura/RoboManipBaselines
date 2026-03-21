@@ -136,6 +136,9 @@ $ cd robo_manip_baselines
 $ python ./bin/Rollout.py Gr00t <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
 ```
 
+> [!NOTE]
+> Specify the path to a `checkpoint-**` directory (e.g., `checkpoint-60000`) for `<checkpoint_dir>`.
+
 ## Technical Details
 For more information on the technical details, please see the following paper:
 ```bib

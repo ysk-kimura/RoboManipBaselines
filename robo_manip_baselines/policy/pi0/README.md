@@ -100,7 +100,7 @@ Run a trained policy in the simulator.
 # Use Env 3
 # Go to the top directory of this repository
 $ cd robo_manip_baselines
-$ python ./bin/Rollout.py Pi0 <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --no_plot --task_desc <task_description_text>
+$ python ./bin/Rollout.py Pi0 <task_name> --checkpoint <checkpoint_dir> --world_idx 0 --task_desc <task_description_text>
 ```
 
 > [!NOTE]

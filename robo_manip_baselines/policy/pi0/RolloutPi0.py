@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import torch
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../lerobot"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../third_party/lerobot"))
 from lerobot.policies.factory import make_pre_post_processors
 from lerobot.policies.pi0.modeling_pi0 import PI0Policy
 from lerobot.utils.control_utils import predict_action
@@ -30,8 +30,9 @@ class RolloutPi0(RolloutBase):
             self.args.skip_draw = self.args.skip
 
     def setup_policy(self):
-        self.policy = PI0Policy.from_pretrained(self.args.checkpoint)
         self.device = torch.device("cuda")
+
+        self.policy = PI0Policy.from_pretrained(self.args.checkpoint)
 
         self.preprocess, self.postprocess = make_pre_post_processors(
             self.policy.config,
@@ -51,6 +52,7 @@ class RolloutPi0(RolloutBase):
 
     def reset_variables(self):
         super().reset_variables()
+
         self.policy.reset()
 
     def get_state(self):

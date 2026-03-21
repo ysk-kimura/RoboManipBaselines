@@ -27,10 +27,10 @@ DEFAULT_DATASET_CONFIG = DatasetConfig()
 
 
 class ConvertRmbDataToLerobot:
-    def __init__(self, path, output_dir, repo_id, robot_type, task_desc):
+    def __init__(self, path, output_dir, repo_id, task_desc, enable_mobile):
         self.rmb_path_list = find_rmb_files(path)
-        self.robot_type = robot_type
         self.task_desc = task_desc
+        self.enable_mobile = enable_mobile
 
         if repo_id is None:
             if output_dir is None:
@@ -49,7 +49,6 @@ class ConvertRmbDataToLerobot:
         self,
         repo_id: str,
         root: str,
-        robot_type: str,
         mode: Literal["video", "image"] = "video",
         *,
         dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
@@ -115,7 +114,6 @@ class ConvertRmbDataToLerobot:
             repo_id=repo_id,
             root=root,
             fps=30,
-            robot_type=robot_type,
             features=features,
             use_videos=dataset_config.use_videos,
             tolerance_s=dataset_config.tolerance_s,
@@ -142,7 +140,7 @@ class ConvertRmbDataToLerobot:
     ]:
         state_joint = rmb_data[DataKey.MEASURED_JOINT_POS][:]
         action_joint = rmb_data[DataKey.COMMAND_JOINT_POS][:]
-        if self.robot_type == "hsr":
+        if self.enable_mobile:
             state_omni = rmb_data[DataKey.MEASURED_MOBILE_OMNI_VEL][:]
             state_all = np.concatenate([state_joint, state_omni], axis=1)
 
@@ -157,7 +155,7 @@ class ConvertRmbDataToLerobot:
 
         if self.has_velocity:
             velocity_joint = rmb_data[DataKey.MEASURED_JOINT_VEL][:]
-            if self.robot_type == "hsr":
+            if self.enable_mobile:
                 velocity_omni = rmb_data[DataKey.MEASURED_MOBILE_OMNI_VEL][:]
                 velocity_all = np.concatenate([velocity_joint, velocity_omni], axis=1)
                 velocity = torch.from_numpy(velocity_all)
@@ -380,7 +378,6 @@ class ConvertRmbDataToLerobot:
         self.create_empty_dataset(
             repo_id=self.repo_id,
             root=dataset_path,
-            robot_type=self.robot_type,
             mode=mode,
             dataset_config=dataset_config,
         )
@@ -431,8 +428,8 @@ if __name__ == "__main__":
     parser.add_argument("path", type=str)
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--repo_id", type=str, default=None)
-    parser.add_argument("--robot_type", type=str, default="ur5e")
     parser.add_argument("--task_desc", type=str, default=None)
+    parser.add_argument("--enable_mobile", action="store_true")
     args = parser.parse_args()
 
     rmb_to_lerobot = ConvertRmbDataToLerobot(**vars(args))

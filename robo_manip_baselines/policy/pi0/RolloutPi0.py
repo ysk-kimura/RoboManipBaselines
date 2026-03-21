@@ -31,6 +31,8 @@ class RolloutPi0(RolloutBase):
             self.args.checkpoint,
             preprocessor_overrides={"device_processor": {"device": "cuda:0"}},
         )
+        self.state_dim = self.pi0.config.input_features["observation.state"].shape[0]
+        self.action_dim = self.pi0.config.output_features["action"].shape[0]
         video_keys = [
             key.replace("observation.images.", "")
             for key in self.pi0.config.input_features
@@ -81,20 +83,8 @@ class RolloutPi0(RolloutBase):
         self.pi0.reset()
 
     def setup_model_meta_info(self):
-        self.state_keys = ["measured_joint_pos"]
-        self.action_keys = ["command_joint_pos"]
-        if "Aloha" in self.env.spec.name:
-            self.state_dim = 14
-            self.action_dim = 14
-            self.robot_type = "aloha"
-        elif "UR5e" in self.env.spec.name:
-            self.state_dim = 7
-            self.action_dim = 7
-            self.robot_type = "ur5e"
-        else:
-            self.state_dim = 14
-            self.action_dim = 14
-            self.robot_type = None
+        self.state_keys = [DataKey.MEASURED_JOINT_POS]
+        self.action_keys = [DataKey.COMMAND_JOINT_POS]
 
         if self.args.skip is None:
             self.args.skip = 1
@@ -122,7 +112,6 @@ class RolloutPi0(RolloutBase):
             postprocessor=self.postprocess,
             use_amp=self.pi0.config.use_amp,
             task=self.args.task_desc,
-            robot_type=self.robot_type,
         )
         action = torch.squeeze(action)
 
@@ -148,10 +137,7 @@ class RolloutPi0(RolloutBase):
         # Assume all images are the same size
         images = {}
         for camera_name in self.camera_names:
-            image = self.info["rgb_images"][camera_name]
-            image = image.astype(np.float32)
-            image /= 255
-            images[camera_name] = image
+            images[camera_name] = self.info["rgb_images"][camera_name].copy()
 
         return images
 

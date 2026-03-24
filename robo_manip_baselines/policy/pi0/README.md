@@ -92,6 +92,9 @@ $ lerobot-train \
 > $ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 > ```
 
+> [!NOTE]
+> If `~/.cache/huggingface/hub/models--lerobot--pi0_base/snapshots/**/config.json` exists and contains unintended image observation keys in the `input_features` entry, remove those keys.
+
 ## Policy Rollout
 
 Run a trained policy in the simulator.

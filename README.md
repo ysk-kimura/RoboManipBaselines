@@ -122,7 +122,7 @@ If you use RoboManipBaselines in your work, please cite [our paper](https://arxi
 ```bibtex
 @article{RoboManipBaselines_Murooka_2025,
   title={RoboManipBaselines: A Unified Framework for Imitation Learning in Robotic Manipulation across Real and Simulated Environments},
-  author={Murooka, Masaki and Motoda, Tomohiro and Nakajo, Ryoichi and Oh, Hanbit and Makihara, Koshi and Shirai, Keisuke and Domae, Yukiyasu},
+  author={Murooka, Masaki and Motoda, Tomohiro and Nakajo, Ryoichi and Oh, Hanbit and Makihara, Koshi and Shirai, Keisuke and Ogata, Tetsuya and Domae, Yukiyasu},
   journal={arXiv preprint arXiv:2509.17057},
   year={2025}
 }

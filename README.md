@@ -24,9 +24,7 @@
 A software framework integrating various **imitation learning methods** and **benchmark environments** for robotic manipulation.  
 Provides easy-to-use **baselines** for policy training, evaluation, and deployment.
 
-https://github.com/user-attachments/assets/c37c9956-2d50-488d-83ae-9c11c3900992
-
-https://github.com/user-attachments/assets/ba4a772f-0de5-47da-a4ec-bdcbf13d7d58
+https://github.com/user-attachments/assets/1cc955a4-35da-4b87-a223-06f822cd1f69
 
 ---
 

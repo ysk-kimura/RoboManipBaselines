@@ -9,6 +9,7 @@ from robo_manip_baselines.teleop import (
     GelloInputDevice,
     KeyboardInputDevice,
     SpacemouseInputDevice,
+    ViveControllerInputDevice,
 )
 
 from ..MujocoEnvBase import MujocoEnvBase
@@ -59,6 +60,8 @@ class MujocoXarm7EnvBase(MujocoEnvBase):
             InputDeviceClass = GelloInputDevice
         elif input_device_name == "keyboard":
             InputDeviceClass = KeyboardInputDevice
+        elif input_device_name == "vive_controller":
+            InputDeviceClass = ViveControllerInputDevice
         else:
             raise ValueError(
                 f"[{self.__class__.__name__}] Invalid input device key: {input_device_name}"

@@ -18,24 +18,24 @@ $ python ./bin/Teleop.py MujocoUR5eCable
 >
 > ```bash
 > # Install HID dependency
-> sudo apt-get install libhidapi-dev
+> $ sudo apt-get install libhidapi-dev
 >
 > # Allow hidraw device access for SpaceMouse
-> sudo tee /etc/udev/rules.d/99-hidraw-permissions.rules <<EOF
+> $ sudo tee /etc/udev/rules.d/99-hidraw-permissions.rules <<EOF
 > KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0664", GROUP="plugdev"
 > EOF
 >
 > # Reload udev rules
-> sudo udevadm control --reload-rules
-> sudo udevadm trigger
+> $ sudo udevadm control --reload-rules
+> $ sudo udevadm trigger
 >
 > # Add user to plugdev group
-> sudo usermod -aG plugdev $USER
-> newgrp plugdev
+> $ sudo usermod -aG plugdev $USER
+> $ newgrp plugdev
 >
 > # Verify device access
-> ls -l /dev/hidraw*
-> groups
+> $ ls -l /dev/hidraw*
+> $ groups
 > ```
 
 https://github.com/user-attachments/assets/59736023-a7f7-4aca-a860-176db84579f7

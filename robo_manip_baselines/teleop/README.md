@@ -13,7 +13,8 @@ $ cd robo_manip_baselines
 $ python ./bin/Teleop.py MujocoUR5eCable
 ```
 
-> [!NOTE] If SpaceMouse is not detected or you get `Failed to open device`, apply the following fix:
+> [!NOTE]  
+> If SpaceMouse is not detected or you get `Failed to open device`, apply the following fix:
 
 ```bash
 # Install HID dependency

@@ -5,6 +5,7 @@ from robo_manip_baselines.common import (
     DataKey,
     DatasetBase,
     RmbData,
+    convert_data_to_policy,
     get_skipped_data_seq,
 )
 
@@ -50,9 +51,12 @@ class MlpDataset(DatasetBase):
             else:
                 state = np.concatenate(
                     [
-                        get_skipped_data_seq(rmb_data[key][:], key, skip)[
-                            obs_time_idxes
-                        ]
+                        convert_data_to_policy(
+                            get_skipped_data_seq(rmb_data[key][:], key, skip)[
+                                obs_time_idxes
+                            ],
+                            key,
+                        )
                         for key in self.model_meta_info["state"]["keys"]
                     ],
                     axis=1,
@@ -61,7 +65,12 @@ class MlpDataset(DatasetBase):
             # Load action
             action = np.concatenate(
                 [
-                    get_skipped_data_seq(rmb_data[key][:], key, skip)[action_time_idxes]
+                    convert_data_to_policy(
+                        get_skipped_data_seq(rmb_data[key][:], key, skip)[
+                            action_time_idxes
+                        ],
+                        key,
+                    )
                     for key in self.model_meta_info["action"]["keys"]
                 ],
                 axis=1,

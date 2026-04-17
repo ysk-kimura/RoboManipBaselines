@@ -12,6 +12,7 @@ sys.path.append(
 from robo_manip_baselines.common import (
     DataKey,
     RolloutBase,
+    convert_data_to_policy,
     denormalize_data,
     normalize_data,
 )
@@ -127,7 +128,9 @@ class RolloutDiffusionPolicy(RolloutBase):
     def update_state_buf(self):
         state = np.concatenate(
             [
-                self.motion_manager.get_data(state_key, self.obs)
+                convert_data_to_policy(
+                    self.motion_manager.get_data(state_key, self.obs), state_key
+                )
                 for state_key in self.state_keys
             ]
         )

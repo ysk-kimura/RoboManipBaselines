@@ -31,6 +31,7 @@ from .utils.MathUtils import (
     get_se3_from_rel_pose,
     euler_to_rotation_matrix,
 )
+from .utils.PoseUtils import get_pose9_from_pose7, get_pose7_from_pose9
 from .utils.VisionUtils import (
     crop_and_resize,
     convert_depth_image_to_color_image,
@@ -39,6 +40,8 @@ from .utils.VisionUtils import (
 from .utils.DataUtils import (
     normalize_data,
     denormalize_data,
+    convert_data_to_policy,
+    convert_data_from_policy,
     get_skipped_data_seq,
     get_skipped_single_data,
 )

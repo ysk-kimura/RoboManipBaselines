@@ -3,7 +3,12 @@ import matplotlib.pylab as plt
 import numpy as np
 import torch
 
-from robo_manip_baselines.common import RolloutBase, denormalize_data, normalize_data
+from robo_manip_baselines.common import (
+    RolloutBase,
+    convert_data_to_policy,
+    denormalize_data,
+    normalize_data,
+)
 
 from .MlpPolicy import MlpPolicy
 
@@ -51,7 +56,9 @@ class RolloutMlp(RolloutBase):
         else:
             state = np.concatenate(
                 [
-                    self.motion_manager.get_data(state_key, self.obs)
+                    convert_data_to_policy(
+                        self.motion_manager.get_data(state_key, self.obs), state_key
+                    )
                     for state_key in self.state_keys
                 ]
             )

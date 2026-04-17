@@ -5,4 +5,4 @@ from .SpacemouseMobileInputDevice import SpacemouseMobileInputDevice
 from .GelloInputDevice import GelloInputDevice
 from .TeleopBase import TeleopBase
 from .TeleopBaseVec import TeleopBaseVec
-from .ViveControllerInputDevice import ViveControllerInputDevice
+from .ViveInputDevice import ViveInputDevice

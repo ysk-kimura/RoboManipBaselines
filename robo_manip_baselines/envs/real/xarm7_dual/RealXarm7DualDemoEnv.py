@@ -10,7 +10,7 @@ class RealXarm7DualDemoEnv(RealXarm7DualEnvBase):
     ):
         RealXarm7DualEnvBase.__init__(
             self,
-            # Left robot arm index:0, Right robot arm index:1 . This is the same system as UR5eDual.
+            # Left robot arm index: 0, right robot arm index: 1. This follows the same convention as UR5eDual.
             init_qpos=np.concatenate(
                 [
                     np.deg2rad([0.0, -30.0, 0.0, 45.0, 0.0, 75.0, 0.0]),

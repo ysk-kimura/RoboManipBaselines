@@ -101,7 +101,7 @@ class RealXarm7DualEnvBase(RealEnvBase):
             ),
         ]
 
-        # Connect to xArm7Dual
+        # Connect to xArm7
         print(f"[{self.__class__.__name__}] Start connecting the xArm7Dual.")
 
         self.robot_ip_left = robot_ip_left
@@ -119,7 +119,6 @@ class RealXarm7DualEnvBase(RealEnvBase):
         self.xarm_api_left.clean_gripper_error()
         self.xarm_api_left.set_gripper_mode(0)
         self.xarm_api_left.set_gripper_enable(True)
-
         time.sleep(0.2)
         xarm_code, left_joint_states = self.xarm_api_left.get_joint_states(
             is_radian=True
@@ -222,7 +221,7 @@ class RealXarm7DualEnvBase(RealEnvBase):
             np.clip(joint_vel_limit_scale, 0.01, 10.0) * self.joint_vel_limit
         )
 
-        # send command to the left arm
+        # Send command to xArm7
         left_xarm_code = self.xarm_api_left.set_servo_angle(
             angle=left_arm_joint_pos_command,
             speed=scaled_joint_vel_limit,
@@ -230,7 +229,6 @@ class RealXarm7DualEnvBase(RealEnvBase):
             is_radian=True,
             wait=False,
         )
-        # send command to the right arm
         right_xarm_code = self.xarm_api_right.set_servo_angle(
             angle=right_arm_joint_pos_command,
             speed=scaled_joint_vel_limit,
@@ -238,12 +236,12 @@ class RealXarm7DualEnvBase(RealEnvBase):
             is_radian=True,
             wait=False,
         )
+
         if left_xarm_code != 0:
             left_err = self._format_err_warn(self.xarm_api_left, "left")
             raise RuntimeError(
                 f"[{self.__class__.__name__}] Invalid xArm API code: {left_xarm_code} ({left_err})"
             )
-
         if right_xarm_code != 0:
             right_err = self._format_err_warn(self.xarm_api_right, "right")
             raise RuntimeError(
@@ -320,14 +318,12 @@ class RealXarm7DualEnvBase(RealEnvBase):
         right_gripper_joint_vel = np.zeros(1)
 
         # Get wrench from force sensor
-        wrench_left = np.array(
+        left_wrench = np.array(
             self.xarm_api_left.get_ft_sensor_data()[1], dtype=np.float64
         )
-        wrench_right = np.array(
+        right_wrench = np.array(
             self.xarm_api_right.get_ft_sensor_data()[1], dtype=np.float64
         )
-        force = np.concatenate((wrench_left[0:3], wrench_right[0:3]), dtype=np.float64)
-        torque = np.concatenate((wrench_left[3:6], wrench_right[3:6]), dtype=np.float64)
 
         return {
             "joint_pos": np.concatenate(
@@ -348,7 +344,7 @@ class RealXarm7DualEnvBase(RealEnvBase):
                 ),
                 dtype=np.float64,
             ),
-            "wrench": np.concatenate((force, torque), dtype=np.float64),
+            "wrench": np.concatenate((left_wrench, right_wrench), dtype=np.float64),
         }
 
     def _format_err_warn(self, xarm_api, arm_label):

@@ -256,9 +256,9 @@ class TeleopBase(OperationDataMixin, ABC):
 
         # Setup input device
         if self.args.input_device_config is None:
-            if self.args.input_device == "vive":
+            if self.args.input_device in ("gello", "vive"):
                 raise RuntimeError(
-                    f"[{self.__class__.__name__}] The 'vive' input device requires '--input_device_config'."
+                    f"[{self.__class__.__name__}] The input device requires '--input_device_config'."
                 )
             input_device_kwargs = {}
         else:
@@ -309,7 +309,7 @@ class TeleopBase(OperationDataMixin, ABC):
             "--input_device",
             type=str,
             default="spacemouse",
-            choices=["spacemouse", "gello", "keyboard", "vive"],
+            choices=["spacemouse", "keyboard", "gello", "vive"],
             help="input device for teleoperation",
         )
         parser.add_argument(

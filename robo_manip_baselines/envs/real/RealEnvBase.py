@@ -149,33 +149,41 @@ class RealEnvBase(EnvDataMixin, gym.Env, ABC):
             return
 
         for rgb_tactile_name, gelsight_id in gelsight_ids.items():
+            found = False
             for device_name in os.listdir("/sys/class/video4linux"):
-                real_device_name = os.path.realpath(
-                    "/sys/class/video4linux/" + device_name + "/name"
-                )
-                with (
-                    open(real_device_name, "rt") as device_name_file
-                ):  # "rt": read-text mode ("t" is default, so "r" alone is the same)
-                    detected_gelsight_id = device_name_file.read().rstrip()
-                if gelsight_id in detected_gelsight_id:
-                    tactile_num = int(re.search("\d+$", device_name).group(0))
+                sysfs_path = f"/sys/class/video4linux/{device_name}/name"
+                try:
+                    with open(sysfs_path, "rt") as f:
+                        detected = f.read().rstrip()
+                except FileNotFoundError:
+                    continue
+                if gelsight_id not in detected:
+                    continue
+                match = re.search(r"\d+$", device_name)
+                if not match:
+                    continue
+                video_num = int(match.group(0))
+                candidates = [video_num]
+                cap = None
+                for idx in candidates:
+                    tmp = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+                    if tmp.isOpened():
+                        cap = tmp
+                        break
+                    tmp.release()
+                if cap is None:
                     print(
-                        f"[{self.__class__.__name__}] Found GelSight sensor. ID: {detected_gelsight_id}, device: {device_name}, num: {tactile_num}"
+                        f"[{self.__class__.__name__}] "
+                        f"Failed to open GelSight device: {detected}"
                     )
-
-                    rgb_tactile = cv2.VideoCapture(tactile_num)
-                    if rgb_tactile is None or not rgb_tactile.isOpened():
-                        print(
-                            f"[{self.__class__.__name__}] Unable to open video source of GelSight sensor."
-                        )
-                        continue
-
-                    self.rgb_tactiles[rgb_tactile_name] = rgb_tactile
-                    break
-
-            if rgb_tactile_name not in self.rgb_tactiles:
+                    continue
+                self.rgb_tactiles[rgb_tactile_name] = cap
+                found = True
+                break
+            if not found:
                 raise RuntimeError(
-                    f"[{self.__class__.__name__}] Specified GelSight (name: {rgb_tactile_name}, ID: {gelsight_id}) not detected."
+                    f"[{self.__class__.__name__}] "
+                    f"Specified GelSight (name: {rgb_tactile_name}, ID: {gelsight_id}) not detected."
                 )
 
     def setup_sanwa_keyboard(self, sanwa_keyboard_ids):

@@ -34,23 +34,19 @@ class RolloutMlp(RolloutBase):
 
     def setup_plot(self):
         if len(self.camera_names) == 0:
-            fig_ax = plt.subplots(
-                1,
-                1,
-                figsize=(13.5, 6.0),
-                dpi=60,
-                squeeze=False,
-                constrained_layout=True,
-            )
+            num_plot_rows = 1
+            num_plot_cols = 1
         else:
-            fig_ax = plt.subplots(
-                2,
-                len(self.camera_names),
-                figsize=(13.5, 6.0),
-                dpi=60,
-                squeeze=False,
-                constrained_layout=True,
-            )
+            num_plot_rows = 2
+            num_plot_cols = len(self.camera_names)
+        fig_ax = plt.subplots(
+            num_plot_rows,
+            num_plot_cols,
+            figsize=(13.5, 6.0),
+            dpi=60,
+            squeeze=False,
+            constrained_layout=True,
+        )
         super().setup_plot(fig_ax)
 
     def reset_variables(self):
@@ -89,8 +85,9 @@ class RolloutMlp(RolloutBase):
 
     def update_images_buf(self):
         if len(self.camera_names) == 0:
-            self.images_buf = None
-            return
+            raise RuntimeError(
+                f"[{self.__class__.__name__}] update_images_buf() requires image observations."
+            )
 
         images = []
         for camera_name in self.camera_names:
@@ -126,7 +123,8 @@ class RolloutMlp(RolloutBase):
     def infer_policy(self):
         # Update observation buffer
         self.update_state_buf()
-        self.update_images_buf()
+        if len(self.camera_names) > 0:
+            self.update_images_buf()
 
         # Infer
         if self.policy_action_buf is None or len(self.policy_action_buf) == 0:

@@ -33,14 +33,24 @@ class RolloutMlp(RolloutBase):
         self.load_ckpt()
 
     def setup_plot(self):
-        fig_ax = plt.subplots(
-            2,
-            len(self.camera_names),
-            figsize=(13.5, 6.0),
-            dpi=60,
-            squeeze=False,
-            constrained_layout=True,
-        )
+        if len(self.camera_names) == 0:
+            fig_ax = plt.subplots(
+                1,
+                1,
+                figsize=(13.5, 6.0),
+                dpi=60,
+                squeeze=False,
+                constrained_layout=True,
+            )
+        else:
+            fig_ax = plt.subplots(
+                2,
+                len(self.camera_names),
+                figsize=(13.5, 6.0),
+                dpi=60,
+                squeeze=False,
+                constrained_layout=True,
+            )
         super().setup_plot(fig_ax)
 
     def reset_variables(self):
@@ -78,6 +88,10 @@ class RolloutMlp(RolloutBase):
         return torch.stack(self.state_buf, dim=0)[torch.newaxis].to(self.device)
 
     def update_images_buf(self):
+        if len(self.camera_names) == 0:
+            self.images_buf = None
+            return
+
         images = []
         for camera_name in self.camera_names:
             image = self.info["rgb_images"][camera_name]
@@ -99,6 +113,9 @@ class RolloutMlp(RolloutBase):
                 single_images_buf.append(image)
 
     def get_images(self):
+        if len(self.camera_names) == 0:
+            return torch.empty(0, dtype=torch.float32).to(self.device)
+
         return torch.stack(
             [
                 torch.stack(single_images_buf, dim=0)[torch.newaxis].to(self.device)
@@ -134,11 +151,15 @@ class RolloutMlp(RolloutBase):
             _ax.cla()
             _ax.axis("off")
 
-        # Plot images
-        self.plot_images(self.ax[0, 0 : len(self.camera_names)])
+        if len(self.camera_names) == 0:
+            # Plot action
+            self.plot_action(self.ax[0, 0])
+        else:
+            # Plot images
+            self.plot_images(self.ax[0, 0 : len(self.camera_names)])
 
-        # Plot action
-        self.plot_action(self.ax[1, 0])
+            # Plot action
+            self.plot_action(self.ax[1, 0])
 
         # Finalize plot
         self.canvas.draw()

@@ -21,6 +21,31 @@ from .DiffusionLowdimPolicyUtils import construct_lowdim_policy
 
 
 class RolloutDiffusionPolicy(RolloutBase):
+    def set_additional_args(self, parser):
+        parser.add_argument(
+            "--drop_initial_actions",
+            type=int,
+            default=0,
+            help="Number of initial actions to drop from each predicted action chunk.",
+        )
+
+    def setup_model_meta_info(self):
+        super().setup_model_meta_info()
+
+        if self.args.drop_initial_actions < 0:
+            raise ValueError(
+                f"[{self.__class__.__name__}] drop_initial_actions must be >= 0."
+            )
+        if (
+            self.args.drop_initial_actions
+            >= self.model_meta_info["data"]["n_action_steps"]
+        ):
+            raise ValueError(
+                f"[{self.__class__.__name__}] drop_initial_actions "
+                f"({self.args.drop_initial_actions}) must be smaller than n_action_steps "
+                f"({self.model_meta_info['data']['n_action_steps']})."
+            )
+
     def setup_policy(self):
         # For backward compatibility
         if "backbone" not in self.model_meta_info["policy"]:
@@ -36,6 +61,7 @@ class RolloutDiffusionPolicy(RolloutBase):
         print(
             f"  - horizon: {self.model_meta_info['data']['horizon']}, obs steps: {self.model_meta_info['data']['n_obs_steps']}, action steps: {self.model_meta_info['data']['n_action_steps']}"
         )
+        print(f"  - drop initial actions: {self.args.drop_initial_actions}")
         if len(self.camera_names) > 0:
             print(
                 f"  - image size: {self.model_meta_info['data']['image_size']}, image crop size: {self.model_meta_info['data']['image_crop_size']}"
@@ -134,9 +160,9 @@ class RolloutDiffusionPolicy(RolloutBase):
             else:
                 input_data = {"obs": self.get_state()}
             action = self.policy.predict_action(input_data)["action"][0]
-            self.policy_action_buf = list(
-                action.cpu().detach().numpy().astype(np.float64)
-            )
+            action = action.cpu().detach().numpy().astype(np.float64)
+            action = action[self.args.drop_initial_actions :]
+            self.policy_action_buf = list(action)
 
         # Store action
         self.policy_action = denormalize_data(

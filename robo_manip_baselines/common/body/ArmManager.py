@@ -299,7 +299,7 @@ class ArmConfig(BodyConfigBase):
     # [Optional] Indices of arm joints in the action vector (override when action layout differs from joint_pos, e.g., mobile base + arm + gripper).
     arm_action_idxes: Optional[npt.NDArray[np.int_]] = None
 
-    # [Optional] Indices of gripper joints in the env *action* vector.
+    # [Optional] Indices of gripper joints in the action vector.
     gripper_action_idxes: Optional[npt.NDArray[np.int_]] = None
 
     # [Optional] Joints to be excluded from the URDF model when building robot model for Pinocchio library

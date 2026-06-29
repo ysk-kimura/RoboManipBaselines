@@ -315,4 +315,3 @@ class ArmConfig(BodyConfigBase):
             self.arm_action_idxes = self.arm_joint_idxes
         if self.gripper_action_idxes is None:
             self.gripper_action_idxes = self.gripper_joint_idxes
-
